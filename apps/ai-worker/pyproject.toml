@@ -1,0 +1,28 @@
+[project]
+name = "blog-ai-worker"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.28",
+    "pillow>=12.3.0",
+    "pillow-heif>=1.8.0",
+    "anthropic>=1.8.0",
+    "openai>=3.19.2",
+    "trafilatura>=2.2.0",
+    "protego>=0.7.0",
+    "kiwipiepy>=0.24.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

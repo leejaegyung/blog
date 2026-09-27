@@ -1,0 +1,80 @@
+name: blog-ai
+
+x-api: &api
+  build: ./apps/api
+  image: blog-ai-api
+  env_file: .env
+  environment: &api-env
+    DB_CONNECTION: sqlite
+    DB_DATABASE: /data/database/blog-ai.sqlite
+    QUEUE_CONNECTION: database
+    CACHE_STORE: database
+    SESSION_DRIVER: database
+    UPLOAD_PATH: /data/uploads
+    AI_WORKER_URL: http://ai-worker:8000
+  volumes:
+    - sqlite-data:/data/database
+    - uploads:/data/uploads
+    - app-storage:/var/www/html/storage
+    # 백업은 호스트에서 바로 꺼낼 수 있게 폴더로 연결한다
+    - ./data/backups:/data/backups
+  restart: unless-stopped
+
+services:
+  nginx:
+    build:
+      context: ./apps/web
+      dockerfile: ../../infra/nginx/Dockerfile
+      additional_contexts:
+        nginx: ./infra/nginx
+    ports:
+      # 이 컴퓨터에서만 접속 가능(자동 로그인을 쓰므로 같은 네트워크의 다른 기기에 열지 않는다)
+      - "127.0.0.1:${APP_PORT:-8080}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  app:
+    <<: *api
+    environment:
+      <<: *api-env
+      RUN_MIGRATIONS: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1 && su-exec www-data php artisan migrate:status >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+
+  queue:
+    <<: *api
+    command: php artisan queue:work --sleep=2 --tries=3 --timeout=300
+    depends_on:
+      app:
+        condition: service_healthy
+      ai-worker:
+        condition: service_started
+
+  scheduler:
+    <<: *api
+    command: php artisan schedule:work
+    depends_on:
+      app:
+        condition: service_healthy
+
+  ai-worker:
+    build: ./apps/ai-worker
+    env_file: .env
+    environment:
+      UPLOAD_PATH: /data/uploads
+    expose:
+      - "8000"
+    volumes:
+      - uploads:/data/uploads
+    restart: unless-stopped
+
+volumes:
+  sqlite-data:
+  uploads:
+  app-storage:
