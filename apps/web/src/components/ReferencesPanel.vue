@@ -12,11 +12,11 @@ const PASTE_HINT =
   '글 본문을 복사해 붙여넣으세요.\n사진이 있던 자리에 [사진] 이라고 한 줄 적으면 사진 배치도 분석합니다.\n소제목은 # 소제목 처럼 적을 수 있습니다.'
 
 const STATUS: Record<ParseStatus, { label: string; color: string }> = {
-  pending: { label: '분석 중', color: 'bg-amber-100 text-amber-800' },
-  needs_text: { label: '본문 필요', color: 'bg-sky-100 text-sky-800' },
-  parsed: { label: '완료', color: 'bg-emerald-100 text-emerald-800' },
-  duplicate: { label: '중복', color: 'bg-stone-100 text-stone-600' },
-  failed: { label: '실패', color: 'bg-red-100 text-red-700' },
+  pending: { label: '분석 중', color: 'bg-lilac-soft' },
+  needs_text: { label: '본문 필요', color: 'border border-ink bg-lemon' },
+  parsed: { label: '완료', color: 'bg-lilac' },
+  duplicate: { label: '중복', color: 'bg-track' },
+  failed: { label: '실패', color: 'border border-ink bg-lemon' },
 }
 
 const references = ref<Reference[]>([])
@@ -147,21 +147,21 @@ defineExpose({ load })
 <template>
   <section class="space-y-4">
     <div class="flex flex-wrap items-baseline justify-between gap-2">
-      <h2 class="text-lg font-semibold">참고자료</h2>
-      <span class="text-sm text-stone-500">{{ references.length }}/{{ MAX }}</span>
+      <h2 class="m-0 text-sm font-bold">참고자료</h2>
+      <span class="text-sm text-sub">{{ references.length }}/{{ MAX }}</span>
     </div>
 
     <form
-      class="space-y-3 rounded-xl border border-stone-200 bg-white p-4"
+      class="space-y-3 rounded-[18px] border-[1.5px] border-line bg-white p-4"
       @submit.prevent="submit"
     >
-      <div role="tablist" class="flex gap-1 text-sm">
+      <div role="tablist" class="flex gap-1 rounded-xl bg-lilac-soft p-1 text-[13px]">
         <button
           type="button"
           role="tab"
           :aria-selected="mode === 'urls'"
-          :class="mode === 'urls' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'"
-          class="rounded-md px-3 py-1.5"
+          :class="mode === 'urls' ? 'bg-ink font-bold text-cream' : 'font-semibold'"
+          class="rounded-[9px] px-3 py-1.5"
           @click="mode = 'urls'"
         >
           URL 추가
@@ -170,8 +170,8 @@ defineExpose({ load })
           type="button"
           role="tab"
           :aria-selected="mode === 'text'"
-          :class="mode === 'text' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'"
-          class="rounded-md px-3 py-1.5"
+          :class="mode === 'text' ? 'bg-ink font-bold text-cream' : 'font-semibold'"
+          class="rounded-[9px] px-3 py-1.5"
           @click="mode = 'text'"
         >
           본문 붙여넣기
@@ -184,9 +184,9 @@ defineExpose({ load })
           rows="4"
           aria-label="참고할 글 URL"
           placeholder="참고할 글 주소를 한 줄에 하나씩 넣으세요."
-          class="w-full rounded-md border border-stone-300 px-3 py-2 font-mono text-sm"
+          class="w-full rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 outline-none focus:border-ink font-mono text-sm"
         />
-        <p class="text-sm text-stone-500">
+        <p class="text-sm text-sub">
           네이버 블로그 글은 네이버 정책상 자동으로 가져오지 않습니다. 추가한 뒤 본문을 붙여넣어
           주세요.
         </p>
@@ -197,14 +197,14 @@ defineExpose({ load })
           maxlength="200"
           aria-label="제목"
           placeholder="제목 (선택)"
-          class="w-full rounded-md border border-stone-300 px-3 py-2"
+          class="w-full rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 outline-none focus:border-ink"
         />
         <textarea
           v-model="pasteBody"
           rows="8"
           aria-label="붙여넣을 본문"
           :placeholder="PASTE_HINT"
-          class="w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
+          class="w-full rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 outline-none focus:border-ink text-sm"
         />
       </template>
 
@@ -212,14 +212,14 @@ defineExpose({ load })
         <button
           type="submit"
           :disabled="submitting || remaining <= 0"
-          class="rounded-md bg-stone-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+          class="h-11 rounded-xl bg-ink px-5 font-bold text-cream disabled:opacity-50"
         >
           추가
         </button>
         <span
           v-if="message"
           :role="message.ok ? 'status' : 'alert'"
-          :class="message.ok ? 'text-stone-600' : 'text-red-600'"
+          :class="message.ok ? 'text-sub' : 'text-red-600'"
           class="text-sm"
         >
           {{ message.text }}
@@ -227,19 +227,19 @@ defineExpose({ load })
       </div>
     </form>
 
-    <p class="text-sm text-stone-500">
+    <p class="text-sm text-sub">
       참고 글의 본문은 구성·사진 배치·자주 쓰는 단어 같은 통계만 뽑은 뒤 저장하지 않습니다.
     </p>
-    <p v-if="loading" class="text-stone-500">불러오는 중…</p>
-    <p v-else-if="references.length === 0" class="text-stone-500">
+    <p v-if="loading" class="text-sub">불러오는 중…</p>
+    <p v-else-if="references.length === 0" class="text-sub">
       아직 참고자료가 없습니다. 이 키워드로 잘 쓰인 글을 추가하면 구성과 사진 배치를 분석합니다.
     </p>
-    <ul v-else class="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white">
+    <ul v-else class="divide-y divide-line rounded-[18px] border-[1.5px] border-line bg-white">
       <li v-for="reference in references" :key="reference.id" class="space-y-2 px-4 py-3">
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span
             :class="STATUS[reference.parse_status].color"
-            class="rounded-full px-2 py-0.5 text-xs font-medium"
+            class="rounded-md px-[7px] py-[3px] text-[11px] font-extrabold whitespace-nowrap"
           >
             {{ STATUS[reference.parse_status].label }}
           </span>
@@ -253,15 +253,15 @@ defineExpose({ load })
             {{ label(reference) }}
           </a>
           <span v-else class="min-w-0 flex-1 truncate">{{ label(reference) }}</span>
-          <span v-if="reference.char_count !== null" class="text-sm text-stone-500">
+          <span v-if="reference.char_count !== null" class="text-sm text-sub">
             {{ reference.char_count.toLocaleString('ko-KR') }}자 · 소제목
             {{ reference.heading_count ?? 0 }} · 사진 {{ reference.image_count ?? 0 }}
           </span>
-          <div class="flex gap-1 text-sm">
+          <div class="flex gap-1 rounded-xl bg-lilac-soft p-1 text-[13px]">
             <button
               v-if="needsPaste(reference)"
               type="button"
-              class="rounded px-2 py-1 text-sky-700 hover:bg-sky-50"
+              class="rounded-lg px-2 py-1 font-bold underline"
               @click="openPaste(reference)"
             >
               본문 붙여넣기
@@ -269,7 +269,7 @@ defineExpose({ load })
             <button
               v-if="reference.parse_status === 'failed' && canRefetch(reference)"
               type="button"
-              class="rounded px-2 py-1 hover:bg-stone-100"
+              class="rounded-lg px-2 py-1 font-bold hover:bg-lilac-soft"
               @click="retry(reference)"
             >
               다시 시도
@@ -277,7 +277,7 @@ defineExpose({ load })
             <button
               type="button"
               :aria-label="`${label(reference)} 삭제`"
-              class="rounded px-2 py-1 text-red-600 hover:bg-red-50"
+              class="rounded-lg px-2 py-1 text-sub hover:text-ink"
               @click="remove(reference)"
             >
               삭제
@@ -297,24 +297,24 @@ defineExpose({ load })
             maxlength="200"
             aria-label="제목"
             placeholder="제목 (선택)"
-            class="w-full rounded-md border border-stone-300 px-3 py-2"
+            class="w-full rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 outline-none focus:border-ink"
           />
           <textarea
             v-model="inlineBody"
             rows="8"
             aria-label="이 글의 본문"
             :placeholder="PASTE_HINT"
-            class="w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
+            class="w-full rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 outline-none focus:border-ink text-sm"
           />
           <p v-if="inlineError" role="alert" class="text-sm text-red-600">{{ inlineError }}</p>
           <div class="flex gap-2">
             <button
               type="submit"
-              class="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white"
+              class="rounded-[10px] bg-ink px-3 py-1.5 text-sm font-bold text-cream"
             >
               저장하고 분석
             </button>
-            <button type="button" class="text-sm text-stone-600" @click="openPasteId = null">
+            <button type="button" class="text-sm text-sub" @click="openPasteId = null">
               취소
             </button>
           </div>

@@ -21,14 +21,20 @@ class AnalyzeImagesJob implements ShouldQueue
     /** @var list<int> */
     public array $backoff = [30, 120];
 
-    /** @param  list<int>  $imageIds */
-    public function __construct(public Post $post, public array $imageIds) {}
+    /**
+     * @param  list<int>  $imageIds
+     * @param  bool  $force  이미 분석된 사진도 다시 분석한다(사용자가 다시 분석을 요청한 경우)
+     */
+    public function __construct(public Post $post, public array $imageIds, public bool $force = false) {}
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
     {
         $this->pipelineStep('vision');
         $post = $this->post->load('project', 'facts');
-        $images = $post->images()->whereKey($this->imageIds)->get();
+        // 사진 단계에서 먼저 시작한 분석과 글 계획 흐름의 분석이 겹칠 수 있어, 이미 끝난 사진은 건너뛴다
+        $images = $post->images()->whereKey($this->imageIds)
+            ->when(! $this->force, fn ($q) => $q->whereNull('vision_json'))
+            ->get();
         if ($images->isEmpty()) {
             return;
         }

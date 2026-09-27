@@ -51,12 +51,14 @@ export const routes: RouteRecordRaw[] = [
     path: '/projects',
     name: 'projects',
     component: () => import('../views/ProjectsView.vue'),
+    meta: { wide: true },
   },
   {
     path: '/projects/:id(\\d+)',
     name: 'project',
     component: () => import('../views/ProjectDetailView.vue'),
     props: (route) => ({ id: Number(route.params.id) }),
+    meta: { wide: true },
   },
   {
     path: '/admin',

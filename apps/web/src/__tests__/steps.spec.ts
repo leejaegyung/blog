@@ -8,7 +8,8 @@ import PlanStep from '@/components/steps/PlanStep.vue'
 import DraftStep from '@/components/steps/DraftStep.vue'
 import UploadStep from '@/components/steps/UploadStep.vue'
 import KeywordStep from '@/components/steps/KeywordStep.vue'
-import { analysisApi, postApi, referenceApi, type ExportResult, type Post } from '@/lib/api'
+import PhotoStep from '@/components/steps/PhotoStep.vue'
+import { analysisApi, imageApi, postApi, referenceApi, type ExportResult, type Post, type PostImage } from '@/lib/api'
 import { copyRich } from '@/lib/clipboard'
 
 vi.mock('@/lib/api', () => ({
@@ -23,6 +24,12 @@ vi.mock('@/lib/api', () => ({
     exportPost: vi.fn<(id: number, record?: boolean) => Promise<ExportResult>>(),
     publish: vi.fn<(id: number, url: string) => Promise<Post>>(),
     photosZipUrl: (id: number) => `/zip/${id}`,
+  },
+  imageApi: {
+    analyze: vi.fn<(id: number) => Promise<{ data: PostImage[]; queued: number }>>(),
+    upload: vi.fn<() => Promise<PostImage>>(),
+    remove: vi.fn<() => Promise<void>>(),
+    reorder: vi.fn<() => Promise<PostImage[]>>(),
   },
   analysisApi: { get: vi.fn<(id: number) => Promise<{ data: null; status: string }>>() },
   referenceApi: {
@@ -84,6 +91,27 @@ describe('1 키워드', () => {
     expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페')
     expect(referenceApi.addUrls).toHaveBeenCalledWith(3, ['https://ex.com/a'])
     expect(flow.go).toHaveBeenCalledWith(2, 7)
+  })
+})
+
+describe('2 사진', () => {
+  it('올린 사진을 바로 분석하고, 끝나면 "모두 분석됨"을 보여준다', async () => {
+    vi.useFakeTimers()
+    const img = (id: number, extra: Partial<PostImage> = {}) =>
+      ({ id, sort_order: id, thumb_url: `/t/${id}`, url: `/u/${id}`, vision: null, vision_status: null, ...extra }) as PostImage
+    const vision = { type: 'food', description: '', usable: true, quality_score: 1, suggested_section: '', caption_hint: '', privacy_flags: [] }
+    vi.mocked(imageApi.analyze).mockResolvedValue({ data: [img(1, { vision_status: 'pending' }), img(2, { vision_status: 'pending' })], queued: 2 })
+    vi.mocked(postApi.get).mockResolvedValue(post({ images: [img(1, { vision, vision_status: 'done' }), img(2, { vision, vision_status: 'done' })] }))
+
+    const { wrapper } = mountStep(PhotoStep as unknown as DefineComponent, { post: post({ images: [img(1), img(2)] }) })
+    await flushPromises()
+    expect(imageApi.analyze).toHaveBeenCalledWith(7)
+    expect(wrapper.text()).toContain('사진 분석 중 · 0 / 2장')
+
+    await vi.advanceTimersByTimeAsync(2600)
+    await flushPromises()
+    expect(wrapper.text()).toContain('✓ 2장 모두 분석됨')
+    vi.useRealTimers()
   })
 })
 
@@ -158,6 +186,25 @@ describe('4 글 계획', () => {
     expect(vi.mocked(postApi.savePlan).mock.calls[0]![1]).toMatchObject({ title: '제목 B' })
     expect(postApi.generate).toHaveBeenCalledWith(7)
     expect(flow.go).toHaveBeenCalledWith(5)
+  })
+
+  it('아직 안 쓰인 사진을 목차로 끌어다 놓으면 그 섹션에 넣어 저장한다', async () => {
+    vi.mocked(postApi.savePlan).mockResolvedValue(post({ plan: PLAN }))
+    vi.mocked(postApi.generate).mockResolvedValue(post({ status: 'generating' }))
+    const images = [{ id: 11, sort_order: 1, thumb_url: '/t/11' }, { id: 12, sort_order: 2, thumb_url: '/t/12' }] as PostImage[]
+    const withPhoto = { ...PLAN, outline: [{ ...PLAN.outline[0]!, image_ids: [11] }, PLAN.outline[1]!] }
+    const { wrapper } = mountStep(PlanStep as unknown as DefineComponent, { post: post({ plan: withPhoto, images, status: 'planned' }) })
+
+    expect(wrapper.text()).toContain('2번 — 목차에 끌어다 놓기')
+    await wrapper.get('img[alt="사진 2"]').element.parentElement!.dispatchEvent(new Event('dragstart'))
+    const rows = wrapper.findAll('[draggable="true"]').filter((r) => r.find('input[aria-label$="소제목"]').exists())
+    await rows[1]!.trigger('drop')
+    expect(wrapper.text()).not.toContain('목차에 끌어다 놓기')
+
+    await button(wrapper, '이 계획으로 초안 쓰기').trigger('click')
+    await flushPromises()
+    const saved = vi.mocked(postApi.savePlan).mock.calls[0]![1].outline
+    expect(saved.map((s) => s.image_ids)).toEqual([[11], [12]])
   })
 
   it('이미 초안이 있으면 바로 다듬기로 가고, 다시 쓰려면 한 번 더 확인한다', async () => {

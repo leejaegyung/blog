@@ -60,7 +60,8 @@ class WizardController extends Controller
         }
 
         $jobs = [];
-        $unanalyzed = $post->images->filter(fn ($image) => ! $image->vision_json && $image->vision_status !== 'pending')->modelKeys();
+        // 사진 단계에서 시작한 분석이 아직 끝나지 않았어도 계획 전에 결과가 있도록 흐름에 넣는다(끝난 사진은 작업이 건너뛴다)
+        $unanalyzed = $post->images->filter(fn ($image) => ! $image->vision_json)->modelKeys();
         if ($unanalyzed) {
             $post->images()->whereKey($unanalyzed)->update(['vision_status' => 'pending', 'vision_error' => null]);
             $jobs[] = (new AnalyzeImagesJob($post, $unanalyzed))->inPipeline($post->id);

@@ -50,7 +50,21 @@ class ImageAnalysisTest extends TestCase
         $this->actingAs($this->post->user)->postJson($url)->assertOk()->assertJsonPath('queued', 0);
 
         $this->actingAs($this->post->user)->postJson($url, ['force' => true])->assertJsonPath('queued', 1);
-        Queue::assertPushed(AnalyzeImagesJob::class, fn ($job) => $job->imageIds === [$done->id]);
+        Queue::assertPushed(AnalyzeImagesJob::class, fn ($job) => $job->imageIds === [$done->id] && $job->force);
+    }
+
+    public function test_job_skips_photos_already_analyzed_unless_forced(): void
+    {
+        $done = $this->post->images()->create(['storage_key' => 'users/1/a.jpg', 'vision_json' => ['type' => 'food'], 'vision_status' => 'done']);
+        Http::fake(['*/images/analyze' => Http::response([
+            'results' => [$this->vision($done->id)], 'failed_ids' => [], 'prompt_version' => 'photo-analysis-v1', 'generations' => [],
+        ])]);
+
+        (new AnalyzeImagesJob($this->post, [$done->id]))->handle(app(AiWorkerClient::class), app(GenerationRecorder::class));
+        Http::assertNothingSent();
+
+        (new AnalyzeImagesJob($this->post, [$done->id], force: true))->handle(app(AiWorkerClient::class), app(GenerationRecorder::class));
+        Http::assertSentCount(1);
     }
 
     public function test_job_stores_results_and_marks_failures(): void

@@ -74,6 +74,22 @@ class WizardTest extends TestCase
         $this->assertSame('pending', $new->fresh()->vision_status);
     }
 
+    public function test_autopilot_includes_photos_still_being_analyzed(): void
+    {
+        Bus::fake();
+        $post = $this->makePost();
+        $pending = $post->images()->create(['storage_key' => 'a.jpg', 'vision_status' => 'pending']);
+
+        $this->actingAs($this->user)->postJson("/api/posts/{$post->id}/autopilot")->assertStatus(202);
+
+        Bus::assertChained([
+            fn (AnalyzeImagesJob $job) => $job->imageIds === [$pending->id] && ! $job->force,
+            AnalyzeKeywordJob::class,
+            GeneratePlanJob::class,
+            GenerateDraftJob::class,
+        ]);
+    }
+
     public function test_autopilot_skips_fresh_analysis_and_ignores_double_click(): void
     {
         Bus::fake();

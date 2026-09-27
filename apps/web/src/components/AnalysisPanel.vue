@@ -83,11 +83,11 @@ onBeforeUnmount(() => clearTimeout(timer))
 <template>
   <section class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-lg font-semibold">키워드 분석</h2>
+      <h2 class="m-0 text-sm font-bold">키워드 분석</h2>
       <button
         type="button"
         :disabled="analyzing || loading"
-        class="rounded-md bg-stone-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+        class="h-11 rounded-xl bg-ink px-5 font-bold text-cream disabled:opacity-50"
         @click="analyze"
       >
         {{ analyzing ? '분석 중…' : analysis ? '다시 분석' : '분석하기' }}
@@ -99,8 +99,8 @@ onBeforeUnmount(() => clearTimeout(timer))
       분석에 실패했습니다. 잠시 뒤 다시 시도해 주세요.
     </p>
 
-    <p v-if="loading" class="text-stone-500">불러오는 중…</p>
-    <p v-else-if="!analysis && !analyzing" class="text-stone-500">
+    <p v-if="loading" class="text-sub">불러오는 중…</p>
+    <p v-else-if="!analysis && !analyzing" class="text-sub">
       {{
         referenceCount > 0
           ? `참고자료 ${referenceCount}개로 검색 의도와 글 구성을 분석합니다.`
@@ -109,7 +109,7 @@ onBeforeUnmount(() => clearTimeout(timer))
     </p>
 
     <template v-if="analysis">
-      <p class="text-sm text-stone-500">
+      <p class="text-sm text-sub">
         {{
           stats
             ? `등록한 참고자료 ${stats.reference_count}개의 분포입니다.`
@@ -119,14 +119,14 @@ onBeforeUnmount(() => clearTimeout(timer))
       </p>
       <p
         v-if="analysis.stale"
-        class="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        class="rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px]"
         role="status"
       >
         분석 뒤에 참고자료나 키워드가 바뀌었습니다. 다시 분석해 주세요.
       </p>
       <p
         v-if="analysis.insight_error"
-        class="rounded-md bg-stone-100 px-3 py-2 text-sm text-stone-700"
+        class="rounded-[14px] border-[1.5px] border-line bg-white px-3.5 py-3 text-[13px] text-sub"
         role="status"
       >
         AI 해석 없이 통계만 표시합니다.
@@ -138,7 +138,7 @@ onBeforeUnmount(() => clearTimeout(timer))
       </p>
 
       <div v-if="analysis.primary_intent" class="grid gap-4 md:grid-cols-2">
-        <div class="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
+        <div class="space-y-3 rounded-[18px] border-[1.5px] border-line bg-white p-4">
           <h3 class="font-medium">검색 의도 · {{ analysis.primary_intent }}</h3>
           <ShareBar
             v-for="intent in analysis.intent_distribution"
@@ -147,13 +147,13 @@ onBeforeUnmount(() => clearTimeout(timer))
             :share="intent.share"
           />
         </div>
-        <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+        <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
           <h3 class="font-medium">글에서 꼭 답할 질문</h3>
           <ul class="list-disc space-y-1 pl-5 text-sm">
             <li v-for="question in analysis.must_answer" :key="question">{{ question }}</li>
           </ul>
         </div>
-        <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4 md:col-span-2">
+        <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4 md:col-span-2">
           <h3 class="font-medium">추천 글 구성</h3>
           <ol class="space-y-2 text-sm">
             <li
@@ -161,16 +161,16 @@ onBeforeUnmount(() => clearTimeout(timer))
               :key="index"
               class="grid grid-cols-[1.5rem_1fr] gap-x-2"
             >
-              <span class="text-stone-400 tabular-nums">{{ index + 1 }}</span>
+              <span class="text-muted tabular-nums">{{ index + 1 }}</span>
               <div>
                 <p class="font-medium">{{ section.heading }}</p>
-                <p class="text-stone-600">{{ section.purpose }}</p>
-                <p class="text-stone-500">사진: {{ section.photo_hint }}</p>
+                <p class="text-sub">{{ section.purpose }}</p>
+                <p class="text-sub">사진: {{ section.photo_hint }}</p>
               </div>
             </li>
           </ol>
         </div>
-        <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+        <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
           <h3 class="font-medium">제목 가이드</h3>
           <ul class="list-disc space-y-1 pl-5 text-sm">
             <li v-for="guide in analysis.title_guidelines" :key="guide">{{ guide }}</li>
@@ -180,13 +180,13 @@ onBeforeUnmount(() => clearTimeout(timer))
             <li v-for="tip in analysis.writing_tips" :key="tip">{{ tip }}</li>
           </ul>
         </div>
-        <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+        <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
           <h3 class="font-medium">함께 쓰면 좋은 표현</h3>
           <div class="flex flex-wrap gap-1.5">
             <span
               v-for="word in analysis.related_keywords"
               :key="word"
-              class="rounded-full bg-stone-100 px-2.5 py-1 text-sm"
+              class="rounded-full bg-lilac-soft px-2.5 py-1 text-xs"
             >
               {{ word }}
             </span>
@@ -196,36 +196,36 @@ onBeforeUnmount(() => clearTimeout(timer))
 
       <div v-if="stats" class="space-y-4">
         <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div class="rounded-xl border border-stone-200 bg-white p-4">
-            <dt class="text-sm text-stone-500">글 길이 (중앙값)</dt>
-            <dd class="text-xl font-semibold tabular-nums">{{ num(stats.char_count.median) }}자</dd>
-            <dd class="text-xs text-stone-500 tabular-nums">
+          <div class="rounded-[18px] border-[1.5px] border-line bg-white p-4">
+            <dt class="text-sm text-sub">글 길이 (중앙값)</dt>
+            <dd class="font-display text-[28px] leading-none tabular-nums">{{ num(stats.char_count.median) }}자</dd>
+            <dd class="text-xs text-sub tabular-nums">
               {{ num(stats.char_count.p25) }}~{{ num(stats.char_count.p75) }}자
             </dd>
           </div>
-          <div class="rounded-xl border border-stone-200 bg-white p-4">
-            <dt class="text-sm text-stone-500">사진</dt>
-            <dd class="text-xl font-semibold tabular-nums">{{ num(stats.photos.count.median) }}장</dd>
-            <dd class="text-xs text-stone-500 tabular-nums">
+          <div class="rounded-[18px] border-[1.5px] border-line bg-white p-4">
+            <dt class="text-sm text-sub">사진</dt>
+            <dd class="font-display text-[28px] leading-none tabular-nums">{{ num(stats.photos.count.median) }}장</dd>
+            <dd class="text-xs text-sub tabular-nums">
               {{ num(stats.photos.count.p25) }}~{{ num(stats.photos.count.p75) }}장
             </dd>
           </div>
-          <div class="rounded-xl border border-stone-200 bg-white p-4">
-            <dt class="text-sm text-stone-500">소제목</dt>
-            <dd class="text-xl font-semibold tabular-nums">{{ num(stats.heading_count.median) }}개</dd>
+          <div class="rounded-[18px] border-[1.5px] border-line bg-white p-4">
+            <dt class="text-sm text-sub">소제목</dt>
+            <dd class="font-display text-[28px] leading-none tabular-nums">{{ num(stats.heading_count.median) }}개</dd>
           </div>
-          <div class="rounded-xl border border-stone-200 bg-white p-4">
-            <dt class="text-sm text-stone-500">문단</dt>
-            <dd class="text-xl font-semibold tabular-nums">
+          <div class="rounded-[18px] border-[1.5px] border-line bg-white p-4">
+            <dt class="text-sm text-sub">문단</dt>
+            <dd class="font-display text-[28px] leading-none tabular-nums">
               {{ num(stats.paragraph_count.median) }}개
             </dd>
           </div>
         </dl>
 
         <div class="grid gap-4 md:grid-cols-2">
-          <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+          <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
             <h3 class="font-medium">사진 배치</h3>
-            <ul class="space-y-1 text-sm text-stone-700">
+            <ul class="space-y-1 text-sm text-ink">
               <li>{{ pct(stats.photos.starts_with_photo_share) }}가 사진으로 글을 시작</li>
               <li>도입부 사진 {{ num(stats.photos.intro_images.median) }}장 (중앙값)</li>
               <li>한 번에 최대 {{ num(stats.photos.max_group_size.median) }}장씩 묶어 배치</li>
@@ -241,7 +241,7 @@ onBeforeUnmount(() => clearTimeout(timer))
               :share="pattern.share"
             />
           </div>
-          <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+          <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
             <h3 class="font-medium">자주 다룬 정보</h3>
             <ShareBar
               v-for="slot in stats.slots.filter((s) => s.share > 0)"
@@ -250,16 +250,16 @@ onBeforeUnmount(() => clearTimeout(timer))
               :share="slot.share"
             />
           </div>
-          <div class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+          <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
             <h3 class="font-medium">자주 나온 소제목 주제</h3>
             <div class="flex flex-wrap gap-1.5">
               <span
                 v-for="topic in stats.topics"
                 :key="topic.term"
-                class="rounded-full bg-stone-100 px-2.5 py-1 text-sm"
+                class="rounded-full bg-lilac-soft px-2.5 py-1 text-xs"
               >
                 {{ topic.term }}
-                <span class="text-stone-500">{{ topic.documents }}/{{ stats.reference_count }}</span>
+                <span class="text-sub">{{ topic.documents }}/{{ stats.reference_count }}</span>
               </span>
             </div>
             <h3 class="pt-2 font-medium">자주 나온 단어</h3>
@@ -267,15 +267,15 @@ onBeforeUnmount(() => clearTimeout(timer))
               <span
                 v-for="term in stats.terms"
                 :key="term.term"
-                class="rounded-full bg-stone-100 px-2.5 py-1 text-sm"
+                class="rounded-full bg-lilac-soft px-2.5 py-1 text-xs"
               >
                 {{ term.term }}
               </span>
             </div>
           </div>
-          <div v-if="stats.title" class="space-y-2 rounded-xl border border-stone-200 bg-white p-4">
+          <div v-if="stats.title" class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
             <h3 class="font-medium">제목</h3>
-            <p class="text-sm text-stone-700">
+            <p class="text-sm text-ink">
               길이 {{ num(stats.title.length.median) }}자 · 괄호 사용
               {{ pct(stats.title.with_brackets_share) }} · 숫자 포함
               {{ pct(stats.title.with_number_share) }}

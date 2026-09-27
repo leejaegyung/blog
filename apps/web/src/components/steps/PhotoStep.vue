@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { AxiosError } from 'axios'
-import { imageApi, type Post, type PostImage } from '@/lib/api'
+import { imageApi, postApi, type Post, type PostImage } from '@/lib/api'
 import { validationErrors } from '@/lib/http'
 import { runWithConcurrency } from '@/lib/concurrency'
 import StepLayout from '@/components/flow/StepLayout.vue'
@@ -35,6 +35,44 @@ const flaggedLabel = computed(() => {
   return `${[...kinds].join('·')}이(가)`
 })
 const analyzed = computed(() => images.value.length > 0 && images.value.every((i) => i.vision))
+const pendingCount = computed(() => images.value.filter((i) => i.vision_status === 'pending').length)
+const doneCount = computed(() => images.value.filter((i) => i.vision).length)
+const failedCount = computed(() => images.value.filter((i) => !i.vision && i.vision_status === 'failed').length)
+const analyzeError = ref<string | null>(null)
+let pollTimer: ReturnType<typeof setTimeout> | undefined
+
+/** 디자인(1a) 2단계: 올린 사진을 바로 분석해 "N장 모두 분석됨"을 보여준다. 글 계획 흐름은 끝난 사진을 건너뛴다 */
+async function analyze(retryFailed = false) {
+  const waiting = images.value.some((i) => !i.vision && (retryFailed ? i.vision_status !== 'pending' : !i.vision_status))
+  if (!waiting) return
+  analyzeError.value = null
+  try {
+    const result = await imageApi.analyze(props.post.id)
+    images.value = [...result.data].sort((a, b) => a.sort_order - b.sort_order)
+    sync()
+    poll()
+  } catch {
+    analyzeError.value = '사진 분석을 시작하지 못했어요. 글 계획을 만들 때 다시 시도해요.'
+  }
+}
+
+function poll() {
+  clearTimeout(pollTimer)
+  if (!pendingCount.value) return
+  pollTimer = setTimeout(async () => {
+    const fresh = await postApi.get(props.post.id).catch(() => null)
+    // 기다리는 동안 올리거나 지운 사진이 있으면 목록은 그대로 두고 분석 결과만 반영한다
+    if (fresh?.images) {
+      const byId = new Map(fresh.images.map((i) => [i.id, i]))
+      images.value = images.value.map((i) => byId.get(i.id) ?? i)
+      sync()
+    }
+    poll()
+  }, 2500)
+}
+
+onMounted(() => (pendingCount.value ? poll() : analyze()))
+onBeforeUnmount(() => clearTimeout(pollTimer))
 
 function sync() {
   flow.update({ ...props.post, images: images.value })
@@ -75,6 +113,7 @@ async function addFiles(list: FileList | File[]) {
       item.error = uploadError(e)
     }
   })
+  if (accepted.length) void analyze()
 }
 
 function onPick(event: Event) {
@@ -192,9 +231,25 @@ async function remove(image: PostImage) {
         <span class="text-sm font-bold">{{ flaggedLabel }} 보이는 사진 {{ flagged.length }}장</span>
         <span>{{ flagged.map((f) => `${f.n}번`).join(', ') }} 사진 — 올리기 전에 확인해 주세요.</span>
       </PanelCard>
+      <PanelCard v-if="failedCount && !pendingCount" tone="lemon">
+        <span class="text-sm font-bold">분석하지 못한 사진 {{ failedCount }}장</span>
+        <span>글 계획을 만들 때 다시 시도해요.</span>
+        <button type="button" class="self-start rounded-[10px] bg-ink px-3 py-[7px] font-bold text-cream" @click="analyze(true)">지금 다시 분석</button>
+      </PanelCard>
       <PanelCard desktop-only>
-        <span class="text-sm font-bold">{{ analyzed ? `✓ ${images.length}장 모두 분석됨` : `${images.length ? images.length + '장 · ' : ''}분석은 글 계획 때 해요` }}</span>
+        <span class="text-sm font-bold" role="status">
+          {{
+            !images.length
+              ? '올리면 바로 분석해요'
+              : analyzed
+                ? `✓ ${images.length}장 모두 분석됨`
+                : pendingCount
+                  ? `사진 분석 중 · ${doneCount} / ${images.length}장`
+                  : `${doneCount} / ${images.length}장 분석됨`
+          }}
+        </span>
         <span class="text-sub">사진 종류를 파악해 목차에 배치해요. 사진만 보고 메뉴·가격을 확정하지 않아요.</span>
+        <span v-if="analyzeError" role="alert" class="text-red-600">{{ analyzeError }}</span>
       </PanelCard>
       <label class="flex cursor-pointer items-center gap-2.5 rounded-[14px] border-[1.5px] border-line bg-white p-3.5">
         <input v-model="stripExif" type="checkbox" class="peer sr-only" />

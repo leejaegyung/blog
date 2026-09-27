@@ -73,7 +73,7 @@ class PostImageController extends Controller
 
         if ($images->isNotEmpty()) {
             $post->images()->whereKey($images->modelKeys())->update(['vision_status' => 'pending', 'vision_error' => null]);
-            AnalyzeImagesJob::dispatch($post, $images->modelKeys());
+            AnalyzeImagesJob::dispatch($post, $images->modelKeys(), $request->boolean('force'));
         }
 
         return response()->json([

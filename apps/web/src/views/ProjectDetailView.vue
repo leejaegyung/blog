@@ -6,9 +6,13 @@ import { postApi, projectApi, type Post, type Project } from '@/lib/api'
 import ProjectStatusBadge from '@/components/ProjectStatusBadge.vue'
 import ReferencesPanel from '@/components/ReferencesPanel.vue'
 import AnalysisPanel from '@/components/AnalysisPanel.vue'
+import { relativeDate } from '@/lib/flow'
+import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ id: number }>()
 const router = useRouter()
+const ui = useUiStore()
+ui.saveState = null
 
 const project = ref<Project | null>(null)
 const notFound = ref(false)
@@ -24,6 +28,7 @@ onMounted(async () => {
       projectApi.get(props.id),
       postApi.list(props.id),
     ])
+    ui.crumb = project.value.keyword
   } catch (e) {
     if (e instanceof AxiosError && [403, 404].includes(e.response?.status ?? 0)) notFound.value = true
     else throw e
@@ -55,46 +60,23 @@ async function remove() {
 </script>
 
 <template>
-  <section class="space-y-6">
-    <RouterLink :to="{ name: 'projects' }" class="text-sm text-stone-500 hover:underline">
-      ← 프로젝트 목록
-    </RouterLink>
+  <p v-if="notFound" class="p-8 text-sub">키워드를 찾을 수 없어요.</p>
+  <p v-else-if="!project" class="p-8 text-sub">불러오는 중…</p>
 
-    <p v-if="notFound" class="text-stone-500">프로젝트를 찾을 수 없습니다.</p>
-    <p v-else-if="!project" class="text-stone-500">불러오는 중…</p>
-
-    <template v-else>
-      <header class="flex flex-wrap items-center gap-3">
-        <h1 class="text-2xl font-semibold">{{ project.keyword }}</h1>
-        <ProjectStatusBadge :status="project.status" />
-        <span v-if="project.category" class="text-stone-500">{{ project.category }}</span>
-      </header>
-
-      <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <dt class="text-sm text-stone-500">참고자료</dt>
-          <dd class="text-2xl font-semibold">{{ project.reference_count ?? 0 }}</dd>
+  <div v-else class="grid lg:min-h-[calc(100dvh-64px)] lg:grid-cols-[minmax(0,1fr)_320px]">
+    <section class="flex min-w-0 flex-col gap-6 px-5 pt-6 pb-10 lg:px-12 lg:pt-10">
+      <div class="flex flex-col gap-2">
+        <RouterLink :to="{ name: 'projects' }" class="text-[13px] font-bold text-accent no-underline">← 키워드·참고 글</RouterLink>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal lg:text-[40px]">{{ project.keyword }}</h1>
+          <ProjectStatusBadge :status="project.status" />
         </div>
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <dt class="text-sm text-stone-500">작성한 글</dt>
-          <dd class="text-2xl font-semibold">{{ project.post_count ?? 0 }}</dd>
-        </div>
-        <div class="rounded-xl border border-stone-200 bg-white p-4">
-          <dt class="text-sm text-stone-500">마지막 분석</dt>
-          <dd class="text-lg font-medium">
-            {{
-              project.last_analyzed_at
-                ? new Date(project.last_analyzed_at).toLocaleString('ko-KR')
-                : '없음'
-            }}
-          </dd>
-        </div>
-      </dl>
+        <p class="m-0 text-[15px] text-body lg:text-base">
+          {{ project.category ? `${project.category} · ` : '' }}잘 쓴 글을 모아 두면 이 키워드로 글을 쓸 때 구성·사진 배치를 참고해요.
+        </p>
+      </div>
 
-      <ReferencesPanel
-        :project-id="project.id"
-        @changed="(count) => project && (project.reference_count = count)"
-      />
+      <ReferencesPanel :project-id="project.id" @changed="(count) => project && (project.reference_count = count)" />
 
       <AnalysisPanel
         :project-id="project.id"
@@ -102,59 +84,64 @@ async function remove() {
         @status="(status) => project && (project.status = status)"
       />
 
-      <section class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold">글</h2>
-          <button
-            type="button"
-            :disabled="creatingPost"
-            class="rounded-md bg-stone-900 px-4 py-2 font-medium text-white disabled:opacity-50"
-            @click="newPost"
-          >
-            새 글 작성
-          </button>
-        </div>
-        <p v-if="createPostError" role="alert" class="text-sm text-red-600">
-          글을 만들지 못했습니다.
-        </p>
-        <p v-if="posts.length === 0" class="text-stone-500">아직 작성한 글이 없습니다.</p>
-        <ul v-else class="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white">
-          <li v-for="post in posts" :key="post.id">
-            <RouterLink
-              :to="{ name: 'post', params: { id: post.id } }"
-              class="flex flex-wrap items-center gap-3 px-5 py-3 hover:bg-stone-50"
-            >
-              <span class="font-medium">{{ post.title || '제목 없음' }}</span>
-              <span class="ml-auto text-sm text-stone-500">
-                사진 {{ post.image_count ?? 0 }} ·
-                {{ new Date(post.updated_at).toLocaleDateString('ko-KR') }}
-              </span>
-            </RouterLink>
-          </li>
-        </ul>
+      <section class="flex flex-col gap-2.5">
+        <h2 class="m-0 text-sm font-bold">이 키워드로 쓴 글</h2>
+        <p v-if="posts.length === 0" class="rounded-[18px] border-[1.5px] border-line bg-white p-5 text-sub">아직 쓴 글이 없어요.</p>
+        <RouterLink
+          v-for="post in posts"
+          :key="post.id"
+          :to="{ name: 'post', params: { id: post.id } }"
+          class="flex items-center gap-4 rounded-[18px] border-[1.5px] border-line bg-white px-5 py-4 text-ink no-underline hover:border-ink hover:text-ink"
+        >
+          <span class="min-w-0 flex-1 truncate font-bold">{{ post.title || '제목 없음' }}</span>
+          <span class="text-[13px] whitespace-nowrap text-sub">사진 {{ post.image_count ?? 0 }} · {{ relativeDate(post.updated_at) }}</span>
+          <span class="rounded-xl bg-lemon px-3 py-2 text-[13px] font-bold">이어서</span>
+        </RouterLink>
       </section>
+    </section>
 
-      <div class="rounded-xl border border-red-200 bg-white p-4">
-        <template v-if="!confirmingDelete">
-          <button type="button" class="text-sm text-red-600" @click="confirmingDelete = true">
-            프로젝트 삭제
-          </button>
-        </template>
-        <div v-else class="flex flex-wrap items-center gap-3 text-sm">
-          <span>참고자료와 분석 결과가 함께 삭제됩니다. 작성한 글은 남습니다.</span>
-          <button
-            type="button"
-            :disabled="deleting"
-            class="rounded-md bg-red-600 px-3 py-1.5 font-medium text-white disabled:opacity-50"
-            @click="remove"
-          >
-            삭제
-          </button>
-          <button type="button" class="text-stone-600" @click="confirmingDelete = false">
-            취소
-          </button>
+    <aside class="flex flex-col gap-3.5 border-line bg-panel px-5 py-7 lg:border-l-[1.5px] lg:px-[22px]">
+      <div class="flex items-center gap-3.5 rounded-[18px] border-2 border-ink bg-lilac p-4">
+        <span class="font-display text-[44px] leading-none">{{ project.reference_count ?? 0 }}</span>
+        <div class="flex flex-col gap-0.5">
+          <span class="text-sm font-bold">참고 글</span>
+          <span class="text-xs">최대 50개</span>
         </div>
       </div>
-    </template>
-  </section>
+      <div class="flex flex-col gap-1.5 rounded-[14px] border-[1.5px] border-line bg-white p-3.5">
+        <span class="text-sm font-bold">작성한 글</span>
+        <span class="text-lg font-bold tabular-nums">{{ project.post_count ?? 0 }}</span>
+      </div>
+      <div class="flex flex-col gap-1.5 rounded-[14px] border-[1.5px] border-line bg-white p-3.5">
+        <span class="text-sm font-bold">마지막 분석</span>
+        <span class="text-[13px] text-sub">{{ project.last_analyzed_at ? new Date(project.last_analyzed_at).toLocaleString('ko-KR') : '아직 없어요' }}</span>
+      </div>
+      <button
+        type="button"
+        :disabled="creatingPost"
+        class="h-[52px] rounded-2xl bg-ink px-6 text-base font-bold text-cream disabled:opacity-50"
+        @click="newPost"
+      >
+        + 이 키워드로 새 글 쓰기
+      </button>
+      <p v-if="createPostError" role="alert" class="m-0 text-sm text-red-600">글을 만들지 못했어요.</p>
+
+      <div class="mt-auto flex flex-col gap-2 pt-6 text-[13px]">
+        <button v-if="!confirmingDelete" type="button" class="self-start text-sub underline" @click="confirmingDelete = true">
+          키워드 삭제
+        </button>
+        <div v-else class="flex flex-col gap-2 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3">
+          <span>참고 글과 분석 결과가 함께 지워져요. 작성한 글은 남아요.</span>
+          <div class="flex gap-1.5">
+            <button type="button" :disabled="deleting" class="rounded-lg bg-ink px-2.5 py-1.5 text-xs font-bold text-cream disabled:opacity-50" @click="remove">
+              삭제
+            </button>
+            <button type="button" class="rounded-lg border-[1.5px] border-ink px-2.5 py-1.5 text-xs font-bold" @click="confirmingDelete = false">
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
 </template>

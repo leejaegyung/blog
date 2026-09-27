@@ -46,7 +46,27 @@ function poll() {
   }, 2500)
 }
 
+// 사진 끌어 놓기(디자인: "아직 안 쓰인 사진 — 목차에 끌어다 놓기"). 한 사진은 한 섹션에만 들어간다
+const dragPhoto = ref<number | null>(null)
+const unplaced = computed(() => {
+  const placed = new Set(outline.value.flatMap((s) => s.image_ids))
+  return images.value.filter((image) => !placed.has(image.id))
+})
+
+function placePhoto(index: number | null) {
+  const id = dragPhoto.value
+  dragPhoto.value = null
+  if (id === null) return
+  if (index !== null && outline.value[index]!.image_ids.includes(id)) return
+  outline.value = outline.value.map((section, i) => ({
+    ...section,
+    image_ids: i === index ? [...section.image_ids.filter((x) => x !== id), id] : section.image_ids.filter((x) => x !== id),
+  }))
+  dirty.value = true
+}
+
 function drop(index: number) {
+  if (dragPhoto.value !== null) return placePhoto(index)
   const from = dragging.value
   dragging.value = null
   if (from === null || from === index) return
@@ -147,7 +167,18 @@ onBeforeUnmount(() => clearTimeout(timer))
           <span class="hidden text-[13px] text-sub lg:block">{{ section.purpose }}</span>
         </div>
         <div class="hidden gap-1 lg:flex">
-          <img v-for="id in section.image_ids" :key="id" :src="thumb.get(id)" :alt="`사진 ${number.get(id)}`" class="size-10 rounded-lg object-cover" />
+          <span
+            v-for="id in section.image_ids"
+            :key="id"
+            draggable="true"
+            class="relative size-10 cursor-grab overflow-hidden rounded-lg bg-lilac-soft"
+            :title="`${number.get(id)}번 사진 — 다른 목차로 끌어 옮기기`"
+            @dragstart.stop="dragPhoto = id"
+            @dragend="dragPhoto = null"
+          >
+            <img :src="thumb.get(id)" :alt="`사진 ${number.get(id)}`" class="size-full object-cover" draggable="false" />
+            <span class="absolute top-0.5 left-0.5 rounded bg-ink px-1 text-[10px] leading-tight font-bold text-cream">{{ number.get(id) }}</span>
+          </span>
         </div>
         <span v-if="section.image_ids.length" class="text-xs text-sub lg:hidden">사진 {{ section.image_ids.length }}</span>
         <span class="cursor-grab text-sm text-muted lg:text-lg" aria-hidden="true">⋮⋮</span>
@@ -167,10 +198,30 @@ onBeforeUnmount(() => clearTimeout(timer))
         <span class="text-sm font-bold">쓰지 않을 내용</span>
         <span v-for="claim in plan.forbidden_claims" :key="claim">{{ claim }}</span>
       </PanelCard>
-      <PanelCard v-if="plan.unplaced_image_ids.length">
+      <div
+        v-if="unplaced.length || dragPhoto !== null"
+        :class="dragPhoto !== null ? 'border-ink border-dashed' : 'border-line'"
+        class="flex flex-col gap-1.5 rounded-[14px] border-[1.5px] bg-white p-3.5 text-[13px]"
+        @dragover.prevent
+        @drop.prevent="placePhoto(null)"
+      >
         <span class="text-sm font-bold">아직 안 쓰인 사진</span>
-        <span class="text-sub">{{ plan.unplaced_image_ids.map((id) => `${number.get(id) ?? '?'}번`).join(', ') }} — 초안 다듬기에서 넣을 수 있어요</span>
-      </PanelCard>
+        <span v-if="unplaced.length" class="text-sub">{{ unplaced.map((i) => `${number.get(i.id)}번`).join(', ') }} — 목차에 끌어다 놓기</span>
+        <span v-else class="text-sub">여기에 놓으면 글에서 빼요</span>
+        <div v-if="unplaced.length" class="hidden flex-wrap gap-1 pt-1 lg:flex">
+          <span
+            v-for="image in unplaced"
+            :key="image.id"
+            draggable="true"
+            class="relative size-10 cursor-grab overflow-hidden rounded-lg bg-lilac-soft"
+            @dragstart="dragPhoto = image.id"
+            @dragend="dragPhoto = null"
+          >
+            <img :src="image.thumb_url" :alt="`사진 ${number.get(image.id)}`" class="size-full object-cover" draggable="false" />
+            <span class="absolute top-0.5 left-0.5 rounded bg-ink px-1 text-[10px] leading-tight font-bold text-cream">{{ number.get(image.id) }}</span>
+          </span>
+        </div>
+      </div>
       <PanelCard v-if="plan.keywords.secondary.length">
         <span class="text-sm font-bold">함께 쓸 표현</span>
         <div class="flex flex-wrap gap-1">

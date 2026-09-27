@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { AxiosError, AxiosHeaders } from 'axios'
@@ -38,6 +39,7 @@ function mountView() {
 
 describe('ProjectsView', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.mocked(projectApi.list).mockReset()
     vi.mocked(projectApi.create).mockReset()
   })
@@ -48,7 +50,7 @@ describe('ProjectsView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('수원 인계동 파스타')
-    expect(wrapper.text()).toContain('참고자료 2 · 글 1')
+    expect(wrapper.text()).toContain('참고 글 2 · 글 1')
   })
 
   it('만들기에 성공하면 상세 화면으로 이동한다', async () => {

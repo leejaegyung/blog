@@ -18,7 +18,7 @@ const warnings = computed(() =>
 
 <template>
   <div v-if="content" class="space-y-4">
-    <div v-if="meta" class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-stone-600">
+    <div v-if="meta" class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-sub">
       <span class="tabular-nums">
         {{ meta.char_count.toLocaleString('ko-KR') }}자 / 목표
         {{ meta.target_length.toLocaleString('ko-KR') }}자
@@ -28,7 +28,7 @@ const warnings = computed(() =>
 
     <ul
       v-if="warnings.length"
-      class="space-y-1 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      class="space-y-1 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px]"
       aria-label="초안 확인 필요"
     >
       <li v-for="warning in warnings" :key="warning.message">
@@ -37,12 +37,12 @@ const warnings = computed(() =>
       </li>
     </ul>
 
-    <div class="flex gap-1 text-sm" role="group" aria-label="미리보기 폭">
+    <div class="flex gap-1 rounded-xl bg-lilac-soft p-1 text-[13px]" role="group" aria-label="미리보기 폭">
       <button
         type="button"
         :aria-pressed="!mobile"
-        :class="!mobile ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'"
-        class="rounded-md px-3 py-1.5"
+        :class="!mobile ? 'bg-ink font-bold text-cream' : 'font-semibold'"
+        class="rounded-[9px] px-3 py-1.5"
         @click="mobile = false"
       >
         PC
@@ -50,8 +50,8 @@ const warnings = computed(() =>
       <button
         type="button"
         :aria-pressed="mobile"
-        :class="mobile ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'"
-        class="rounded-md px-3 py-1.5"
+        :class="mobile ? 'bg-ink font-bold text-cream' : 'font-semibold'"
+        class="rounded-[9px] px-3 py-1.5"
         @click="mobile = true"
       >
         모바일
@@ -60,9 +60,9 @@ const warnings = computed(() =>
 
     <article
       :class="mobile ? 'max-w-[390px] px-4' : 'max-w-[693px] px-6 sm:px-10'"
-      class="mx-auto space-y-5 rounded-xl border border-stone-200 bg-white py-8 text-[16px] leading-[1.8] text-stone-800"
+      class="mx-auto space-y-5 rounded-[18px] border-[1.5px] border-line bg-white py-8 text-[16px] leading-[1.8] text-ink"
     >
-      <h1 class="border-b border-stone-200 pb-5 text-[26px] leading-snug font-bold">
+      <h1 class="border-b-[1.5px] border-line pb-5 text-[26px] leading-snug font-bold">
         {{ post.title }}
       </h1>
       <template v-for="(block, index) in content.blocks" :key="index">
@@ -78,7 +78,7 @@ const warnings = computed(() =>
             loading="lazy"
             class="w-full rounded"
           />
-          <div v-else class="rounded bg-stone-100 py-10 text-center text-sm text-stone-500">
+          <div v-else class="photo-stripes rounded-xl py-10 text-center text-sm text-sub">
             삭제된 사진
           </div>
         </figure>
@@ -87,12 +87,12 @@ const warnings = computed(() =>
         </ul>
         <blockquote
           v-else-if="block.type === 'quote'"
-          class="border-l-4 border-stone-300 py-1 pl-4 text-stone-600"
+          class="border-l-4 border-line py-1 pl-4 text-sub"
         >
           {{ block.text }}
         </blockquote>
       </template>
-      <p v-if="content.tags.length" class="pt-4 text-sm text-stone-500">
+      <p v-if="content.tags.length" class="pt-4 text-sm text-sub">
         {{ content.tags.map((tag) => `#${tag}`).join(' ') }}
       </p>
     </article>

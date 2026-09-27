@@ -36,12 +36,12 @@ async function submit() {
 
 <template>
   <form
-    class="mx-auto mt-12 max-w-sm space-y-4 rounded-xl border border-stone-200 bg-white p-6"
+    class="mx-auto mt-6 flex max-w-sm flex-col gap-4 rounded-[26px] border-2 border-ink bg-lilac p-6 lg:mt-12 lg:rounded-[28px] lg:p-8"
     @submit.prevent="submit"
   >
-    <h1 class="text-xl font-semibold">로그인</h1>
-    <label class="block space-y-1">
-      <span class="text-sm text-stone-600">아이디 또는 이메일</span>
+    <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal">다시 오셨네요</h1>
+    <label class="flex flex-col gap-1.5">
+      <span class="text-[13px] font-bold">아이디 또는 이메일</span>
       <input
         v-model="login"
         type="text"
@@ -49,28 +49,28 @@ async function submit() {
         autocapitalize="none"
         spellcheck="false"
         required
-        class="w-full rounded-md border border-stone-300 px-3 py-2"
+        class="w-full rounded-2xl border-2 border-ink bg-white px-4 py-3 text-base outline-none"
       />
     </label>
-    <label class="block space-y-1">
-      <span class="text-sm text-stone-600">비밀번호</span>
+    <label class="flex flex-col gap-1.5">
+      <span class="text-[13px] font-bold">비밀번호</span>
       <input
         v-model="password"
         type="password"
         autocomplete="current-password"
         required
-        class="w-full rounded-md border border-stone-300 px-3 py-2"
+        class="w-full rounded-2xl border-2 border-ink bg-white px-4 py-3 text-base outline-none"
       />
     </label>
-    <label class="flex items-center gap-2 text-sm text-stone-600">
-      <input v-model="remember" type="checkbox" />
+    <label class="flex items-center gap-2 text-sm font-semibold">
+      <input v-model="remember" type="checkbox" class="size-4 accent-ink" />
       로그인 유지
     </label>
-    <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="error" role="alert" class="m-0 rounded-xl border-2 border-ink bg-lemon px-3 py-2 text-sm font-semibold">{{ error }}</p>
     <button
       type="submit"
       :disabled="submitting"
-      class="w-full rounded-md bg-stone-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+      class="h-14 w-full rounded-[18px] bg-ink px-5 text-[17px] font-bold text-cream disabled:opacity-50"
     >
       {{ submitting ? '로그인 중…' : '로그인' }}
     </button>

@@ -11,15 +11,15 @@ const labels: Record<ProjectStatus, string> = {
 }
 
 const colors: Record<ProjectStatus, string> = {
-  draft: 'bg-stone-100 text-stone-600',
-  analyzing: 'bg-amber-100 text-amber-800',
-  analyzed: 'bg-emerald-100 text-emerald-800',
-  failed: 'bg-red-100 text-red-700',
+  draft: 'bg-track',
+  analyzing: 'bg-lilac-soft',
+  analyzed: 'bg-lilac',
+  failed: 'border border-ink bg-lemon',
 }
 </script>
 
 <template>
-  <span :class="colors[status]" class="rounded-full px-2 py-0.5 text-xs font-medium">
+  <span :class="colors[status]" class="shrink-0 rounded-md px-[7px] py-[3px] text-[11px] font-extrabold whitespace-nowrap">
     {{ labels[status] }}
   </span>
 </template>

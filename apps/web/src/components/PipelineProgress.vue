@@ -36,7 +36,7 @@ const failed = computed(() => props.post.pipeline_status === 'failed')
             index < currentIndex
               ? 'bg-ink text-lemon'
               : index === currentIndex && failed
-                ? 'bg-red-600 text-white'
+                ? 'bg-ink text-cream'
                 : index === currentIndex
                   ? 'animate-pulse border-[1.5px] border-ink bg-lemon'
                   : 'bg-track text-[#8a7695]'

@@ -20,19 +20,19 @@ const editRatio = computed(() => {
 
 <template>
   <div class="space-y-3">
-    <p class="text-sm text-stone-600">
+    <p class="text-sm text-sub">
       AI 초안 대비 수정 {{ Math.round(editRatio * 100) }}% ·
-      <span class="rounded bg-emerald-100 px-1 text-emerald-900">추가</span>
-      <span class="ml-1 rounded bg-red-100 px-1 text-red-800 line-through">삭제</span>
+      <span class="rounded bg-lilac-soft px-1">추가</span>
+      <span class="ml-1 rounded bg-track px-1 text-sub line-through">삭제</span>
     </p>
     <div
-      class="mx-auto max-w-[693px] rounded-xl border border-stone-200 bg-white px-6 py-6 text-[15px] leading-[1.8] whitespace-pre-wrap sm:px-10"
+      class="mx-auto max-w-[693px] rounded-[18px] border-[1.5px] border-line bg-white px-6 py-6 text-[15px] leading-[1.8] whitespace-pre-wrap sm:px-10"
     >
       <template v-for="(part, index) in parts" :key="index">
-        <ins v-if="part.added" class="bg-emerald-100 text-emerald-900 no-underline">{{
+        <ins v-if="part.added" class="bg-lilac-soft no-underline">{{
           part.value
         }}</ins>
-        <del v-else-if="part.removed" class="bg-red-100 text-red-800">{{ part.value }}</del>
+        <del v-else-if="part.removed" class="bg-track text-sub">{{ part.value }}</del>
         <span v-else>{{ part.value }}</span>
       </template>
     </div>
