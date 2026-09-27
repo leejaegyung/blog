@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { EditorContent, useEditor, type EditorEvents } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import { AxiosError } from 'axios'
 import { postApi, type DraftWarning, type Post, type PostImage, type RewriteInstruction } from '@/lib/api'
 import { PostImageNode } from '@/editor/postImage'
+import { IssueHighlight, issueHighlightKey } from '@/editor/issueHighlight'
+import { useUiStore } from '@/stores/ui'
 import { blockNodeIndexes, blocksToDoc, docToBlocks } from '@/editor/convert'
 
-const props = defineProps<{ post: Post; images: PostImage[] }>()
+const props = defineProps<{ post: Post; images: PostImage[]; highlights?: string[] }>()
 const emit = defineEmits<{ saved: [post: Post] }>()
 
 const SAVE_DELAY_MS = 1500
@@ -54,7 +56,11 @@ const editor = useEditor({
       orderedList: false,
       horizontalRule: false,
     }),
-    PostImageNode.configure({ resolveImage: (id) => imagesById.value.get(id) }),
+    PostImageNode.configure({
+      resolveImage: (id) => imagesById.value.get(id),
+      photoNumber: (id) => photoNumber.value.get(id),
+    }),
+    IssueHighlight,
   ],
   editorProps: { attributes: { class: 'post-editor min-h-[24rem] outline-none', 'aria-label': '본문' } },
   onCreate: collectPlaced,
@@ -63,6 +69,36 @@ const editor = useEditor({
     scheduleSave()
   },
 })
+
+// 헤더의 "자동 저장됨" 표시와 같이 쓴다
+const ui = useUiStore()
+watch(saveState, (state) => (ui.saveState = state), { immediate: true })
+
+function applyHighlights(excerpts: string[]) {
+  const ed = editor.value
+  if (!ed) return
+  ;(ed.storage as unknown as { issueHighlight: { excerpts: string[] } }).issueHighlight.excerpts = excerpts
+  ed.view.dispatch(ed.state.tr.setMeta(issueHighlightKey, true))
+}
+watch(() => [props.highlights, editor.value] as const, ([excerpts]) => applyHighlights(excerpts ?? []), { deep: true })
+
+/** 본문 조각이 든 문장만 지운다(검사의 "문장 지우기"). 문장이 하나뿐인 문단은 문단째 지운다. */
+function removeSentence(excerpt: string): boolean {
+  const ed = editor.value
+  if (!ed) return false
+  let done = false
+  ed.state.doc.forEach((node, offset) => {
+    if (done || !node.isTextblock || !node.textContent.includes(excerpt)) return
+    const sentences = node.textContent.match(/[^.!?。]+[.!?。]*\s*/g) ?? [node.textContent]
+    const kept = sentences.filter((sentence) => !sentence.includes(excerpt)).join('').trim()
+    const from = offset + 1
+    const to = offset + node.nodeSize - 1
+    if (kept) ed.chain().focus().insertContentAt({ from, to }, kept).run()
+    else ed.chain().focus().deleteRange({ from: offset, to: offset + node.nodeSize }).run()
+    done = true
+  })
+  return done
+}
 
 const unplaced = computed(() => props.images.filter((image) => !placedIds.value.includes(image.id)))
 
@@ -172,139 +208,100 @@ function reveal(excerpt: string | null, blockIndex: number | null) {
 }
 
 onBeforeUnmount(() => {
+  ui.saveState = null
   if (saveState.value === 'dirty') void save()
   clearTimeout(timer)
 })
 
-defineExpose({ save, insertImage, rewrite, reveal, editor })
+const root = ref<HTMLElement | null>(null)
+const active = ref(false)
+const TOOLS = [
+  { label: '소제목', active: () => !!editor.value?.isActive('heading', { level: 2 }), run: () => editor.value?.chain().focus().toggleHeading({ level: 2 }).run() },
+  { label: '목록', active: () => !!editor.value?.isActive('bulletList'), run: () => editor.value?.chain().focus().toggleBulletList().run() },
+  { label: '인용', active: () => !!editor.value?.isActive('blockquote'), run: () => editor.value?.chain().focus().toggleBlockquote().run() },
+]
+
+function onFocusOut(event: FocusEvent) {
+  if (!root.value?.contains(event.relatedTarget as Node | null)) active.value = false
+}
+
+defineExpose({ save, insertImage, rewrite, reveal, removeSentence, editor })
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div
-      class="sticky top-[env(safe-area-inset-top,0px)] z-10 flex flex-wrap items-center gap-1 rounded-lg border border-stone-200 bg-white p-1.5 text-sm"
-      role="toolbar"
-      aria-label="편집 도구"
-    >
-      <button
-        type="button"
-        :aria-pressed="editor?.isActive('heading', { level: 2 })"
-        :class="editor?.isActive('heading', { level: 2 }) ? 'bg-stone-900 text-white' : 'hover:bg-stone-100'"
-        class="rounded px-2 py-1"
-        @click="editor?.chain().focus().toggleHeading({ level: 2 }).run()"
+  <div ref="root" class="flex flex-col gap-3" @focusin="active = true" @focusout="onFocusOut">
+    <div class="flex flex-col gap-3.5 rounded-[18px] border-[1.5px] border-line bg-white px-5 py-5 lg:px-10 lg:py-7">
+      <!-- 디자인(1a)의 본문 카드에는 도구 줄이 없다: 글을 누르고 있을 때만 보인다 -->
+      <div
+        v-show="active || rewriting"
+        class="sticky top-[env(safe-area-inset-top,0px)] z-10 -mx-2 flex flex-wrap items-center gap-1 rounded-xl bg-lilac-soft p-1 text-[13px]"
+        role="toolbar"
+        aria-label="편집 도구"
       >
-        소제목
-      </button>
-      <button
-        type="button"
-        :aria-pressed="editor?.isActive('bulletList')"
-        :class="editor?.isActive('bulletList') ? 'bg-stone-900 text-white' : 'hover:bg-stone-100'"
-        class="rounded px-2 py-1"
-        @click="editor?.chain().focus().toggleBulletList().run()"
-      >
-        목록
-      </button>
-      <button
-        type="button"
-        :aria-pressed="editor?.isActive('blockquote')"
-        :class="editor?.isActive('blockquote') ? 'bg-stone-900 text-white' : 'hover:bg-stone-100'"
-        class="rounded px-2 py-1"
-        @click="editor?.chain().focus().toggleBlockquote().run()"
-      >
-        인용
-      </button>
-      <span class="mx-1 h-5 w-px bg-stone-200" aria-hidden="true" />
-      <button
-        type="button"
-        :disabled="!editor?.can().undo()"
-        class="rounded px-2 py-1 hover:bg-stone-100 disabled:opacity-30"
-        @click="editor?.chain().focus().undo().run()"
-      >
-        되돌리기
-      </button>
-      <button
-        type="button"
-        :disabled="!editor?.can().redo()"
-        class="rounded px-2 py-1 hover:bg-stone-100 disabled:opacity-30"
-        @click="editor?.chain().focus().redo().run()"
-      >
-        다시 실행
-      </button>
-      <span class="mx-1 h-5 w-px bg-stone-200" aria-hidden="true" />
-      <span class="px-1 text-stone-500">AI 문단</span>
-      <button
-        v-for="option in REWRITES"
-        :key="option.instruction"
-        type="button"
-        :disabled="rewriting"
-        class="rounded px-2 py-1 hover:bg-stone-100 disabled:opacity-40"
-        @click="rewrite(option.instruction)"
-      >
-        {{ option.label }}
-      </button>
-      <span class="ml-auto px-2 text-stone-500" role="status" aria-live="polite">
-        {{
-          rewriting
-            ? 'AI가 문단을 쓰는 중…'
-            : { saved: '저장됨', dirty: '고치는 중…', saving: '저장 중…', error: '저장 실패' }[saveState]
-        }}
-      </span>
-    </div>
-
-    <p
-      v-if="saveState === 'error'"
-      role="alert"
-      class="flex flex-wrap items-center gap-2 text-sm text-red-600"
-    >
-      자동 저장에 실패했습니다.
-      <button type="button" class="underline" @click="save">다시 저장</button>
-    </p>
-    <p
-      v-if="rewriteMessage"
-      :role="rewriteMessage.ok ? 'status' : 'alert'"
-      :class="rewriteMessage.ok ? 'text-stone-600' : 'text-red-600'"
-      class="text-sm"
-    >
-      {{ rewriteMessage.text }}
-    </p>
-    <ul v-if="rewriteWarnings.length" class="rounded-md bg-amber-50 px-4 py-2 text-sm text-amber-900">
-      <li v-for="warning in rewriteWarnings" :key="warning.message">
-        <strong>확인 필요 ·</strong> {{ warning.message }}
-      </li>
-    </ul>
-
-    <div class="mx-auto max-w-[693px] rounded-xl border border-stone-200 bg-white px-6 py-6 sm:px-10">
+        <button
+          v-for="tool in TOOLS"
+          :key="tool.label"
+          type="button"
+          :aria-pressed="tool.active()"
+          :class="tool.active() ? 'bg-ink font-bold text-cream' : 'font-semibold'"
+          class="rounded-[9px] px-2.5 py-1.5"
+          @click="tool.run()"
+        >
+          {{ tool.label }}
+        </button>
+        <button type="button" :disabled="!editor?.can().undo()" class="rounded-[9px] px-2.5 py-1.5 font-semibold disabled:opacity-30" @click="editor?.chain().focus().undo().run()">되돌리기</button>
+        <button type="button" :disabled="!editor?.can().redo()" class="rounded-[9px] px-2.5 py-1.5 font-semibold disabled:opacity-30" @click="editor?.chain().focus().redo().run()">다시 실행</button>
+        <span class="mx-1 h-4 w-px bg-line" aria-hidden="true" />
+        <span class="px-1 font-bold text-accent">AI 문단</span>
+        <button
+          v-for="option in REWRITES"
+          :key="option.instruction"
+          type="button"
+          :disabled="rewriting"
+          class="rounded-[9px] px-2.5 py-1.5 font-semibold disabled:opacity-40"
+          @click="rewrite(option.instruction)"
+        >
+          {{ option.label }}
+        </button>
+        <span class="ml-auto px-2 text-sub" role="status" aria-live="polite">
+          {{ rewriting ? 'AI가 문단을 쓰는 중…' : { saved: '저장됨', dirty: '고치는 중…', saving: '저장 중…', error: '저장 실패' }[saveState] }}
+        </span>
+      </div>
+      <slot name="top" />
       <EditorContent :editor="editor" />
     </div>
 
-    <div v-if="unplaced.length" class="space-y-2">
-      <p class="text-sm text-stone-600">
-        글에 없는 사진 — 넣을 위치에 커서를 두고 사진을 누르세요.
-      </p>
+    <p v-if="saveState === 'error'" role="alert" class="flex flex-wrap items-center gap-2 text-sm text-red-600">
+      자동 저장에 실패했습니다.
+      <button type="button" class="font-bold underline" @click="save">다시 저장</button>
+    </p>
+    <p v-if="rewriteMessage" :role="rewriteMessage.ok ? 'status' : 'alert'" :class="rewriteMessage.ok ? 'text-sub' : 'text-red-600'" class="text-sm">
+      {{ rewriteMessage.text }}
+    </p>
+    <ul v-if="rewriteWarnings.length" class="rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px]">
+      <li v-for="warning in rewriteWarnings" :key="warning.message"><strong>확인 필요 ·</strong> {{ warning.message }}</li>
+    </ul>
+
+    <div v-if="unplaced.length" class="flex flex-col gap-2">
+      <span class="text-[13px] font-bold">아직 안 쓰인 사진 <span class="font-medium text-sub">· 넣을 곳에 커서를 두고 누르세요</span></span>
       <div class="flex flex-wrap gap-2">
         <button
           v-for="image in unplaced"
           :key="image.id"
           type="button"
-          class="relative overflow-hidden rounded border border-stone-200 hover:ring-2 hover:ring-stone-900"
+          class="relative size-14 overflow-hidden rounded-[10px] bg-lilac-soft hover:ring-2 hover:ring-ink"
           :aria-label="`${photoNumber.get(image.id)}번 사진 넣기`"
           @click="insertImage(image.id)"
         >
-          <img :src="image.thumb_url" alt="" class="size-16 object-cover" />
-          <span class="absolute top-0.5 left-0.5 rounded bg-black/60 px-1 text-[10px] text-white">
-            {{ photoNumber.get(image.id) }}
-          </span>
+          <img :src="image.thumb_url" alt="" class="size-full object-cover" />
+          <span class="absolute top-1 left-1 rounded-[5px] bg-ink px-[5px] text-[10px] font-bold text-cream">{{ photoNumber.get(image.id) }}</span>
         </button>
       </div>
     </div>
 
-    <label class="block space-y-1">
-      <span class="text-sm text-stone-600">태그 (쉼표로 구분)</span>
-      <input
-        v-model="tagsInput"
-        class="w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
-        @input="scheduleSave"
-      />
+    <label class="flex flex-col gap-1.5">
+      <span class="text-[13px] font-bold">태그 <span class="font-medium text-sub">(쉼표로 구분)</span></span>
+      <input v-model="tagsInput" class="rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 text-sm outline-none focus:border-ink" @input="scheduleSave" />
     </label>
   </div>
 </template>
@@ -313,26 +310,36 @@ defineExpose({ save, insertImage, rewrite, reveal, editor })
 .post-editor {
   font-size: 16px;
   line-height: 1.8;
-  color: #292524;
+  color: #22002e;
 }
 .post-editor > * + * {
   margin-top: 0.9em;
 }
 .post-editor h2 {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
-  padding-top: 0.75em;
+  border-left: 4px solid #d896f4;
+  padding-left: 12px;
+  margin-top: 1.2em;
+}
+.post-editor .issue-mark {
+  background: #faff5a;
+  border-bottom: 2px solid #22002e;
+  font-weight: 600;
 }
 .post-editor ul {
   list-style: disc;
   padding-left: 1.5em;
 }
 .post-editor blockquote {
-  border-left: 4px solid #d6d3d1;
+  border-left: 4px solid #e2cfea;
   padding-left: 1em;
-  color: #57534e;
+  color: #5c4468;
 }
 .post-editor .ProseMirror-selectednode img {
-  outline: 2px solid #1c1917;
+  outline: 2px solid #22002e;
+}
+.post-editor:focus {
+  outline: none;
 }
 </style>

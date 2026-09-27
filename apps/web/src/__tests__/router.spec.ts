@@ -41,7 +41,7 @@ describe('router guard', () => {
     expect(router.currentRoute.value.query.redirect).toBe('/projects/3')
   })
 
-  it('로그인한 사용자는 로그인 화면 대신 프로젝트로 간다', async () => {
+  it('로그인한 사용자는 로그인 화면 대신 홈으로 간다', async () => {
     vi.mocked(authApi.me).mockResolvedValue({
       user: { id: 1, name: 'me', username: 'admin', email: 'admin@localhost' },
       autoLogin: true,
@@ -50,6 +50,6 @@ describe('router guard', () => {
 
     await router.push('/login')
 
-    expect(router.currentRoute.value.name).toBe('projects')
+    expect(router.currentRoute.value.name).toBe('home')
   })
 })

@@ -18,7 +18,8 @@ use ZipArchive;
 
 class PostPublishController extends Controller
 {
-    public function export(Post $post, ManualExportPublisher $publisher): JsonResponse
+    /** record=false면 화면이 미리 준비만 하는 것이라 올리기 기록(publish_jobs)을 남기지 않는다 */
+    public function export(Request $request, Post $post, ManualExportPublisher $publisher): JsonResponse
     {
         Gate::authorize('update', $post);
 
@@ -28,12 +29,14 @@ class PostPublishController extends Controller
         }
 
         $result = $publisher->publish($post);
-        $post->publishJobs()->create([
+        if ($request->boolean('record', true)) {
+            $post->publishJobs()->create([
             'publisher' => $publisher->key(),
             'status' => $result->status,
             'attempt' => $post->publishJobs()->where('publisher', $publisher->key())->count() + 1,
             'finished_at' => now(),
-        ]);
+            ]);
+        }
 
         return response()->json(['data' => $result->payload + ['warnings' => $validation->warnings]]);
     }

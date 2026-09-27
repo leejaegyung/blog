@@ -155,6 +155,7 @@ export type DraftWarning = {
 }
 
 export type QualityIssue = {
+  suggested_fact_key?: string | null
   code: string
   severity: 'error' | 'warning' | 'info'
   message: string
@@ -178,9 +179,15 @@ export type ExportResult = {
   warnings: string[]
 }
 
+export type PipelineStep = 'vision' | 'analysis' | 'plan' | 'draft' | 'quality'
+
 export type Post = {
   id: number
   keyword_project_id: number | null
+  keyword?: string | null
+  pipeline_status?: 'running' | 'done' | 'failed' | null
+  pipeline_step?: PipelineStep | null
+  pipeline_error?: string | null
   title: string | null
   tone: Tone | null
   target_length: number | null
@@ -205,6 +212,7 @@ export type Post = {
   facts?: (Fact & { id: number })[]
   images?: PostImage[]
   image_count?: number
+  fact_count?: number
   created_at: string
   updated_at: string
 }
@@ -269,6 +277,18 @@ export const postApi = {
     const { data } = await http.get<Wrapped<Post>>(`/posts/${id}`)
     return data.data
   },
+  async start(keyword: string, category?: string) {
+    const { data } = await http.post<Wrapped<Post>>('/posts/start', {
+      keyword,
+      category: category || null,
+    })
+    return data.data
+  },
+  /** until='plan': 사진 분석→키워드 분석→계획까지만 */
+  async autopilot(id: number, until: 'plan' | 'draft' = 'draft') {
+    const { data } = await http.post<Wrapped<Post>>(`/posts/${id}/autopilot`, { until })
+    return data.data
+  },
   async create(projectId: number, input: PostInput = {}) {
     const { data } = await http.post<Wrapped<Post>>('/posts', {
       keyword_project_id: projectId,
@@ -294,8 +314,9 @@ export const postApi = {
     )
     return data
   },
-  async exportPost(id: number) {
-    const { data } = await http.post<Wrapped<ExportResult>>(`/posts/${id}/export`)
+  /** record=false: 미리 준비만 하고 올리기 기록은 남기지 않는다 */
+  async exportPost(id: number, record = true) {
+    const { data } = await http.post<Wrapped<ExportResult>>(`/posts/${id}/export`, { record })
     return data.data
   },
   photosZipUrl(id: number) {

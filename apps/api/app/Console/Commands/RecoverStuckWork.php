@@ -31,6 +31,8 @@ class RecoverStuckWork extends Command
                 ->update(['status' => PostStatus::Failed, 'plan_error' => $message]),
             'drafts' => Post::where('status', PostStatus::Generating)->where('updated_at', '<', $before)
                 ->update(['status' => PostStatus::Failed, 'draft_error' => $message]),
+            'pipelines' => Post::where('pipeline_status', 'running')->where('updated_at', '<', $before)
+                ->update(['pipeline_status' => 'failed', 'pipeline_error' => $message]),
             'analyses' => KeywordProject::where('status', ProjectStatus::Analyzing)->where('updated_at', '<', $before)
                 ->update(['status' => ProjectStatus::Failed]),
             'references' => ReferenceDocument::where('parse_status', 'pending')->whereNotNull('source_url')

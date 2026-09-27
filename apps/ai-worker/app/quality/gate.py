@@ -53,6 +53,8 @@ class Issue(BaseModel):
     message: str
     block_index: int | None = None
     excerpt: str | None = None  # 편집기에서 위치를 찾는 데 쓰는 본문 조각
+    # "사실로 추가"를 누르면 이 이름으로 사실 항목을 만든다(입력에 없는 정보 경고에만)
+    suggested_fact_key: str | None = None
 
 
 class ScorePart(BaseModel):
@@ -108,7 +110,8 @@ def check(data: QualityInput) -> QualityReport:
             if _compact(match) not in source:
                 index, excerpt = locate(match)
                 issues.append(Issue(code="unsupported_specific", severity="error",
-                                    message=f"입력하지 않은 {label} 정보가 있습니다: {match}", block_index=index, excerpt=excerpt))
+                                    message=f"입력하지 않은 {label} 정보가 있습니다: {match}", block_index=index, excerpt=excerpt,
+                                    suggested_fact_key=label))
 
     # 3. 계획의 단정 금지 항목을 본문에서 언급
     forbidden_text = " ".join((data.plan or {}).get("forbidden_claims", []))
@@ -121,7 +124,8 @@ def check(data: QualityInput) -> QualityReport:
             hit = next((s for s in sentences(text) if any(w in s for w in words)), None)
             if hit:
                 issues.append(Issue(code="forbidden_claim", severity="warning",
-                                    message=f"입력하지 않은 {label}를 언급합니다. 사실인지 확인하세요.", block_index=index, excerpt=hit.strip()))
+                                    message=f"입력하지 않은 {label}를 언급합니다. 사실인지 확인하세요.", block_index=index, excerpt=hit.strip(),
+                                    suggested_fact_key=label.split(" ")[0]))
                 break
 
     # 4. 광고·협찬 표기

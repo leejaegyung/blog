@@ -30,7 +30,8 @@ class PostExporter
                 'paragraph' => '<p>'.$this->lines($block['text'] ?? '').'</p>',
                 'list' => '<ul>'.implode('', array_map(fn ($item) => '<li>'.$this->escape($item).'</li>', $block['items'] ?? [])).'</ul>',
                 'quote' => '<blockquote><p>'.$this->lines($block['text'] ?? '').'</p></blockquote>',
-                'image' => '<p><strong>'.$this->marker($block['image_id']).'</strong></p>',
+                // data-photo: 화면에서 이 자리를 실제 사진(data URI)으로 바꿔 한 번에 붙여넣게 한다
+                'image' => '<p data-photo="'.($this->numbers[$block['image_id']] ?? 0).'"><strong>'.$this->marker($block['image_id']).'</strong></p>',
                 default => '',
             };
         }

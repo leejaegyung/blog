@@ -15,10 +15,14 @@ class PostResource extends JsonResource
         return [
             'id' => $this->id,
             'keyword_project_id' => $this->keyword_project_id,
+            'keyword' => $this->whenLoaded('project', fn () => $this->project?->keyword),
             'title' => $this->title,
             'tone' => $this->tone,
             'target_length' => $this->target_length,
             'status' => $this->status,
+            'pipeline_status' => $this->pipeline_status,
+            'pipeline_step' => $this->pipeline_step,
+            'pipeline_error' => $this->pipeline_error,
             'published_url' => $this->published_url,
             'published_at' => $this->published_at,
             'plan' => $this->plan_json,
@@ -42,6 +46,7 @@ class PostResource extends JsonResource
             ])),
             'images' => PostImageResource::collection($this->whenLoaded('images')),
             'image_count' => $this->whenCounted('images'),
+            'fact_count' => $this->whenCounted('facts'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

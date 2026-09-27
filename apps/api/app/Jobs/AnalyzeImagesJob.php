@@ -5,13 +5,14 @@ namespace App\Jobs;
 use App\Models\Post;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
+use App\Jobs\Concerns\TracksPipeline;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 class AnalyzeImagesJob implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, TracksPipeline;
 
     public int $tries = 3;
 
@@ -25,6 +26,7 @@ class AnalyzeImagesJob implements ShouldQueue
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
     {
+        $this->pipelineStep('vision');
         $post = $this->post->load('project', 'facts');
         $images = $post->images()->whereKey($this->imageIds)->get();
         if ($images->isEmpty()) {
@@ -55,6 +57,7 @@ class AnalyzeImagesJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
+        $this->pipelineFail('사진 분석 서비스에 연결하지 못했습니다.');
         $this->post->images()->whereKey($this->imageIds)->where('vision_status', 'pending')->update([
             'vision_status' => 'failed',
             'vision_error' => '사진 분석 서비스에 연결하지 못했습니다.',

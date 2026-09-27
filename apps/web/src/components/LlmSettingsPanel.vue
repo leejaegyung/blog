@@ -4,9 +4,9 @@ import { llmApi, type LlmProvider, type LlmState, type LlmTarget, type LlmTestRe
 import { validationErrors } from '@/lib/http'
 
 const SOURCE = {
-  admin: { label: '관리 화면에서 설정', color: 'bg-emerald-100 text-emerald-800' },
-  env: { label: '.env에서 설정', color: 'bg-sky-100 text-sky-800' },
-  none: { label: '키 없음', color: 'bg-stone-100 text-stone-600' },
+  admin: { label: '관리 화면에서 설정', color: 'bg-lilac' },
+  env: { label: '.env에서 설정', color: 'bg-lilac-soft' },
+  none: { label: '키 없음', color: 'border border-ink bg-lemon' },
 } as const
 
 const ERROR_KINDS: Record<string, string> = {
@@ -112,27 +112,27 @@ defineExpose({ load })
 </script>
 
 <template>
-  <section class="space-y-4">
-    <h2 class="text-lg font-semibold">AI 공급자</h2>
-    <p class="text-sm text-stone-500">
+  <section class="flex flex-col gap-3.5">
+    <h2 class="m-0 text-sm font-bold">AI 공급자</h2>
+    <p class="m-0 text-[13px] leading-normal text-sub">
       관리 화면에서 넣은 키는 암호화해 저장하고 .env 키보다 먼저 씁니다. 저장하면 재시작 없이 바로
       적용됩니다. 키 원문은 다시 보여주지 않습니다.
     </p>
     <p v-if="loadError" role="alert" class="text-red-600">AI 공급자 설정을 불러오지 못했습니다.</p>
 
-    <div v-if="state" class="grid gap-4 md:grid-cols-2">
+    <div v-if="state" class="grid gap-3 xl:grid-cols-2">
       <div
         v-for="provider in state.providers"
         :key="provider.provider"
-        class="space-y-3 rounded-xl border border-stone-200 bg-white p-4"
+        class="flex flex-col gap-3 rounded-[18px] border-[1.5px] border-line bg-white p-5"
       >
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="font-medium">{{ provider.label }}</h3>
-          <span :class="SOURCE[provider.source].color" class="rounded-full px-2 py-0.5 text-xs">
+          <h3 class="m-0 text-[17px] font-bold">{{ provider.label }}</h3>
+          <span :class="SOURCE[provider.source].color" class="rounded-md px-[7px] py-[3px] text-[11px] font-extrabold">
             {{ SOURCE[provider.source].label }}
           </span>
         </div>
-        <p class="font-mono text-sm text-stone-600">{{ provider.masked_key ?? '—' }}</p>
+        <p class="m-0 font-mono text-[13px] text-sub">{{ provider.masked_key ?? '—' }}</p>
 
         <form class="flex flex-wrap gap-2" @submit.prevent="saveKey(provider)">
           <input
@@ -142,12 +142,12 @@ defineExpose({ load })
             spellcheck="false"
             :placeholder="`${provider.key_prefix}… 새 키`"
             :aria-label="`${provider.label} API 키`"
-            class="min-w-0 flex-[1_1_12rem] rounded-md border border-stone-300 px-3 py-2 font-mono text-sm"
+            class="min-w-0 flex-[1_1_12rem] rounded-xl border-[1.5px] border-line px-3 py-2.5 font-mono text-[13px] outline-none focus:border-ink"
           />
           <button
             type="submit"
             :disabled="!keyInputs[provider.provider]"
-            class="rounded-md bg-stone-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+            class="h-10 rounded-xl bg-ink px-4 text-sm font-bold text-cream disabled:opacity-40"
           >
             키 저장
           </button>
@@ -157,7 +157,7 @@ defineExpose({ load })
           <button
             type="button"
             :disabled="provider.source === 'none' || tests[provider.provider] === 'running'"
-            class="rounded-md border border-stone-300 px-3 py-1.5 hover:bg-stone-50 disabled:opacity-40"
+            class="rounded-xl border-[1.5px] border-ink px-3 py-1.5 font-bold disabled:opacity-40"
             @click="test(provider)"
           >
             {{ tests[provider.provider] === 'running' ? '확인 중…' : '연결 테스트' }}
@@ -165,7 +165,7 @@ defineExpose({ load })
           <button
             v-if="provider.source === 'admin'"
             type="button"
-            class="rounded-md px-3 py-1.5 text-red-600 hover:bg-red-50"
+            class="rounded-xl px-3 py-1.5 font-bold text-sub underline"
             @click="deleteKey(provider)"
           >
             관리 화면 키 지우기
@@ -174,7 +174,7 @@ defineExpose({ load })
             :href="provider.console"
             target="_blank"
             rel="noopener noreferrer"
-            class="ml-auto text-stone-500 underline"
+            class="ml-auto text-[13px] text-sub underline"
           >
             키 발급·크레딧 확인
           </a>
@@ -183,7 +183,7 @@ defineExpose({ load })
         <p
           v-if="messages[provider.provider]"
           :role="messages[provider.provider]!.ok ? 'status' : 'alert'"
-          :class="messages[provider.provider]!.ok ? 'text-stone-600' : 'text-red-600'"
+          :class="messages[provider.provider]!.ok ? 'text-sub' : 'text-red-600'"
           class="text-sm"
         >
           {{ messages[provider.provider]!.text }}
@@ -193,7 +193,7 @@ defineExpose({ load })
             v-for="attempt in (tests[provider.provider] as LlmTestResult).attempts"
             :key="attempt.model"
             role="status"
-            :class="attempt.status === 'success' ? 'text-emerald-700' : 'text-red-600'"
+            :class="attempt.status === 'success' ? 'font-bold text-ink' : 'text-red-600'"
             class="text-sm"
           >
             {{ attempt.model }}:
@@ -214,23 +214,23 @@ defineExpose({ load })
       </div>
     </div>
 
-    <div v-if="state" class="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
+    <div v-if="state" class="flex flex-col gap-3 rounded-[18px] border-[1.5px] border-line bg-white p-5">
       <div class="flex flex-wrap items-center gap-2">
-        <h3 class="font-medium">시도 순서</h3>
-        <span class="text-xs text-stone-500">
+        <h3 class="m-0 text-[17px] font-bold">시도 순서</h3>
+        <span class="rounded-md bg-lilac-soft px-[7px] py-[3px] text-[11px] font-extrabold">
           {{ state.route_source === 'admin' ? '관리 화면에서 설정' : '.env 기본값' }}
         </span>
       </div>
-      <p class="text-sm text-stone-500">
+      <p class="m-0 text-[13px] text-sub">
         위에서부터 시도하고, 실패(크레딧 부족·장애·거절 등)하면 다음 모델로 넘어갑니다.
       </p>
-      <ol class="space-y-2">
-        <li v-for="(target, index) in route" :key="index" class="flex flex-wrap items-center gap-2">
-          <span class="w-5 text-sm text-stone-400 tabular-nums">{{ index + 1 }}</span>
+      <ol class="m-0 flex list-none flex-col gap-2 p-0">
+        <li v-for="(target, index) in route" :key="index" class="flex flex-wrap items-center gap-2 rounded-[14px] border-[1.5px] border-line px-3 py-2">
+          <span class="w-5 font-display text-lg text-lilac-mid">{{ index + 1 }}</span>
           <select
             v-model="target.provider"
             :aria-label="`${index + 1}번 공급자`"
-            class="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+            class="rounded-[10px] border-[1.5px] border-line bg-white px-2 py-1.5 text-sm font-semibold"
             @change="target.model = modelsFor(target.provider)[0] ?? ''"
           >
             <option v-for="p in state.providers" :key="p.provider" :value="p.provider">{{ p.label }}</option>
@@ -239,24 +239,24 @@ defineExpose({ load })
             v-model="target.model"
             :list="`models-${target.provider}`"
             :aria-label="`${index + 1}번 모델`"
-            class="min-w-0 flex-[1_1_10rem] rounded-md border border-stone-300 px-2 py-1.5 font-mono text-sm"
+            class="min-w-0 flex-[1_1_10rem] rounded-[10px] border-[1.5px] border-line px-2 py-1.5 font-mono text-[13px] outline-none focus:border-ink"
           />
-          <button type="button" :disabled="index === 0" :aria-label="`${index + 1}번 위로`" class="rounded px-1.5 hover:bg-stone-100 disabled:opacity-30" @click="move(index, index - 1)">↑</button>
-          <button type="button" :disabled="index === route.length - 1" :aria-label="`${index + 1}번 아래로`" class="rounded px-1.5 hover:bg-stone-100 disabled:opacity-30" @click="move(index, index + 1)">↓</button>
-          <button type="button" :disabled="route.length === 1" :aria-label="`${index + 1}번 삭제`" class="rounded px-1.5 text-red-600 hover:bg-red-50 disabled:opacity-30" @click="route = route.filter((_, i) => i !== index)">✕</button>
+          <button type="button" :disabled="index === 0" :aria-label="`${index + 1}번 위로`" class="rounded-lg px-1.5 font-bold hover:bg-lilac-soft disabled:opacity-30" @click="move(index, index - 1)">↑</button>
+          <button type="button" :disabled="index === route.length - 1" :aria-label="`${index + 1}번 아래로`" class="rounded-lg px-1.5 font-bold hover:bg-lilac-soft disabled:opacity-30" @click="move(index, index + 1)">↓</button>
+          <button type="button" :disabled="route.length === 1" :aria-label="`${index + 1}번 삭제`" class="rounded-lg px-1.5 text-muted hover:text-ink disabled:opacity-30" @click="route = route.filter((_, i) => i !== index)">✕</button>
         </li>
       </ol>
       <datalist v-for="p in state.providers" :id="`models-${p.provider}`" :key="p.provider">
         <option v-for="m in p.models" :key="m" :value="m" />
       </datalist>
       <div class="flex flex-wrap items-center gap-2">
-        <button type="button" :disabled="route.length >= 6" class="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50 disabled:opacity-40" @click="addTarget">+ 모델 추가</button>
-        <button type="button" class="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white" @click="saveRoute">순서 저장</button>
-        <button v-if="state.route_source === 'admin'" type="button" class="rounded-md px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100" @click="resetRoute">기본값으로</button>
+        <button type="button" :disabled="route.length >= 6" class="rounded-xl border-[1.5px] border-ink px-3 py-2 text-sm font-bold disabled:opacity-40" @click="addTarget">+ 모델 추가</button>
+        <button type="button" class="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-cream" @click="saveRoute">순서 저장</button>
+        <button v-if="state.route_source === 'admin'" type="button" class="rounded-xl px-3 py-2 text-sm text-sub underline" @click="resetRoute">기본값으로</button>
         <span
           v-if="routeMessage"
           :role="routeMessage.ok ? 'status' : 'alert'"
-          :class="routeMessage.ok ? 'text-stone-600' : 'text-red-600'"
+          :class="routeMessage.ok ? 'text-sub' : 'text-red-600'"
           class="text-sm"
         >
           {{ routeMessage.text }}

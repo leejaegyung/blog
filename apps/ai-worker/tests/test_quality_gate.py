@@ -55,6 +55,8 @@ def test_hallucinated_specifics_and_forbidden_slot_are_located() -> None:
     assert all(i.severity == "error" and i.block_index == 7 for i in specific)
     forbidden = next(i for i in report.issues if i.code == "forbidden_claim")
     assert forbidden.excerpt == "주차도 넓어서 편했어요."
+    assert [i.suggested_fact_key for i in specific] == ["가격", "시간"]
+    assert forbidden.suggested_fact_key == "주차"
     assert report.issues[0].severity == "error"  # 심각도 순 정렬
 
 

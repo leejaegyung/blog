@@ -20,7 +20,8 @@ class PostController extends Controller
 
         $posts = $request->user()->posts()
             ->when($request->filled('project_id'), fn ($q) => $q->where('keyword_project_id', $request->integer('project_id')))
-            ->withCount('images')
+            ->withCount(['images', 'facts'])
+            ->with('project:id,keyword')
             ->latest()
             ->get();
 
@@ -109,6 +110,6 @@ class PostController extends Controller
 
     private function resource(Post $post): PostResource
     {
-        return new PostResource($post->refresh()->load(['facts', 'images']));
+        return new PostResource($post->refresh()->load(['project', 'facts', 'images']));
     }
 }

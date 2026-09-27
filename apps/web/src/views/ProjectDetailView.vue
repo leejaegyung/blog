@@ -35,7 +35,7 @@ async function newPost() {
   createPostError.value = false
   try {
     const post = await postApi.create(props.id)
-    await router.push({ name: 'post-edit', params: { id: post.id } })
+    await router.push({ name: 'flow', params: { id: post.id, step: 2 } })
   } catch {
     createPostError.value = true
   } finally {
@@ -121,7 +121,7 @@ async function remove() {
         <ul v-else class="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white">
           <li v-for="post in posts" :key="post.id">
             <RouterLink
-              :to="{ name: 'post-edit', params: { id: post.id } }"
+              :to="{ name: 'post', params: { id: post.id } }"
               class="flex flex-wrap items-center gap-3 px-5 py-3 hover:bg-stone-50"
             >
               <span class="font-medium">{{ post.title || '제목 없음' }}</span>

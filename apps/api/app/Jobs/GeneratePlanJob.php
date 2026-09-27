@@ -6,13 +6,14 @@ use App\Enums\PostStatus;
 use App\Models\Post;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
+use App\Jobs\Concerns\TracksPipeline;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 class GeneratePlanJob implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, TracksPipeline;
 
     public int $tries = 3;
 
@@ -21,11 +22,16 @@ class GeneratePlanJob implements ShouldQueue
     /** @var list<int> */
     public array $backoff = [30, 120];
 
-    public function __construct(public Post $post) {}
+    /** @param  bool  $finishPipeline  계획이 체인의 마지막 단계면 성공 시 진행 상태를 끝낸다 */
+    public function __construct(public Post $post, public bool $finishPipeline = false) {}
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
     {
-        $post = $this->post->load(['project.latestAnalysis', 'facts', 'images']);
+        $this->pipelineStep('plan');
+        $post = $this->post->fresh()->load(['project.latestAnalysis', 'facts', 'images']);
+        if ($this->pipelinePostId) {
+            $post->forceFill(['status' => PostStatus::Planning])->save();
+        }
         $analysis = $post->project?->latestAnalysis;
 
         $result = $worker->planPost([
@@ -49,6 +55,7 @@ class GeneratePlanJob implements ShouldQueue
 
         if ($result['plan'] === null) {
             $post->forceFill(['status' => PostStatus::Failed, 'plan_error' => $result['plan_error']])->save();
+            $this->pipelineFail($result['plan_error']);
 
             return;
         }
@@ -59,10 +66,15 @@ class GeneratePlanJob implements ShouldQueue
             'status' => PostStatus::Planned,
             'title' => $post->title ?: ($result['plan']['title_candidates'][0] ?? null),
         ])->save();
+
+        if ($this->finishPipeline) {
+            $this->pipelineDone();
+        }
     }
 
     public function failed(?Throwable $exception): void
     {
+        $this->pipelineFail('글 계획 서비스에 연결하지 못했습니다.');
         $this->post->forceFill([
             'status' => PostStatus::Failed,
             'plan_error' => '글 계획 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.',

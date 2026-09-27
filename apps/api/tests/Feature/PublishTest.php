@@ -49,10 +49,10 @@ class PublishTest extends TestCase
 
         $this->assertSame(implode("\n", [
             '<p>첫 줄<br>둘째 줄 &amp; &lt;b&gt;태그&lt;/b&gt;</p>',
-            '<p><strong>[사진 1]</strong></p>',
+            '<p data-photo="1"><strong>[사진 1]</strong></p>',
             '<h2>메뉴</h2>',
             '<ul><li>봉골레</li><li>크림</li></ul>',
-            '<p><strong>[사진 2]</strong></p>',
+            '<p data-photo="2"><strong>[사진 2]</strong></p>',
             '<blockquote><p>또 갈래요</p></blockquote>',
             '<p>#인계동파스타 #수원맛집</p>',
         ]), $response->json('data.html'));
@@ -63,6 +63,13 @@ class PublishTest extends TestCase
         $this->assertSame(['manual_export', 'exported', 1], [
             $this->post->publishJobs()->sole()->publisher, $this->post->publishJobs()->sole()->status, $this->post->publishJobs()->sole()->attempt,
         ]);
+    }
+
+    public function test_background_preparation_does_not_record_an_upload(): void
+    {
+        $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->assertOk();
+
+        $this->assertSame(0, $this->post->publishJobs()->count());
     }
 
     public function test_export_warns_about_unresolved_quality_errors(): void

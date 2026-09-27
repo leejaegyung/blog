@@ -4,6 +4,8 @@ import PostImageView from './PostImageView.vue'
 
 export type PostImageOptions = {
   resolveImage: (id: number) => PostImage | undefined
+  // 올린 순서 번호(디자인의 "사진 N" 표시)
+  photoNumber?: (id: number) => number | undefined
 }
 
 declare module '@tiptap/vue-3' {
@@ -22,7 +24,7 @@ export const PostImageNode = Node.create<PostImageOptions>({
   draggable: true,
 
   addOptions() {
-    return { resolveImage: () => undefined }
+    return { resolveImage: () => undefined, photoNumber: () => undefined }
   },
 
   addAttributes() {

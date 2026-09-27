@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PostRewriteController;
 use App\Http\Controllers\Api\ProjectAnalysisController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ReferenceController;
+use App\Http\Controllers\Api\WizardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', HealthController::class);
@@ -50,6 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/references/{reference}', 'destroy');
     });
 
+    Route::post('/posts/start', [WizardController::class, 'start']);
+    Route::post('/posts/{post}/autopilot', [WizardController::class, 'autopilot']);
     Route::apiResource('posts', PostController::class)->except('destroy');
     Route::post('/posts/{post}/plan', [PostPlanController::class, 'store']);
     Route::put('/posts/{post}/plan', [PostPlanController::class, 'update']);

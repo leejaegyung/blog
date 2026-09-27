@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import AdminView from '@/views/AdminView.vue'
 import { adminApi, type FailedJob, type Usage } from '@/lib/api'
 
@@ -25,13 +26,14 @@ const JOB: FailedJob = { uuid: 'u1', job: 'App\\Jobs\\GenerateDraftJob', queue: 
 
 describe('AdminView', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.mocked(adminApi.usage).mockReset().mockResolvedValue(USAGE)
     vi.mocked(adminApi.failedJobs).mockReset().mockResolvedValue([JOB])
     vi.mocked(adminApi.retry).mockReset().mockResolvedValue()
   })
 
   it('지표·용도별 표·실패 작업을 보여준다', async () => {
-    const wrapper = mount(AdminView)
+    const wrapper = mount(AdminView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
     const text = wrapper.text()
 
@@ -44,7 +46,7 @@ describe('AdminView', () => {
   })
 
   it('실패 작업을 다시 실행하고 기간을 바꾸면 다시 불러온다', async () => {
-    const wrapper = mount(AdminView)
+    const wrapper = mount(AdminView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find((b) => b.text() === '다시 실행')!.trigger('click')

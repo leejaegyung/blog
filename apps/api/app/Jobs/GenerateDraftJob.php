@@ -7,13 +7,14 @@ use App\Models\Post;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
 use App\Services\QualityGate;
+use App\Jobs\Concerns\TracksPipeline;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 class GenerateDraftJob implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, TracksPipeline;
 
     public int $tries = 3;
 
@@ -26,7 +27,15 @@ class GenerateDraftJob implements ShouldQueue
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder, QualityGate $gate): void
     {
-        $post = $this->post->load(['project', 'facts', 'images']);
+        $post = $this->post->fresh()->load(['project', 'facts', 'images']);
+        // 체인에서 앞 단계(계획)가 실패했으면 초안을 쓰지 않는다
+        if ($this->pipelinePostId && ($this->pipelineFailed() || ! $post->plan_json)) {
+            return;
+        }
+        $this->pipelineStep('draft');
+        if ($this->pipelinePostId) {
+            $post->forceFill(['status' => PostStatus::Generating])->save();
+        }
         $plan = $post->plan_json;
 
         $result = $worker->draftPost([
@@ -47,6 +56,7 @@ class GenerateDraftJob implements ShouldQueue
         $draft = $result['draft'];
         if ($draft === null) {
             $post->forceFill(['status' => PostStatus::Failed, 'draft_error' => $result['draft_error']])->save();
+            $this->pipelineFail($result['draft_error']);
 
             return;
         }
@@ -62,15 +72,18 @@ class GenerateDraftJob implements ShouldQueue
         ])->save();
 
         // 초안이 나오면 바로 품질 검사를 돌린다. 실패해도 초안은 그대로 둔다(편집 화면에서 다시 검사 가능).
+        $this->pipelineStep('quality');
         try {
             $gate->run($post->refresh());
         } catch (Throwable $e) {
             report($e);
         }
+        $this->pipelineDone();
     }
 
     public function failed(?Throwable $exception): void
     {
+        $this->pipelineFail('초안 서비스에 연결하지 못했습니다.');
         $this->post->forceFill([
             'status' => PostStatus::Failed,
             'draft_error' => '초안 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.',

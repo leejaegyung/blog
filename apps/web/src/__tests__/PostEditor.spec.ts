@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import PostEditor from '@/components/PostEditor.vue'
 import { postApi, type Post, type PostImage, type PostInput, type RewriteInstruction } from '@/lib/api'
 
@@ -53,12 +54,13 @@ async function ready(wrapper: { vm: unknown }, fakeTimers = false) {
   throw new Error('editor not initialized')
 }
 
-function mountEditor() {
-  return mount(PostEditor, { props: { post: POST, images: [image(1), image(2)] }, attachTo: document.body })
+function mountEditor(extraProps: Record<string, unknown> = {}) {
+  return mount(PostEditor, { props: { post: POST, images: [image(1), image(2)], ...extraProps }, attachTo: document.body })
 }
 
 describe('PostEditor', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.mocked(postApi.update).mockReset().mockResolvedValue(POST)
     vi.mocked(postApi.rewrite).mockReset()
   })
@@ -153,6 +155,26 @@ describe('PostEditor', () => {
     expect(vm.editor.state.selection.constructor.name).toBe('NodeSelection')
 
     expect(vm.reveal('없는 문장', null)).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('검사가 짚은 문장을 노랗게 표시하고, 그 문장만 지운다', async () => {
+    const wrapper = mountEditor({ highlights: ['19,000원'] })
+    await ready(wrapper)
+    const vm = wrapper.vm as unknown as {
+      editor: import('@tiptap/vue-3').Editor
+      removeSentence: (excerpt: string) => boolean
+    }
+    vm.editor.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: '가격은 19,000원이에요. 맛있었어요.' }] }],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.issue-mark').text()).toBe('19,000원')
+    expect(vm.removeSentence('19,000원')).toBe(true)
+    expect(vm.editor.getText()).toBe('맛있었어요.')
+    expect(vm.removeSentence('없는 말')).toBe(false)
     wrapper.unmount()
   })
 

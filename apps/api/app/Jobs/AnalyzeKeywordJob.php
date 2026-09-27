@@ -8,13 +8,14 @@ use App\Models\KeywordAnalysis;
 use App\Models\KeywordProject;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
+use App\Jobs\Concerns\TracksPipeline;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 class AnalyzeKeywordJob implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, TracksPipeline;
 
     /** 분석 결과 유효기간(기획서 21장: 일반 키워드 7일) */
     public const TTL_DAYS = 7;
@@ -44,6 +45,7 @@ class AnalyzeKeywordJob implements ShouldQueue
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
     {
+        $this->pipelineStep('analysis');
         $project = $this->project;
 
         $features = $project->references()
@@ -93,6 +95,7 @@ class AnalyzeKeywordJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
+        $this->pipelineFail('키워드 분석 서비스에 연결하지 못했습니다.');
         $this->project->forceFill(['status' => ProjectStatus::Failed])->save();
     }
 }

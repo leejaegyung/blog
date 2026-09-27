@@ -1,1 +1,55 @@
 @import 'tailwindcss';
+
+/* 디자인(Blog AI 1a) 토큰 */
+@theme {
+  --font-sans: Pretendard, system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  --font-display: 'Bagel Fat One', Pretendard, system-ui, sans-serif;
+
+  --color-ink: #22002e;
+  --color-cream: #fff4ea;
+  --color-page: #f3eee8;
+  --color-lemon: #faff5a;
+  --color-lilac: #d896f4;
+  --color-lilac-soft: #efd6fb;
+  --color-lilac-mid: #b98acd;
+  --color-line: #e2cfea;
+  --color-panel: #fbeef9;
+  --color-track: #e9dcef;
+  --color-sub: #5c4468;
+  --color-body: #4a3356;
+  --color-muted: #9a89a3;
+  --color-accent: #8b3fb8;
+  --color-naver: #03c75a;
+
+  /* 기존 화면이 쓰던 stone·amber를 디자인 팔레트로 바꿔 전체 톤을 맞춘다 */
+  --color-stone-50: #fbeef9;
+  --color-stone-100: #efd6fb;
+  --color-stone-200: #e2cfea;
+  --color-stone-300: #d6c0e0;
+  --color-stone-400: #9a89a3;
+  --color-stone-500: #5c4468;
+  --color-stone-600: #4a3356;
+  --color-stone-700: #3a1f48;
+  --color-stone-800: #22002e;
+  --color-stone-900: #22002e;
+  --color-amber-50: #fdffc9;
+  --color-amber-100: #faff5a;
+  --color-amber-800: #22002e;
+  --color-amber-900: #22002e;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a:hover {
+  color: var(--color-accent);
+}
+
+/* 디자인의 사선 줄무늬 자리표시(사진 없을 때) */
+.photo-stripes {
+  background: repeating-linear-gradient(45deg, #efd6fb 0 8px, #e4c1f6 8px 16px);
+}
