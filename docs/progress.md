@@ -422,6 +422,17 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
   추천 해시태그 15개 자동으로 달림, 검사 82.5점
 - 테스트: api 132개, worker 150개, web 60개
 
+## 2026-09-28 추가: ChatGPT 구독(Codex CLI)도 같은 방식으로
+
+- 공급자 `codex`(gpt-5.5 등): 같은 claude-bridge가 `codex exec --skip-git-repo-check --ephemeral --ignore-user-config --ignore-rules
+  -s read-only -C <임시 폴더> -m <모델> --json -c developer_instructions=… [--output-schema 파일] [-i 사진…] -- -`를 실행,
+  JSONL 이벤트에서 답(agent_message)과 토큰(turn.completed)을 읽는다. OPENAI_API_KEY는 넘기지 않음(ChatGPT 로그인 사용)
+- 워커 `SubscriptionAdapter`(claude_code·codex 공용). codex에는 OpenAI 엄격 스키마(`to_strict_json_schema`). 로그인 만료(401)→auth
+- Codex CLI 설치: `npm install -g @openai/codex`(0.158.0), 로그인: `codex login`(ChatGPT 계정). 만료되면 다시 로그인
+- 기본 순서: `claude_code:opus, claude_code:sonnet, codex:gpt-5.5, anthropic:claude-opus-5, openai:gpt-5.5`
+- 실제 확인(2026-09-28): codex만으로 사진 2장 분석 → 키워드 분석 → 계획 → 초안 완료(검사 75점, 해시태그 자동)
+- 테스트: api 132개, worker 152개, web 60개
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

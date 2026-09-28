@@ -135,7 +135,9 @@ defineExpose({ load })
         </div>
         <template v-if="provider.key_prefix === null">
           <p class="m-0 text-[13px] leading-normal text-sub">
-            API 키·크레딧 없이 이 Mac에 로그인된 Claude Code(구독)로 글을 써요. Mac이 켜져 있고 연결기가 돌아야 해요.
+            API 키·크레딧 없이 이 Mac에 로그인된 {{ provider.provider === 'codex' ? 'Codex CLI(ChatGPT 구독)' : 'Claude Code(Claude 구독)' }}로 글을 써요.
+            Mac이 깨어 있고 연결기가 돌아야 해요.
+            <template v-if="provider.provider === 'codex'">로그인이 만료되면 터미널에서 <code class="font-mono">codex login</code>을 다시 하세요.</template>
           </p>
           <p v-if="provider.source === 'none'" class="m-0 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px]">
             연결기가 아직 설정되지 않았어요. 터미널에서 <code class="font-mono">make claude-bridge-install</code> 을 한 번 실행하세요.

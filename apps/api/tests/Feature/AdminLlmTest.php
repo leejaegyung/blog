@@ -31,9 +31,9 @@ class AdminLlmTest extends TestCase
     {
         $response = $this->actingAs($this->user)->getJson('/api/admin/llm')->assertOk();
 
-        $response->assertJsonPath('data.providers.1.source', 'env')
-            ->assertJsonPath('data.providers.1.masked_key', 'sk-ant-…envv')
-            ->assertJsonPath('data.providers.2.source', 'none')
+        $response->assertJsonPath('data.providers.2.source', 'env')
+            ->assertJsonPath('data.providers.2.masked_key', 'sk-ant-…envv')
+            ->assertJsonPath('data.providers.3.source', 'none')
             ->assertJsonPath('data.route.0', ['provider' => 'anthropic', 'model' => 'claude-opus-5'])
             ->assertJsonPath('data.route_source', 'env');
         $this->assertStringNotContainsString('from-env-0000', $response->getContent());
@@ -43,15 +43,15 @@ class AdminLlmTest extends TestCase
     {
         $this->actingAs($this->user)->putJson('/api/admin/llm/keys/anthropic', ['api_key' => "  {$this->key}  "])
             ->assertOk()
-            ->assertJsonPath('data.providers.1.source', 'admin')
-            ->assertJsonPath('data.providers.1.masked_key', 'sk-ant-…wxyz');
+            ->assertJsonPath('data.providers.2.source', 'admin')
+            ->assertJsonPath('data.providers.2.masked_key', 'sk-ant-…wxyz');
 
         $stored = AppSetting::find('llm.anthropic.api_key')->value;
         $this->assertStringNotContainsString('ABCDEFGHIJ', $stored);
         $this->assertSame($this->key, app(LlmSettings::class)->apiKey('anthropic'));
 
         $this->actingAs($this->user)->deleteJson('/api/admin/llm/keys/anthropic')
-            ->assertJsonPath('data.providers.1.source', 'env');
+            ->assertJsonPath('data.providers.2.source', 'env');
     }
 
     public function test_key_validation(): void
@@ -128,7 +128,9 @@ class AdminLlmTest extends TestCase
         $this->actingAs($this->user)->getJson('/api/admin/llm')
             ->assertJsonPath('data.providers.0.provider', 'claude_code')
             ->assertJsonPath('data.providers.0.key_prefix', null)
-            ->assertJsonPath('data.providers.0.source', 'none');
+            ->assertJsonPath('data.providers.0.source', 'none')
+            ->assertJsonPath('data.providers.1.provider', 'codex')
+            ->assertJsonPath('data.providers.1.key_prefix', null);
 
         config(['services.llm.claude_bridge_token' => 'tok']);
         $this->actingAs($this->user)->getJson('/api/admin/llm')->assertJsonPath('data.providers.0.source', 'bridge');
@@ -140,6 +142,7 @@ class AdminLlmTest extends TestCase
 
         Http::fake(['*/llm/ping' => Http::response(['text' => 'pong', 'generations' => []])]);
         $this->actingAs($this->user)->postJson('/api/admin/llm/test', ['target' => 'claude_code:opus'])->assertOk();
+        $this->actingAs($this->user)->postJson('/api/admin/llm/test', ['target' => 'codex:gpt-5.5'])->assertOk();
     }
 
     public function test_requires_login(): void

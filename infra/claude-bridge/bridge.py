@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Claude 구독 연결기(claude-bridge).
+"""구독 연결기(claude-bridge).
 
-Docker 안의 AI Worker가 이 Mac에 로그인된 Claude Code(구독)로 글을 쓰게 한다.
-워커가 보낸 요청을 `claude -p`(헤드리스 모드)로 실행하고 결과를 JSON으로 돌려준다.
+Docker 안의 AI Worker가 이 Mac에 로그인된 구독으로 글을 쓰게 한다.
+- provider "claude_code": Claude Code(Claude 구독) — `claude -p`(헤드리스)
+- provider "codex": Codex CLI(ChatGPT 구독) — `codex exec`(헤드리스)
+워커가 보낸 요청을 실행하고 결과를 JSON으로 돌려준다.
 
-- API 키를 쓰지 않는다: 실행 환경에서 ANTHROPIC_API_KEY를 지워 구독 로그인이 쓰이게 한다.
+- API 키를 쓰지 않는다: 실행 환경에서 ANTHROPIC_API_KEY·OPENAI_API_KEY를 지워 구독 로그인이 쓰이게 한다.
 - 도구는 끈다(사진이 있을 때만 그 사진을 읽는 Read). 작업 폴더는 요청마다 새 임시 폴더.
 - 127.0.0.1에만 열고, 프로젝트 .env의 CLAUDE_BRIDGE_TOKEN이 맞는 요청만 받는다.
 - 프롬프트·본문은 로그에 남기지 않는다(시간·모델·토큰·결과만).
@@ -50,6 +52,8 @@ TOKEN = ENV.get("CLAUDE_BRIDGE_TOKEN", "")
 PARALLEL = int(ENV.get("CLAUDE_BRIDGE_PARALLEL", "2"))
 TIMEOUT = int(ENV.get("CLAUDE_BRIDGE_TIMEOUT", "290"))
 CLAUDE = ENV.get("CLAUDE_BIN") or shutil.which("claude") or str(Path.home() / ".local/bin/claude")
+CODEX = ENV.get("CODEX_BIN") or shutil.which("codex") or "codex"
+API_KEY_VARS = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"}
 
 slots = threading.BoundedSemaphore(PARALLEL)
 
@@ -62,6 +66,89 @@ def valid_model(model: str) -> bool:
     return model in MODEL_ALIASES or (model.startswith("claude-") and model.replace("-", "").replace(".", "").isalnum())
 
 
+def valid_codex_model(model: str) -> bool:
+    return model.startswith(("gpt-", "o")) and model.replace("-", "").replace(".", "").isalnum()
+
+
+def subscription_env() -> dict[str, str]:
+    """구독 로그인을 쓰게 API 키 환경변수는 넘기지 않는다."""
+    return {k: v for k, v in os.environ.items() if k not in API_KEY_VARS}
+
+
+def write_images(work: str, images: list[dict]) -> list[str]:
+    paths = []
+    for index, image in enumerate(images, start=1):
+        path = Path(work, f"photo-{index}.{MEDIA_EXT.get(image.get('media_type'), 'jpg')}")
+        path.write_bytes(base64.b64decode(image["data"]))
+        paths.append(str(path))
+    return paths
+
+
+def run_codex(body: dict) -> dict:
+    """ChatGPT 구독(Codex CLI). 읽기 전용 샌드박스·임시 폴더에서 실행하고 JSONL 이벤트로 결과와 토큰을 읽는다."""
+    model = str(body.get("model") or "gpt-5.5")
+    if not valid_codex_model(model):
+        return {"ok": False, "error": f"지원하지 않는 모델: {model}", "error_kind": "bad_request"}
+
+    with tempfile.TemporaryDirectory(prefix="blog-ai-") as work:
+        command = [
+            CODEX, "exec", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config", "--ignore-rules",
+            "-s", "read-only", "-C", work, "-m", model, "--json",
+            "-c", f"developer_instructions={json.dumps(str(body.get('system') or ''), ensure_ascii=False)}",
+        ]
+        if body.get("json_schema"):
+            schema = Path(work, "schema.json")
+            schema.write_text(json.dumps(body["json_schema"], ensure_ascii=False))
+            command += ["--output-schema", str(schema)]
+        for path in write_images(work, body.get("images") or []):
+            command += ["-i", path]
+        command += ["--", "-"]  # 프롬프트는 stdin으로
+
+        try:
+            done = subprocess.run(command, input=str(body.get("prompt") or ""), capture_output=True, text=True,
+                                  cwd=work, env=subscription_env(), timeout=TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "error": f"{TIMEOUT}초 안에 끝나지 않았습니다.", "error_kind": "unavailable"}
+        except FileNotFoundError:
+            return {"ok": False, "error": f"codex 명령을 찾지 못했습니다: {CODEX}", "error_kind": "not_configured"}
+
+    text, usage, failure = None, {}, None
+    for line in done.stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        kind = event.get("type")
+        item = event.get("item") or {}
+        if kind == "item.completed" and item.get("type") == "agent_message":
+            text = item.get("text") or ""
+        elif kind == "turn.completed":
+            usage = event.get("usage") or {}
+        elif kind == "turn.failed":
+            failure = (event.get("error") or {}).get("message") or "실패"
+        elif kind == "error" and not failure:
+            failure = event.get("message")
+    if text is None or (failure and not usage):
+        message = (failure or done.stderr.strip()[-300:] or f"codex가 {done.returncode}로 끝났습니다.")[:300]
+        return {"ok": False, "error": message, "model": model}
+
+    structured = None
+    if body.get("json_schema"):
+        try:
+            structured = json.loads(text)
+        except json.JSONDecodeError:
+            structured = None
+    return {
+        "ok": True,
+        "text": text,
+        "structured": structured,
+        "model": model,
+        "input_tokens": int(usage.get("input_tokens") or 0),
+        "output_tokens": int(usage.get("output_tokens") or 0),
+        "stop_reason": "end_turn",
+    }
+
+
 def run_claude(body: dict) -> dict:
     model = str(body.get("model") or "sonnet")
     if not valid_model(model):
@@ -72,11 +159,7 @@ def run_claude(body: dict) -> dict:
         tools = ""
         images = body.get("images") or []
         if images:
-            names = []
-            for index, image in enumerate(images, start=1):
-                name = f"photo-{index}.{MEDIA_EXT.get(image.get('media_type'), 'jpg')}"
-                Path(work, name).write_bytes(base64.b64decode(image["data"]))
-                names.append(name)
+            names = [Path(p).name for p in write_images(work, images)]
             tools = "Read"
             listing = "\n".join(f"{i}. ./{n}" for i, n in enumerate(names, start=1))
             prompt = f"첨부 사진(순서대로). Read 도구로 모두 열어 본 뒤 답하세요.\n{listing}\n\n{prompt}"
@@ -90,10 +173,9 @@ def run_claude(body: dict) -> dict:
         if body.get("json_schema"):
             command += ["--json-schema", json.dumps(body["json_schema"], ensure_ascii=False)]
 
-        # 구독 로그인을 쓰게 API 키 환경변수는 넘기지 않는다
-        env = {k: v for k, v in os.environ.items() if k not in {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"}}
         try:
-            done = subprocess.run(command, input=prompt, capture_output=True, text=True, cwd=work, env=env, timeout=TIMEOUT)
+            done = subprocess.run(command, input=prompt, capture_output=True, text=True, cwd=work,
+                                  env=subscription_env(), timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": f"{TIMEOUT}초 안에 끝나지 않았습니다.", "error_kind": "unavailable"}
         except FileNotFoundError:
@@ -149,7 +231,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(404, {"error": "not found"})
         if not self.authorized():
             return self.reply(401, {"error": "토큰이 맞지 않습니다."})
-        self.reply(200, {"ok": True, "claude": CLAUDE, "parallel": PARALLEL})
+        self.reply(200, {"ok": True, "claude": CLAUDE, "codex": CODEX, "parallel": PARALLEL})
 
     def do_POST(self) -> None:
         if self.path != "/generate":
@@ -162,9 +244,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(400, {"error": "JSON이 아닙니다."})
 
         started = time.perf_counter()
+        provider = body.get("provider") or "claude_code"
+        runner = {"claude_code": run_claude, "codex": run_codex}.get(provider)
+        if runner is None:
+            return self.reply(400, {"error": f"모르는 공급자: {provider}"})
         with slots:  # 구독 한도를 아끼려고 동시에 PARALLEL개까지만 실행한다
-            result = run_claude(body)
-        log(event="generate", model=result.get("model", body.get("model")), ok=result["ok"],
+            result = runner(body)
+        log(event="generate", provider=provider, model=result.get("model", body.get("model")), ok=result["ok"],
             images=len(body.get("images") or []), seconds=round(time.perf_counter() - started, 1),
             input_tokens=result.get("input_tokens"), output_tokens=result.get("output_tokens"))
         self.reply(200, result)
@@ -174,7 +260,7 @@ def main() -> None:
     if not TOKEN:
         sys.exit("프로젝트 .env에 CLAUDE_BRIDGE_TOKEN이 없습니다. `make claude-bridge`로 실행하면 만들어 줍니다.")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    log(event="start", port=PORT, claude=CLAUDE, parallel=PARALLEL)
+    log(event="start", port=PORT, claude=CLAUDE, codex=CODEX, parallel=PARALLEL)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

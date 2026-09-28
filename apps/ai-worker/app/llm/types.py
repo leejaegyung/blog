@@ -3,8 +3,8 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel
 
-# claude_code: 호스트의 Claude Code(구독 로그인)를 claude-bridge로 부른다(API 크레딧 불필요)
-Provider = Literal["anthropic", "openai", "claude_code"]
+# claude_code·codex: 호스트의 Claude Code·Codex CLI(구독 로그인)를 claude-bridge로 부른다(API 크레딧 불필요)
+Provider = Literal["anthropic", "openai", "claude_code", "codex"]
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ class Target:
     @classmethod
     def parse(cls, spec: str) -> "Target":
         provider, _, model = spec.strip().partition(":")
-        if provider not in ("anthropic", "openai", "claude_code") or not model:
+        if provider not in ("anthropic", "openai", "claude_code", "codex") or not model:
             raise ValueError(f"잘못된 LLM 대상: {spec!r} (예: anthropic:claude-opus-5)")
         return cls(provider=provider, model=model)  # type: ignore[arg-type]
 

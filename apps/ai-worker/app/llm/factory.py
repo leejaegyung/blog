@@ -18,7 +18,7 @@ from fastapi import Request
 
 from app.config import get_settings
 from app.llm.anthropic_adapter import AnthropicAdapter
-from app.llm.claude_code_adapter import ClaudeCodeAdapter
+from app.llm.claude_code_adapter import SubscriptionAdapter
 from app.llm.openai_adapter import OpenAIAdapter
 from app.llm.router import LLMRouter
 from app.llm.types import LLMAdapter, Target
@@ -80,9 +80,11 @@ def build_router(config: LLMConfig) -> LLMRouter:
         )
 
     if settings.claude_bridge_token:
-        adapters["claude_code"] = ClaudeCodeAdapter(
-            httpx2.AsyncClient(), settings.claude_bridge_url, settings.claude_bridge_token, settings.llm_timeout_seconds
-        )
+        client = httpx2.AsyncClient()
+        for provider in ("claude_code", "codex"):
+            adapters[provider] = SubscriptionAdapter(
+                provider, client, settings.claude_bridge_url, settings.claude_bridge_token, settings.llm_timeout_seconds
+            )
 
     route = []
     for spec in config.route.split(","):

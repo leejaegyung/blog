@@ -19,6 +19,13 @@ class LlmSettings
             'key_prefix' => null,
             'console' => 'https://claude.ai/settings/usage',
         ],
+        // 이 Mac의 Codex CLI(ChatGPT 구독 로그인)를 claude-bridge로 쓴다
+        'codex' => [
+            'label' => 'ChatGPT 구독 (Codex)',
+            'models' => ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
+            'key_prefix' => null,
+            'console' => 'https://chatgpt.com/codex/settings/usage',
+        ],
         'anthropic' => [
             'label' => 'Anthropic (Claude)',
             'models' => ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'],

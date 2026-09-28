@@ -45,7 +45,7 @@ infra/nginx     SPA 서빙 + /api·/sanctum·/up → app:9000 (fastcgi)
 - LLM은 OpenAI(GPT)와 Anthropic(Claude) 둘 다 지원한다. 모든 호출은 `app/llm/router.py`의 `LLMRouter`를 거친다
   (어댑터를 직접 부르지 않는다). 재시도는 SDK에 맡기고 라우터는 공급자 간 fallback만 한다. `temperature`는 쓰지 않는다.
 - 연결 확인: `docker compose exec app su-exec www-data php artisan app:llm-ping [--target=openai:gpt-5.5]`
-- **Claude 구독(Claude Code)으로 생성**: 공급자 `claude_code`(모델 opus·sonnet·haiku). 호스트 Mac의 `infra/claude-bridge/bridge.py`가
+- **구독으로 생성**: 공급자 `claude_code`(Claude Code, 모델 opus·sonnet·haiku)·`codex`(Codex CLI·ChatGPT 구독, gpt-5.5 등, 로그인 `codex login`). 호스트 Mac의 `infra/claude-bridge/bridge.py`가
   `claude -p`(헤드리스, 구독 로그인, ANTHROPIC_API_KEY 제거, 도구 끔)를 실행하고 워커는 `host.docker.internal:8790`으로 부른다.
   `make claude-bridge-install`(로그인 시 자동 실행, ~/.blog-ai 에 복사해 실행 — macOS가 데스크톱 폴더 접근을 막음), 로그 `~/.blog-ai/claude-bridge.log`,
   해제 `make claude-bridge-uninstall`. bridge.py를 고치면 install을 다시 실행. 토큰 `CLAUDE_BRIDGE_TOKEN`(.env)

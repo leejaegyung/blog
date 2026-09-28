@@ -69,7 +69,7 @@ class AdminLlmController extends Controller
     /** 지정한 대상(없으면 현재 순서)으로 연결을 확인한다. 호출 기록은 사용량에 남는다. */
     public function test(Request $request, AiWorkerClient $worker, GenerationRecorder $recorder): JsonResponse
     {
-        $data = $request->validate(['target' => ['nullable', 'string', 'regex:/^(anthropic|openai|claude_code):[a-z0-9][a-z0-9.\-]*$/']]);
+        $data = $request->validate(['target' => ['nullable', 'string', 'regex:/^(anthropic|openai|claude_code|codex):[a-z0-9][a-z0-9.\-]*$/']]);
 
         try {
             $result = $worker->pingLlm(array_filter([$data['target'] ?? null]));
