@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { referenceApi, type ParseStatus, type Reference } from '@/lib/api'
 import { validationErrors } from '@/lib/http'
 
-const props = defineProps<{ projectId: number }>()
+// learning: 카테고리별 학습 화면("학습할 글")
+const props = defineProps<{ projectId: number; learning?: boolean }>()
 const emit = defineEmits<{ changed: [count: number] }>()
 
 const MAX = 50
@@ -147,7 +148,7 @@ defineExpose({ load })
 <template>
   <section class="space-y-4">
     <div class="flex flex-wrap items-baseline justify-between gap-2">
-      <h2 class="m-0 text-sm font-bold">참고자료</h2>
+      <h2 class="m-0 text-sm font-bold">{{ learning ? '학습할 글' : '참고자료' }}</h2>
       <span class="text-sm text-sub">{{ references.length }}/{{ MAX }}</span>
     </div>
 

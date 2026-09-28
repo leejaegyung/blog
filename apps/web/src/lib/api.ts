@@ -4,10 +4,15 @@ export type User = { id: number; name: string; username: string | null; email: s
 
 export type ProjectStatus = 'draft' | 'analyzing' | 'analyzed' | 'failed'
 
+// keyword: 글마다 생기는 키워드 / category: 관리 › 카테고리별 학습에서 만든 학습 카테고리(이름은 keyword)
+export type ProjectKind = 'keyword' | 'category'
 export type Project = {
   id: number
   keyword: string
   category: string | null
+  kind: ProjectKind
+  learning_category_id?: number | null
+  learning_category?: { id: number; keyword: string } | null
   status: ProjectStatus
   last_analyzed_at: string | null
   analysis_version: string | null
@@ -19,7 +24,7 @@ export type Project = {
   updated_at: string
 }
 
-export type ProjectInput = { keyword: string; category?: string | null }
+export type ProjectInput = { keyword: string; category?: string | null; kind?: ProjectKind }
 
 export type ParseStatus = 'pending' | 'needs_text' | 'parsed' | 'duplicate' | 'failed'
 
@@ -199,6 +204,8 @@ export type Post = {
   id: number
   keyword_project_id: number | null
   keyword?: string | null
+  // 이 글이 쓰는 학습 카테고리(글 하나를 불러올 때만)
+  learning_category?: { id: number; keyword: string } | null
   pipeline_status?: 'running' | 'done' | 'failed' | null
   pipeline_step?: PipelineStep | null
   pipeline_error?: string | null
@@ -261,8 +268,8 @@ export const authApi = {
 }
 
 export const projectApi = {
-  async list() {
-    const { data } = await http.get<Wrapped<Project[]>>('/projects')
+  async list(kind: ProjectKind = 'keyword') {
+    const { data } = await http.get<Wrapped<Project[]>>('/projects', { params: kind === 'category' ? { kind } : {} })
     return data.data
   },
   async get(id: number) {
@@ -288,9 +295,12 @@ export const projectApi = {
 }
 
 export const postApi = {
-  async list(projectId?: number) {
+  async list(projectId?: number, learningCategoryId?: number) {
     const { data } = await http.get<Wrapped<Post[]>>('/posts', {
-      params: projectId ? { project_id: projectId } : {},
+      params: {
+        ...(projectId ? { project_id: projectId } : {}),
+        ...(learningCategoryId ? { learning_category_id: learningCategoryId } : {}),
+      },
     })
     return data.data
   },
@@ -302,10 +312,12 @@ export const postApi = {
   async remove(id: number) {
     await http.delete(`/posts/${id}`)
   },
-  async start(keyword: string, category?: string) {
+  /** learningCategoryId: 관리 › 카테고리별 학습에서 학습시킨 카테고리(고르면 그 참고 글이 키워드 분석에 쓰인다) */
+  async start(keyword: string, category?: string | null, learningCategoryId?: number | null) {
     const { data } = await http.post<Wrapped<Post>>('/posts/start', {
       keyword,
       category: category || null,
+      learning_category_id: learningCategoryId || null,
     })
     return data.data
   },

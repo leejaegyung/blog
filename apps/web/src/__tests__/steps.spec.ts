@@ -9,7 +9,7 @@ import DraftStep from '@/components/steps/DraftStep.vue'
 import UploadStep from '@/components/steps/UploadStep.vue'
 import KeywordStep from '@/components/steps/KeywordStep.vue'
 import PhotoStep from '@/components/steps/PhotoStep.vue'
-import { analysisApi, imageApi, postApi, referenceApi, type ExportResult, type Post, type PostImage } from '@/lib/api'
+import { analysisApi, imageApi, postApi, projectApi, referenceApi, type ExportResult, type Post, type PostImage, type Project } from '@/lib/api'
 import { copyRich, copyText } from '@/lib/clipboard'
 
 vi.mock('@/lib/api', () => ({
@@ -31,6 +31,7 @@ vi.mock('@/lib/api', () => ({
     remove: vi.fn<() => Promise<void>>(),
     reorder: vi.fn<() => Promise<PostImage[]>>(),
   },
+  projectApi: { list: vi.fn<(kind?: string) => Promise<Project[]>>() },
   analysisApi: { get: vi.fn<(id: number) => Promise<{ data: null; status: string }>>() },
   referenceApi: {
     list: vi.fn<(id: number) => Promise<never[]>>(),
@@ -54,7 +55,7 @@ const post = (extra: Partial<Post> = {}) => ({ ...base, ...extra }) as Post
 
 function mountStep(component: DefineComponent, props: Record<string, unknown>) {
   const flow = { update: vi.fn<(p: Post) => void>(), go: vi.fn<(step: number, id?: number) => void>() }
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:p(.*)*', component: { render: () => null } }] })
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/projects', name: 'projects', component: { render: () => null } }, { path: '/:p(.*)*', component: { render: () => null } }] })
   const wrapper = mount(component, { props, global: { plugins: [router], provide: { flow } }, attachTo: document.body })
   return { wrapper, flow }
 }
@@ -68,6 +69,7 @@ beforeEach(() => {
   }
   vi.mocked(analysisApi.get).mockResolvedValue({ data: null, status: 'draft' })
   vi.mocked(referenceApi.list).mockResolvedValue([])
+  vi.mocked(projectApi.list).mockResolvedValue([])
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -75,20 +77,28 @@ afterEach(() => {
 })
 
 describe('1 키워드', () => {
-  it('키워드·카테고리로 글을 시작하고 모아 둔 참고 글 주소를 추가한다', async () => {
+  it('키워드와 학습 카테고리로 글을 시작하고 모아 둔 참고 글 주소를 추가한다', async () => {
+    vi.mocked(projectApi.list).mockResolvedValue([
+      { id: 5, keyword: '맛집', kind: 'category', status: 'analyzed', reference_count: 4 },
+      { id: 6, keyword: '카페', kind: 'category', status: 'draft', reference_count: 0 },
+    ] as Project[])
     vi.mocked(postApi.start).mockResolvedValue(post())
     vi.mocked(referenceApi.addUrls).mockResolvedValue({ data: [], skipped: [] })
     const { wrapper, flow } = mountStep(KeywordStep as unknown as DefineComponent, { post: null })
 
+    await flushPromises()
+    expect(projectApi.list).toHaveBeenCalledWith('category')
+    expect(wrapper.text()).toContain('맛집 · 학습한 글 4개 · 학습 완료')  // 처음엔 가장 최근 카테고리
     await wrapper.get('input[aria-label="키워드"]').setValue('인계동 파스타')
     await button(wrapper, '카페').trigger('click')
+    expect(wrapper.text()).toContain('카페 · 학습한 글 0개 · 학습 전')
     await wrapper.get('textarea[aria-label="참고할 글 주소"]').setValue('https://ex.com/a')
     await button(wrapper, '추가하고 분석').trigger('click')
     expect(wrapper.text()).toContain('1개는 다음을 누르면 추가돼요')
     await button(wrapper, '다음 · 사진 올리기').trigger('click')
     await flushPromises()
 
-    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페')
+    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페', 6)
     expect(referenceApi.addUrls).toHaveBeenCalledWith(3, ['https://ex.com/a'])
     expect(flow.go).toHaveBeenCalledWith(2, 7)
   })

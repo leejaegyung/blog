@@ -14,13 +14,20 @@ class ProjectResource extends JsonResource
             'id' => $this->id,
             'keyword' => $this->keyword,
             'category' => $this->category,
+            // keyword: 글마다 생기는 키워드, category: 관리 › 카테고리별 학습에서 만든 학습 카테고리
+            'kind' => $this->kind,
+            'learning_category_id' => $this->learning_category_id,
+            'learning_category' => $this->whenLoaded('learningCategory', fn () => $this->learningCategory?->only(['id', 'keyword'])),
             'status' => $this->status,
             'last_analyzed_at' => $this->last_analyzed_at,
             'analysis_version' => $this->analysis_version,
             // 사용자가 고친 해시태그(null이면 분석 추천을 쓴다)
             'hashtags' => $this->hashtags_json,
             'reference_count' => $this->whenCounted('references'),
-            'post_count' => $this->whenCounted('posts'),
+            // 카테고리는 그 카테고리를 고른 키워드들로 쓴 글 수
+            'post_count' => $this->kind === \App\Models\KeywordProject::KIND_CATEGORY
+                ? $this->whenCounted('categoryPosts')
+                : $this->whenCounted('posts'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

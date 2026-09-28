@@ -15,8 +15,12 @@ class ProjectController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        // ?kind=category 이면 학습 카테고리(관리 › 카테고리별 학습), 아니면 키워드
+        $kind = $request->query('kind') === KeywordProject::KIND_CATEGORY ? KeywordProject::KIND_CATEGORY : KeywordProject::KIND_KEYWORD;
         $projects = $request->user()->keywordProjects()
-            ->withCount(['references', 'posts'])
+            ->where('kind', $kind)
+            ->withCount(['references', 'posts', 'categoryPosts'])
+            ->with('learningCategory:id,keyword')
             ->latest()
             ->get();
 
@@ -27,14 +31,14 @@ class ProjectController extends Controller
     {
         $project = $request->user()->keywordProjects()->create($request->validated());
 
-        return new ProjectResource($project->refresh()->loadCount(['references', 'posts']));
+        return new ProjectResource($project->refresh()->loadCount(['references', 'posts', 'categoryPosts']));
     }
 
     public function show(KeywordProject $project): ProjectResource
     {
         Gate::authorize('view', $project);
 
-        return new ProjectResource($project->loadCount(['references', 'posts']));
+        return new ProjectResource($project->loadCount(['references', 'posts', 'categoryPosts'])->load('learningCategory:id,keyword'));
     }
 
     public function update(ProjectRequest $request, KeywordProject $project): ProjectResource
@@ -43,7 +47,7 @@ class ProjectController extends Controller
 
         $project->update($request->validated());
 
-        return new ProjectResource($project->loadCount(['references', 'posts']));
+        return new ProjectResource($project->loadCount(['references', 'posts', 'categoryPosts'])->load('learningCategory:id,keyword'));
     }
 
     public function destroy(KeywordProject $project): Response

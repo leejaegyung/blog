@@ -4,7 +4,8 @@ import { analysisApi, type KeywordAnalysis, type Project, type ProjectStatus } f
 import ShareBar from '@/components/ShareBar.vue'
 import ExposureGuide from '@/components/ExposureGuide.vue'
 
-const props = defineProps<{ projectId: number; referenceCount: number; customHashtags?: string[] | null }>()
+// learning: 관리 › 카테고리별 학습 화면(분석 대신 "학습"이라고 부른다)
+const props = defineProps<{ projectId: number; referenceCount: number; customHashtags?: string[] | null; learning?: boolean }>()
 const emit = defineEmits<{ status: [status: ProjectStatus]; hashtagsSaved: [project: Project] }>()
 
 const POLL_MS = 3000
@@ -84,14 +85,14 @@ onBeforeUnmount(() => clearTimeout(timer))
 <template>
   <section class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="m-0 text-sm font-bold">키워드 분석</h2>
+      <h2 class="m-0 text-sm font-bold">{{ learning ? '학습 결과' : '키워드 분석' }}</h2>
       <button
         type="button"
         :disabled="analyzing || loading"
         class="h-11 rounded-xl bg-ink px-5 font-bold text-cream disabled:opacity-50"
         @click="analyze"
       >
-        {{ analyzing ? '분석 중…' : analysis ? '다시 분석' : '분석하기' }}
+        {{ learning ? (analyzing ? '학습 중…' : analysis ? '다시 학습' : '학습하기') : analyzing ? '분석 중…' : analysis ? '다시 분석' : '분석하기' }}
       </button>
     </div>
 
@@ -104,8 +105,12 @@ onBeforeUnmount(() => clearTimeout(timer))
     <p v-else-if="!analysis && !analyzing" class="text-sub">
       {{
         referenceCount > 0
-          ? `참고자료 ${referenceCount}개로 검색 의도와 글 구성을 분석합니다.`
-          : '참고자료 없이도 키워드만으로 분석할 수 있지만, 참고자료를 추가하면 구성·사진 배치 통계가 함께 나옵니다.'
+          ? learning
+            ? `학습할 글 ${referenceCount}개로 글 구성·사진 배치·해시태그를 학습해요.`
+            : `참고자료 ${referenceCount}개로 검색 의도와 글 구성을 분석합니다.`
+          : learning
+            ? '위에 잘 쓴 글 URL을 넣고 “학습하기”를 누르세요. 글 구성·사진 배치·해시태그를 학습해요.'
+            : '참고자료 없이도 키워드만으로 분석할 수 있지만, 참고자료를 추가하면 구성·사진 배치 통계가 함께 나옵니다.'
       }}
     </p>
 
@@ -123,7 +128,7 @@ onBeforeUnmount(() => clearTimeout(timer))
         class="rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px]"
         role="status"
       >
-        분석 뒤에 참고자료나 키워드가 바뀌었습니다. 다시 분석해 주세요.
+        {{ learning ? '학습 뒤에 글이 바뀌었어요. 다시 학습해 주세요.' : '분석 뒤에 참고자료나 키워드가 바뀌었습니다. 다시 분석해 주세요.' }}
       </p>
       <p
         v-if="analysis.insight_error"

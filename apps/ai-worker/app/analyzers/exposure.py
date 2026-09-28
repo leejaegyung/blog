@@ -141,26 +141,26 @@ def build_guide(
         ))
         low, high = _range(stats.title.length.p25, stats.title.length.p75)
         targets.append(GuideTarget(
-            key="title_length", label="제목 길이", target=f"{low}~{high}자", basis=f"{basis} 제목 길이의 가운데 50%",
+            key="title_length", label="제목 길이", target=_span(low, high, "자"), basis=f"{basis} 제목 길이의 가운데 50%",
             min=low, max=high,
         ))
 
     low, high = _range(stats.char_count.p25, stats.char_count.p75, step=100)
     targets.append(GuideTarget(
-        key="length", label="본문 길이", target=f"{low:,}~{high:,}자", basis=f"{basis} 본문 길이의 가운데 50%", min=low, max=high,
+        key="length", label="본문 길이", target=_span(low, high, "자"), basis=f"{basis} 본문 길이의 가운데 50%", min=low, max=high,
     ))
 
     photo_low, photo_high = _range(stats.photos.count.p25, stats.photos.count.p75)
     if photo_high > 0:
         targets.append(GuideTarget(
-            key="photos", label="사진", target=f"직접 찍은 사진 {photo_low}~{photo_high}장",
+            key="photos", label="사진", target=f"직접 찍은 사진 {_span(photo_low, photo_high, '장')}",
             basis=f"{basis} 사진 수의 가운데 50%", min=photo_low, max=photo_high,
         ))
 
     heading_low, heading_high = _range(stats.heading_count.p25, stats.heading_count.p75)
     if heading_high > 0:
         targets.append(GuideTarget(
-            key="headings", label="소제목", target=f"{heading_low}~{heading_high}개",
+            key="headings", label="소제목", target=_span(heading_low, heading_high, "개"),
             basis=f"{basis} 소제목 수의 가운데 50%", min=heading_low, max=heading_high,
         ))
 
@@ -168,7 +168,7 @@ def build_guide(
     chars = stats.char_count.median / 1000
     repeat_low, repeat_high = max(1, round(per_1000.p25 * chars)), max(1, round(per_1000.p75 * chars))
     targets.append(GuideTarget(
-        key="keyword_repeat", label="키워드 반복", target=f"본문에 {repeat_low}~{repeat_high}번(억지 반복은 금물)",
+        key="keyword_repeat", label="키워드 반복", target=f"본문에 {_span(repeat_low, repeat_high, '번')}(억지 반복은 금물)",
         basis=f"{basis}의 1000자당 키워드 수를 본문 길이에 맞춘 값", min=repeat_low, max=repeat_high,
     ))
 
@@ -193,7 +193,7 @@ def build_guide(
     else:
         (tag_low, tag_high), tag_basis = DEFAULT_HASHTAGS, "참고 글에 해시태그가 없어 일반 기준이에요"
     targets.append(GuideTarget(
-        key="hashtags", label="해시태그", target=f"{tag_low}~{tag_high}개", basis=tag_basis, min=tag_low, max=tag_high,
+        key="hashtags", label="해시태그", target=_span(tag_low, tag_high, "개"), basis=tag_basis, min=tag_low, max=tag_high,
     ))
 
     if stats.ending_summary_share >= 0.5:
@@ -243,6 +243,11 @@ def _default_guide(hashtags: list[HashtagSuggestion]) -> ExposureGuide:
 def _range(low: float, high: float, step: int = 1) -> tuple[int, int]:
     a, b = round(low / step) * step, round(high / step) * step
     return int(a), int(max(a, b))
+
+
+def _span(low: int, high: int, unit: str) -> str:
+    """참고 글이 하나뿐이면 범위 대신 한 값으로("16~16자" → "16자")."""
+    return f"{low:,}{unit}" if low == high else f"{low:,}~{high:,}{unit}"
 
 
 def _pct(share: float) -> str:

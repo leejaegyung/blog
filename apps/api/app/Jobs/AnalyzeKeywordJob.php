@@ -6,6 +6,7 @@ use App\Enums\ParseStatus;
 use App\Enums\ProjectStatus;
 use App\Models\KeywordAnalysis;
 use App\Models\KeywordProject;
+use App\Models\ReferenceDocument;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
 use App\Jobs\Concerns\TracksPipeline;
@@ -32,9 +33,15 @@ class AnalyzeKeywordJob implements ShouldQueue
     public function __construct(public KeywordProject $project) {}
 
     /** 참고자료 구성과 키워드가 같으면 같은 분석으로 본다(캐시 키). */
+    /** @return list<int> 이 분석에 참고 글을 대는 프로젝트(자기 자신 + 고른 학습 카테고리) */
+    public static function sourceProjectIds(KeywordProject $project): array
+    {
+        return array_values(array_filter([$project->id, $project->isCategory() ? null : $project->learning_category_id]));
+    }
+
     public static function sourceHash(KeywordProject $project): string
     {
-        $hashes = $project->references()
+        $hashes = ReferenceDocument::whereIn('keyword_project_id', self::sourceProjectIds($project))
             ->where('parse_status', ParseStatus::Parsed)
             ->orderBy('content_hash')
             ->pluck('content_hash')
@@ -48,7 +55,8 @@ class AnalyzeKeywordJob implements ShouldQueue
         $this->pipelineStep('analysis');
         $project = $this->project;
 
-        $features = $project->references()
+        // 키워드가 고른 학습 카테고리의 참고 글도 함께 쓴다(카테고리별 학습)
+        $features = ReferenceDocument::whereIn('keyword_project_id', self::sourceProjectIds($project))
             ->where('parse_status', ParseStatus::Parsed)
             ->with('features')
             ->get()

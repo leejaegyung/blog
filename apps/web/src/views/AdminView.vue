@@ -170,7 +170,7 @@ onMounted(load)
           <button type="button" class="rounded-lg border-[1.5px] border-ink px-2.5 py-1.5 text-xs font-bold" @click="forget(job)">지우기</button>
         </div>
       </div>
-      <RouterLink to="/projects" class="pt-2 text-[13px] font-bold underline">키워드·참고 글 관리 →</RouterLink>
+      <RouterLink to="/projects" class="pt-2 text-[13px] font-bold underline">카테고리별 학습 →</RouterLink>
     </aside>
   </div>
 </template>

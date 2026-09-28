@@ -10,6 +10,7 @@ use App\Jobs\AnalyzeImagesJob;
 use App\Jobs\AnalyzeKeywordJob;
 use App\Jobs\GenerateDraftJob;
 use App\Jobs\GeneratePlanJob;
+use App\Models\KeywordProject;
 use App\Models\Post;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,15 +27,33 @@ class WizardController extends Controller
         $data = $request->validate([
             'keyword' => ['required', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:50'],
+            // 관리 › 카테고리별 학습에서 만든 카테고리. 고르면 그 카테고리의 참고 글이 키워드 분석에 함께 쓰인다
+            'learning_category_id' => ['nullable', 'integer'],
         ]);
+        $learning = null;
+        if (! empty($data['learning_category_id'])) {
+            $learning = $request->user()->keywordProjects()
+                ->where('kind', KeywordProject::KIND_CATEGORY)
+                ->find($data['learning_category_id']);
+            if (! $learning) {
+                throw ValidationException::withMessages(['learning_category_id' => '학습 카테고리를 찾을 수 없어요.']);
+            }
+        }
         $keyword = preg_replace('/\s+/u', ' ', trim($data['keyword']));
         if ($keyword === '') {
             throw ValidationException::withMessages(['keyword' => '키워드를 입력해 주세요.']);
         }
 
-        $project = $request->user()->keywordProjects()->firstOrCreate(['keyword' => $keyword], ['category' => $data['category'] ?? null]);
-        if (! $project->category && ! empty($data['category'])) {
-            $project->update(['category' => $data['category']]);
+        $category = $learning?->keyword ?? ($data['category'] ?? null);
+        $project = $request->user()->keywordProjects()->firstOrCreate(
+            ['kind' => KeywordProject::KIND_KEYWORD, 'keyword' => $keyword],
+            ['category' => $category],
+        );
+        if ($learning) {
+            // 이번에 고른 학습 카테고리로 바꾼다(키워드 분석이 그 카테고리의 참고 글을 쓴다)
+            $project->update(['learning_category_id' => $learning->id, 'category' => $learning->keyword]);
+        } elseif (! $project->category && $category) {
+            $project->update(['category' => $category]);
         }
         // 같은 키워드로 시작만 하고 아무것도 넣지 않은 글이 있으면 새로 만들지 않고 그 글을 이어 쓴다
         $empty = $request->user()->posts()
@@ -48,7 +67,7 @@ class WizardController extends Controller
             ->first();
         $post = $empty ?? $request->user()->posts()->create(['keyword_project_id' => $project->id, 'tone' => 'natural', 'target_length' => 2500]);
 
-        return (new PostResource($post->refresh()->load(['project.latestAnalysis', 'facts', 'images'])))->response()->setStatusCode($empty ? 200 : 201);
+        return (new PostResource($post->refresh()->load(['project.latestAnalysis', 'project.learningCategory:id,keyword', 'facts', 'images'])))->response()->setStatusCode($empty ? 200 : 201);
     }
 
     /** until=plan: 사진 분석→키워드 분석→계획까지만(글 계획 단계에서 사용자가 고른 뒤 초안을 쓴다). 기본은 초안까지. */
@@ -56,8 +75,8 @@ class WizardController extends Controller
     {
         $untilPlan = $request->input('until') === 'plan';
         Gate::authorize('update', $post);
-        $post->load(['project.latestAnalysis', 'facts', 'images']);
-        $respond = fn () => (new PostResource($post->refresh()->load(['project.latestAnalysis', 'facts', 'images'])))->response()->setStatusCode(202);
+        $post->load(['project.latestAnalysis', 'project.learningCategory:id,keyword', 'facts', 'images']);
+        $respond = fn () => (new PostResource($post->refresh()->load(['project.latestAnalysis', 'project.learningCategory:id,keyword', 'facts', 'images'])))->response()->setStatusCode(202);
 
         if ($post->pipeline_status === 'running') {
             return $respond();

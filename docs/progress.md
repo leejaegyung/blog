@@ -454,6 +454,24 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
 - `.env` `SANCTUM_STATEFUL_DOMAINS`에 두 주소를 더해 로그인 쿠키(자동 로그인)가 동작. 확인: 두 주소 모두 `/api/user` 자동 로그인, 모바일 크기 브라우저에서 홈·관리 오류 없음
 - 끄기: `tailscale serve --http=8080 off`
 
+## 2026-09-28 추가: 카테고리별 학습
+
+관리 › "키워드·참고 글 관리"를 **"카테고리별 학습"**으로 바꿨다. 카테고리(예: 맛집·카페)를 만들고 잘 쓴 글 URL(또는 본문 붙여넣기)을
+넣어 "학습하기"를 누르면, 글쓰기 1단계에서 그 카테고리를 골랐을 때 글 구성·사진 배치·해시태그에 반영된다.
+- 데이터: `keyword_projects.kind`(keyword | category), `learning_category_id`(키워드가 고른 학습 카테고리, 같은 테이블).
+  이름 유일성은 (user_id, kind, keyword). 카테고리는 프로젝트를 그대로 써서 참고 글·분석·가이드·해시태그 화면을 재사용
+- 키워드 분석(`AnalyzeKeywordJob`)은 자기 참고 글 + 고른 카테고리의 참고 글 특징을 합쳐 통계를 낸다(`sourceProjectIds`),
+  카테고리에 글을 더하면 키워드 분석도 다시 하도록 `sourceHash`에 포함
+- 해시태그: 키워드에 직접 고친 목록이 없으면 키워드 분석 추천 + 카테고리 해시태그(직접 고친 것 또는 학습 추천)를 합친다
+- API: `GET /projects?kind=category`, `POST /projects {kind:'category'}`, `POST /posts/start {learning_category_id}`,
+  `GET /posts?learning_category_id=`. 글 응답에 `learning_category`
+- 화면: 카테고리별 학습 목록(만들기·✕ 삭제), 카테고리 상세("학습할 글"·"학습하기/다시 학습"·"학습 결과", 이 카테고리로 쓴 글,
+  "이 카테고리로 새 글 쓰기" → 1단계에서 미리 선택). 1단계 카테고리 칩 = 학습 카테고리(+ 선택 안 함, + 카테고리 학습시키기),
+  1단계 오른쪽 참고 글 URL 입력은 그대로(그 키워드만의 참고 글)
+- 가이드 목표치: 참고 글이 하나면 범위 대신 한 값("16~16자" → "16자")
+- 실제 확인: 카테고리 생성 → 본문 붙여넣기 → 학습(구독 LLM) → 해시태그에 참고 글 태그 반영 → 1단계에서 골라 시작 시 추천 해시태그 적용. 데모 데이터는 삭제
+- 테스트: api 135개, worker 153개(+1 건너뜀), web 62개
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

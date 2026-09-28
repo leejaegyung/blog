@@ -40,3 +40,11 @@ def test_default_guide_without_references() -> None:
     assert guide.reference_count == 0
     assert guide.checks.photo_min == 5 and guide.checks.hashtag_min == 5
     assert all("일반 기준" in t.basis for t in guide.targets)
+
+
+def test_single_reference_shows_one_value_instead_of_a_range() -> None:
+    guide = build_guide("인계동 파스타", None, aggregate(DOCS[:1], "인계동 파스타"))
+    targets = {t.key: t.target for t in guide.targets}
+
+    assert "~" not in targets["length"] and targets["length"].endswith("자")
+    assert "~" not in targets["photos"]

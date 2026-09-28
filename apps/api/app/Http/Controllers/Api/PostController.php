@@ -19,10 +19,14 @@ class PostController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $request->validate(['project_id' => ['sometimes', 'integer']]);
+        $request->validate(['project_id' => ['sometimes', 'integer'], 'learning_category_id' => ['sometimes', 'integer']]);
 
         $posts = $request->user()->posts()
             ->when($request->filled('project_id'), fn ($q) => $q->where('keyword_project_id', $request->integer('project_id')))
+            // 학습 카테고리로 쓴 글(그 카테고리를 고른 키워드들의 글)
+            ->when($request->filled('learning_category_id'), fn ($q) => $q->whereHas(
+                'project', fn ($p) => $p->where('learning_category_id', $request->integer('learning_category_id'))
+            ))
             ->withCount(['images', 'facts'])
             ->with('project:id,keyword')
             ->latest()
@@ -132,6 +136,6 @@ class PostController extends Controller
 
     private function resource(Post $post): PostResource
     {
-        return new PostResource($post->refresh()->load(['project.latestAnalysis', 'facts', 'images']));
+        return new PostResource($post->refresh()->load(['project.latestAnalysis', 'project.learningCategory:id,keyword', 'facts', 'images']));
     }
 }

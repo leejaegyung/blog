@@ -16,6 +16,11 @@ class PostResource extends JsonResource
             'id' => $this->id,
             'keyword_project_id' => $this->keyword_project_id,
             'keyword' => $this->whenLoaded('project', fn () => $this->project?->keyword),
+            // 이 글의 키워드가 쓰는 학습 카테고리(글 하나를 불러올 때만)
+            'learning_category' => $this->when(
+                $this->relationLoaded('project') && $this->project?->relationLoaded('learningCategory'),
+                fn () => $this->project?->learningCategory?->only(['id', 'keyword']),
+            ),
             'title' => $this->title,
             'tone' => $this->tone,
             'target_length' => $this->target_length,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { postApi, referenceApi, type Post, type Reference } from '@/lib/api'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { postApi, projectApi, referenceApi, type Post, type Project, type Reference } from '@/lib/api'
 import { validationErrors } from '@/lib/http'
 import StepLayout from '@/components/flow/StepLayout.vue'
 import NextButton from '@/components/flow/NextButton.vue'
@@ -12,11 +12,21 @@ const flow = useFlow()
 const route = useRoute()
 const router = useRouter()
 
-const CATEGORIES = ['맛집', '카페', '여행', '제품 리뷰']
 const keyword = ref(props.post?.keyword ?? (typeof route.query.keyword === 'string' ? route.query.keyword : ''))
-const category = ref('맛집')
-const custom = ref('')
-const customOpen = ref(false)
+// 관리 › 카테고리별 학습에서 학습시킨 카테고리 중 하나를 고른다(그 카테고리의 참고 글이 키워드 분석에 쓰인다)
+const categories = ref<Project[]>([])
+const categoryId = ref<number | null>(null)
+const categoriesLoaded = ref(false)
+const STATUS_LABELS: Record<string, string> = { draft: '학습 전', analyzing: '학습 중', analyzed: '학습 완료', failed: '학습 실패' }
+const chosen = computed(() => categories.value.find((c) => c.id === categoryId.value) ?? null)
+
+async function loadCategories() {
+  if (props.post) return
+  categories.value = await projectApi.list('category').catch(() => [])
+  const wanted = Number(route.query.category)
+  categoryId.value = categories.value.some((c) => c.id === wanted) ? wanted : (categories.value[0]?.id ?? null)
+  categoriesLoaded.value = true
+}
 const urls = ref('')
 const pending = ref<string[]>([])
 const references = ref<Reference[]>([])
@@ -75,7 +85,7 @@ async function next() {
   busy.value = true
   error.value = null
   try {
-    const created = await postApi.start(keyword.value, customOpen.value ? custom.value : category.value)
+    const created = await postApi.start(keyword.value, chosen.value?.keyword ?? null, categoryId.value)
     if (pending.value.length && created.keyword_project_id) {
       await referenceApi.addUrls(created.keyword_project_id, pending.value).catch(() => {})
     }
@@ -88,7 +98,7 @@ async function next() {
   }
 }
 
-onMounted(loadReferences)
+onMounted(() => Promise.all([loadReferences(), loadCategories()]))
 </script>
 
 <template>
@@ -106,40 +116,46 @@ onMounted(loadReferences)
     <p v-if="post" class="-mt-3 text-[13px] text-sub">키워드를 바꾸려면 새 글을 시작해 주세요.</p>
 
     <div v-if="!post" class="flex flex-col gap-2.5">
-      <span class="text-[13px] font-bold lg:text-sm">카테고리 <span class="font-medium text-sub">(선택)</span></span>
-      <div class="flex flex-wrap gap-1.5 lg:gap-2" role="radiogroup" aria-label="카테고리">
+      <span class="text-[13px] font-bold lg:text-sm">학습 카테고리 <span class="font-medium text-sub">(고르면 그 카테고리에서 학습한 글 구성·해시태그를 써요)</span></span>
+      <div class="flex flex-wrap gap-1.5 lg:gap-2" role="radiogroup" aria-label="학습 카테고리">
         <button
-          v-for="option in CATEGORIES"
-          :key="option"
+          v-for="option in categories"
+          :key="option.id"
           type="button"
           role="radio"
-          :aria-checked="!customOpen && category === option"
-          :class="!customOpen && category === option ? 'bg-lilac' : 'bg-white'"
+          :aria-checked="categoryId === option.id"
+          :class="categoryId === option.id ? 'bg-lilac' : 'bg-white'"
           class="rounded-full border-[1.5px] border-ink px-3.5 py-2 text-sm font-semibold lg:px-4 lg:py-2.5 lg:text-[15px]"
-          @click="(category = option), (customOpen = false)"
+          @click="categoryId = option.id"
         >
-          {{ option }}
+          {{ option.keyword }}
         </button>
         <button
+          v-if="categories.length"
           type="button"
           role="radio"
-          :aria-checked="customOpen"
-          :class="customOpen ? 'bg-lilac' : 'bg-white'"
+          :aria-checked="categoryId === null"
+          :class="categoryId === null ? 'bg-lilac' : 'bg-white'"
           class="rounded-full border-[1.5px] border-ink px-3.5 py-2 text-sm font-semibold lg:px-4 lg:py-2.5 lg:text-[15px]"
-          @click="customOpen = true"
+          @click="categoryId = null"
         >
-          + 직접 입력
+          선택 안 함
         </button>
+        <RouterLink
+          :to="{ name: 'projects' }"
+          class="rounded-full border-[1.5px] border-dashed border-ink bg-white px-3.5 py-2 text-sm font-semibold text-ink no-underline hover:text-ink lg:px-4 lg:py-2.5 lg:text-[15px]"
+        >
+          + 카테고리 학습시키기
+        </RouterLink>
       </div>
-      <input
-        v-if="customOpen"
-        v-model="custom"
-        maxlength="50"
-        aria-label="카테고리 직접 입력"
-        placeholder="예: 육아"
-        class="max-w-xs rounded-xl border-[1.5px] border-ink bg-white px-3 py-2"
-      />
+      <p v-if="chosen" class="m-0 text-[13px] text-sub">
+        {{ chosen.keyword }} · 학습한 글 {{ chosen.reference_count ?? 0 }}개 · {{ STATUS_LABELS[chosen.status] ?? chosen.status }}
+      </p>
+      <p v-else-if="categoriesLoaded && !categories.length" class="m-0 text-[13px] text-sub">
+        아직 학습한 카테고리가 없어요. 관리 › 카테고리별 학습에서 잘 쓴 글 URL로 카테고리를 학습시켜 보세요.
+      </p>
     </div>
+    <p v-else-if="post.learning_category" class="-mt-2 m-0 text-[13px] text-sub">학습 카테고리: <b class="text-ink">{{ post.learning_category.keyword }}</b></p>
     <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
 
     <!-- 모바일 디자인: 접힌 점선 카드를 누르면 참고 글 입력이 열린다 -->
