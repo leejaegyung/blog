@@ -10,7 +10,7 @@ const SOURCE = {
 } as const
 
 const ERROR_KINDS: Record<string, string> = {
-  billing: '크레딧(잔액) 부족',
+  billing: 'API 크레딧 없음',
   auth: '키가 올바르지 않거나 권한 없음',
   not_configured: '키가 설정되지 않음',
   rate_limited: '요청 한도 초과',
@@ -189,20 +189,35 @@ defineExpose({ load })
           {{ messages[provider.provider]!.text }}
         </p>
         <template v-if="tests[provider.provider] && tests[provider.provider] !== 'running'">
-          <p
+          <div
             v-for="attempt in (tests[provider.provider] as LlmTestResult).attempts"
             :key="attempt.model"
-            role="status"
-            :class="attempt.status === 'success' ? 'font-bold text-ink' : 'text-red-600'"
-            class="text-sm"
+            class="flex flex-col gap-2"
           >
-            {{ attempt.model }}:
-            {{
-              attempt.status === 'success'
-                ? `연결됨 (${(attempt.latency_ms / 1000).toFixed(1)}초)`
-                : (ERROR_KINDS[attempt.error_kind ?? ''] ?? attempt.error_kind ?? '실패')
-            }}
-          </p>
+            <p role="status" :class="attempt.status === 'success' ? 'font-bold text-ink' : 'text-red-600'" class="m-0 text-sm">
+              {{ attempt.model }}:
+              {{
+                attempt.status === 'success'
+                  ? `연결됨 (${(attempt.latency_ms / 1000).toFixed(1)}초)`
+                  : (ERROR_KINDS[attempt.error_kind ?? ''] ?? attempt.error_kind ?? '실패')
+              }}
+            </p>
+            <!-- "크레딧이 있는데 부족이라고 나온다"를 가리도록 키가 속한 계정과 공급자 응답을 그대로 보여준다 -->
+            <div
+              v-if="attempt.status !== 'success' && (attempt.account || attempt.error_message)"
+              class="flex flex-col gap-1.5 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px] leading-normal"
+            >
+              <span v-if="attempt.error_kind === 'billing'">
+                공급자가 <b>이 키가 속한 계정</b>에 API 크레딧이 없다고 답했어요. 크레딧을 넣은 조직·프로젝트가 아래 ID와 같은지 콘솔에서 확인하세요.
+                Claude Pro·ChatGPT Plus 같은 구독은 API 크레딧과 별개예요.
+              </span>
+              <span v-if="attempt.account">키가 속한 계정: <code class="rounded bg-white px-1 font-mono text-xs break-all">{{ attempt.account }}</code></span>
+              <details v-if="attempt.error_message">
+                <summary class="cursor-pointer font-bold">공급자 응답 원문</summary>
+                <p class="m-0 mt-1 font-mono text-xs break-all">{{ attempt.error_message }}</p>
+              </details>
+            </div>
+          </div>
           <p
             v-if="!(tests[provider.provider] as LlmTestResult).attempts.length"
             role="alert"

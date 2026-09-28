@@ -33,18 +33,18 @@ class OpenAIAdapter:
             else:
                 response = await self._client.responses.create(**params)
         except (openai.AuthenticationError, openai.PermissionDeniedError) as error:
-            raise LLMError(str(error), kind="auth") from error
+            raise LLMError(str(error), account=_account(error), kind="auth") from error
         except openai.RateLimitError as error:
             # OpenAI는 한도·잔액 소진을 429 insufficient_quota로 보낸다
             kind = "billing" if "insufficient_quota" in str(error) else "rate_limited"
-            raise LLMError(str(error), kind=kind) from error
+            raise LLMError(str(error), account=_account(error), kind=kind) from error
         except openai.BadRequestError as error:
-            raise LLMError(str(error), kind="bad_request") from error
+            raise LLMError(str(error), account=_account(error), kind="bad_request") from error
         except openai.APIStatusError as error:
             kind = "unavailable" if error.status_code >= 500 else "bad_request"
-            raise LLMError(str(error), kind=kind) from error
+            raise LLMError(str(error), account=_account(error), kind=kind) from error
         except openai.APIConnectionError as error:
-            raise LLMError(str(error), kind="unavailable") from error
+            raise LLMError(str(error), account=_account(error), kind="unavailable") from error
 
         refusal = next(
             (
@@ -76,3 +76,11 @@ class OpenAIAdapter:
             output_tokens=usage.output_tokens if usage else 0,
             stop_reason=response.status,
         )
+
+
+def _account(error: Exception) -> str | None:
+    response = getattr(error, "response", None)
+    if response is None:
+        return None
+    parts = [response.headers.get("openai-organization"), response.headers.get("openai-project")]
+    return " / ".join(p for p in parts if p) or None

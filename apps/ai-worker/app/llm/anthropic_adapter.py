@@ -37,20 +37,20 @@ class AnthropicAdapter:
             else:
                 response = await self._client.messages.create(**params)
         except anthropic.AuthenticationError as error:
-            raise LLMError(str(error), kind="auth") from error
+            raise LLMError(str(error), account=_account(error), kind="auth") from error
         except anthropic.PermissionDeniedError as error:
-            raise LLMError(str(error), kind="auth") from error
+            raise LLMError(str(error), account=_account(error), kind="auth") from error
         except anthropic.RateLimitError as error:
-            raise LLMError(str(error), kind="rate_limited") from error
+            raise LLMError(str(error), account=_account(error), kind="rate_limited") from error
         except anthropic.BadRequestError as error:
             # 크레딧 부족은 400으로 오지만 요청 문제가 아니라 계정 결제 문제다
             kind = "billing" if "credit balance" in str(error).lower() else "bad_request"
-            raise LLMError(str(error), kind=kind) from error
+            raise LLMError(str(error), account=_account(error), kind=kind) from error
         except anthropic.APIStatusError as error:
             kind = "unavailable" if error.status_code >= 500 else "bad_request"
-            raise LLMError(str(error), kind=kind) from error
+            raise LLMError(str(error), account=_account(error), kind=kind) from error
         except anthropic.APIConnectionError as error:
-            raise LLMError(str(error), kind="unavailable") from error
+            raise LLMError(str(error), account=_account(error), kind="unavailable") from error
 
         if response.stop_reason == "refusal":
             category = response.stop_details.category if response.stop_details else None
@@ -76,3 +76,8 @@ class AnthropicAdapter:
             output_tokens=usage.output_tokens,
             stop_reason=response.stop_reason,
         )
+
+
+def _account(error: Exception) -> str | None:
+    response = getattr(error, "response", None)
+    return response.headers.get("anthropic-organization-id") if response is not None else None

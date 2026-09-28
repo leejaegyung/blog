@@ -401,6 +401,10 @@
 - AI 공급자 "크레딧 부족" 확인(2026-09-28): 두 공급자 모두 실제 응답이 API 크레딧 없음
   (Anthropic 400 "credit balance is too low", OpenAI 429 `insufficient_quota`/`credit_balance_exhausted`). 키는 유효.
   Claude·ChatGPT 구독과 API 크레딧은 별개
+  - 모델을 바꿔도(claude-haiku-4-5, gpt-4o-mini) 같은 오류 → 계정 단위. 키가 속한 계정: Anthropic 조직 `92bb7358-…`,
+    OpenAI 조직 `user-9ioz…`(개인 계정)·프로젝트 `proj_lc0l…`
+- 관리 › 연결 테스트가 실패하면 **키가 속한 계정(조직·프로젝트 ID, 응답 헤더 `anthropic-organization-id`·`openai-organization`/`openai-project`)**과
+  **공급자 응답 원문**(sk-… 가림, 300자)을 보여준다. 크레딧을 넣은 조직과 비교하게 하려는 것. 로그에는 남기지 않는다(`LLMError.account`)
 
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 

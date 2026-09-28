@@ -58,7 +58,9 @@ class LLMAdapter(Protocol):
 class LLMError(Exception):
     """공급자 호출 실패. 라우터는 이 오류가 나면 다음 대상으로 넘어간다."""
 
-    def __init__(self, message: str, *, kind: str) -> None:
+    def __init__(self, message: str, *, kind: str, account: str | None = None) -> None:
         super().__init__(message)
         # not_configured | billing | rate_limited | unavailable | bad_request | auth | refused | truncated | invalid_output
         self.kind = kind
+        # 키가 속한 계정(조직·프로젝트 ID). "크레딧이 있는데 부족이라고 나온다"를 가리기 위해 응답 헤더에서 읽는다
+        self.account = account

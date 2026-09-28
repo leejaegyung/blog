@@ -84,7 +84,10 @@ describe('LlmSettingsPanel', () => {
   it('연결 테스트는 순서에 있는 모델로 하고 오류를 사람이 읽는 말로 보여준다', async () => {
     vi.mocked(llmApi.test).mockResolvedValue({
       ok: false, reply: null,
-      attempts: [{ provider: 'anthropic', model: 'claude-opus-5', status: 'failed', error_kind: 'billing', latency_ms: 600 }],
+      attempts: [{
+        provider: 'anthropic', model: 'claude-opus-5', status: 'failed', error_kind: 'billing', latency_ms: 600,
+        account: '92bb7358-org', error_message: 'Your credit balance is too low to access the Anthropic API.',
+      }],
     })
     const wrapper = await mountPanel()
 
@@ -92,7 +95,10 @@ describe('LlmSettingsPanel', () => {
     await flushPromises()
 
     expect(llmApi.test).toHaveBeenCalledWith('anthropic:claude-opus-5')
-    expect(wrapper.text()).toContain('claude-opus-5: 크레딧(잔액) 부족')
+    expect(wrapper.text()).toContain('claude-opus-5: API 크레딧 없음')
+    expect(wrapper.text()).toContain('키가 속한 계정: 92bb7358-org')
+    expect(wrapper.text()).toContain('구독은 API 크레딧과 별개')
+    expect(wrapper.text()).toContain('Your credit balance is too low')
   })
 
   it('순서를 바꿔 저장한다', async () => {

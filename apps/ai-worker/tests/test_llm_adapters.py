@@ -17,24 +17,24 @@ class Answer(BaseModel):
     answer: str
 
 
-def transport(status: int, body: dict, sent: list) -> httpx2.MockTransport:
+def transport(status: int, body: dict, sent: list, headers: dict | None = None) -> httpx2.MockTransport:
     def handler(request: httpx2.Request) -> httpx2.Response:
         sent.append(json.loads(request.content))
-        return httpx2.Response(status, json=body)
+        return httpx2.Response(status, json=body, headers=headers or {})
 
     return httpx2.MockTransport(handler)
 
 
-def claude(status: int, body: dict, sent: list) -> AnthropicAdapter:
+def claude(status: int, body: dict, sent: list, headers: dict | None = None) -> AnthropicAdapter:
     client = anthropic.AsyncAnthropic(
-        api_key="test", max_retries=0, http_client=httpx2.AsyncClient(transport=transport(status, body, sent))
+        api_key="test", max_retries=0, http_client=httpx2.AsyncClient(transport=transport(status, body, sent, headers))
     )
     return AnthropicAdapter(client)
 
 
-def gpt(status: int, body: dict, sent: list) -> OpenAIAdapter:
+def gpt(status: int, body: dict, sent: list, headers: dict | None = None) -> OpenAIAdapter:
     client = openai.AsyncOpenAI(
-        api_key="test", max_retries=0, http_client=httpx2.AsyncClient(transport=transport(status, body, sent))
+        api_key="test", max_retries=0, http_client=httpx2.AsyncClient(transport=transport(status, body, sent, headers))
     )
     return OpenAIAdapter(client)
 
@@ -149,3 +149,16 @@ async def test_gpt_error_kinds(status: int, body: dict, kind: str) -> None:
         await gpt(status, body, []).generate(LLMRequest(system="s", prompt="p"), "gpt-5.5")
 
     assert error.value.kind == kind
+
+
+async def test_errors_report_the_account_the_key_belongs_to() -> None:
+    billing = {"type": "error", "error": {"type": "invalid_request_error", "message": "Your credit balance is too low."}}
+    with pytest.raises(LLMError) as claude_error:
+        await claude(400, billing, [], {"anthropic-organization-id": "org-claude-1"}).generate(LLMRequest(system="s", prompt="p"), "m")
+    assert (claude_error.value.kind, claude_error.value.account) == ("billing", "org-claude-1")
+
+    quota = {"error": {"message": "no credits", "type": "insufficient_quota", "code": "credit_balance_exhausted"}}
+    with pytest.raises(LLMError) as gpt_error:
+        await gpt(429, quota, [], {"openai-organization": "user-abc", "openai-project": "proj_1"}).generate(
+            LLMRequest(system="s", prompt="p"), "gpt-5.5")
+    assert (gpt_error.value.kind, gpt_error.value.account) == ("billing", "user-abc / proj_1")

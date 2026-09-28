@@ -24,6 +24,8 @@ class GenerationMeta(BaseModel):
     latency_ms: int
     error_kind: str | None = None
     error_message: str | None = None
+    # 실패했을 때 키가 속한 계정(조직·프로젝트 ID). 연결 테스트 화면에서 콘솔과 비교하게 보여준다
+    account: str | None = None
 
 
 def generation_meta(outcome: RouteOutcome) -> list[GenerationMeta]:
@@ -49,6 +51,7 @@ def generation_meta(outcome: RouteOutcome) -> list[GenerationMeta]:
                     latency_ms=attempt.latency_ms,
                     error_kind=attempt.error.kind if attempt.error else None,
                     error_message=str(attempt.error)[:500] if attempt.error else None,
+                    account=attempt.error.account if attempt.error else None,
                 )
             )
     return metas

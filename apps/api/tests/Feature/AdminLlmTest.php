@@ -103,19 +103,22 @@ class AdminLlmTest extends TestCase
         });
     }
 
-    public function test_connection_test_reports_attempts_without_error_text(): void
+    public function test_connection_test_reports_provider_message_and_account_without_keys(): void
     {
         Http::fake(['*/llm/ping' => Http::response(['detail' => ['message' => 'x', 'generations' => [
             ['provider' => 'anthropic', 'model' => 'claude-opus-5', 'status' => 'failed', 'latency_ms' => 600,
-                'error_kind' => 'billing', 'error_message' => 'credit balance too low for org xyz'],
+                'error_kind' => 'billing', 'account' => 'org-92bb',
+                'error_message' => 'Your credit balance is too low (key sk-ant-api03-SECRETSECRET)'],
         ]]], 503)]);
 
         $response = $this->actingAs($this->user)->postJson('/api/admin/llm/test', ['target' => 'anthropic:claude-opus-5'])
             ->assertOk()
             ->assertJsonPath('data.ok', false)
-            ->assertJsonPath('data.attempts.0.error_kind', 'billing');
+            ->assertJsonPath('data.attempts.0.error_kind', 'billing')
+            ->assertJsonPath('data.attempts.0.account', 'org-92bb');
 
-        $this->assertStringNotContainsString('org xyz', $response->getContent());
+        $this->assertStringContainsString('Your credit balance is too low', $response->json('data.attempts.0.error_message'));
+        $this->assertStringNotContainsString('SECRETSECRET', $response->getContent());
         Http::assertSent(fn ($r) => $r['targets'] === ['anthropic:claude-opus-5']);
         $this->actingAs($this->user)->postJson('/api/admin/llm/test', ['target' => 'evil'])->assertJsonValidationErrors('target');
     }

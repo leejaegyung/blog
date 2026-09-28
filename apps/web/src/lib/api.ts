@@ -518,7 +518,16 @@ export type LlmState = {
 export type LlmTestResult = {
   ok: boolean
   reply: string | null
-  attempts: { provider: string; model: string; status: string; error_kind: string | null; latency_ms: number }[]
+  attempts: {
+    provider: string
+    model: string
+    status: string
+    error_kind: string | null
+    // 실패 시 공급자가 보낸 오류 문장(키는 가림)과 키가 속한 계정(조직·프로젝트 ID)
+    error_message?: string | null
+    account?: string | null
+    latency_ms: number
+  }[]
 }
 
 export const llmApi = {

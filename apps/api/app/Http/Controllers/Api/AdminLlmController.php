@@ -86,6 +86,11 @@ class AdminLlmController extends Controller
                 'model' => $g['model'],
                 'status' => $g['status'],
                 'error_kind' => $g['error_kind'] ?? null,
+                // 관리자에게만 보이는 연결 테스트 결과: 공급자가 보낸 오류 문장과 키가 속한 계정(로그에는 남기지 않는다)
+                'error_message' => isset($g['error_message'])
+                    ? mb_substr(preg_replace('/sk-[A-Za-z0-9_\-]{6,}/', 'sk-…', $g['error_message']), 0, 300)
+                    : null,
+                'account' => $g['account'] ?? null,
                 'latency_ms' => $g['latency_ms'],
             ], $result['generations']),
         ]]);
