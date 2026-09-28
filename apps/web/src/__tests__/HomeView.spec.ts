@@ -17,7 +17,7 @@ describe('HomeView', () => {
         { path: '/', component: HomeView },
         { path: '/write', name: 'write-start', component: { render: () => null } },
         { path: '/posts/:id/:step', name: 'flow', component: { render: () => null } },
-        { path: '/projects', component: { render: () => null } },
+        { path: '/projects', name: 'projects', component: { render: () => null } },
       ],
     })
     return { router, wrapper: mount(HomeView, { global: { plugins: [router, createPinia()] } }) }
@@ -50,6 +50,7 @@ describe('HomeView', () => {
     const { router, wrapper } = mountHome()
     await flushPromises()
 
+    expect(wrapper.get('a[href="/projects"]').text()).toContain('키워드·카테고리 학습')
     const links = wrapper.findAll('a[href^="/posts/"]')
     expect(links.map((a) => a.attributes('href'))).toEqual(['/posts/1/4', '/posts/2/6'])
     expect(links[0]!.text()).toContain('4/6 글 계획 · 오늘')

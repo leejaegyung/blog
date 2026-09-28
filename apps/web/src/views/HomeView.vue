@@ -65,6 +65,18 @@ onMounted(async () => {
       <p class="m-0 max-w-[420px] text-sm leading-normal lg:text-[17px]">
         키워드, 사진, 알려줄 내용만 있으면 6단계로 네이버 블로그 초안을 만들어 드려요.
       </p>
+      <!-- "시작하기"와 같은 모양의 바로가기: 관리 › 카테고리별 학습 -->
+      <RouterLink
+        :to="{ name: 'projects' }"
+        class="flex h-[52px] items-center gap-2 self-start rounded-[14px] bg-ink px-6 text-base font-bold text-cream no-underline hover:text-cream"
+      >
+        <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          <path d="M9 7h7M9 11h5" />
+        </svg>
+        키워드·카테고리 학습 →
+      </RouterLink>
       <RouterLink
         :to="{ name: 'write-start' }"
         class="flex h-14 items-center justify-center rounded-[18px] bg-ink text-[17px] font-bold text-cream no-underline hover:text-cream lg:hidden"
