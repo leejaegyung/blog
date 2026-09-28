@@ -10,6 +10,7 @@ vi.mock('@/lib/api', () => ({
   projectApi: {
     list: vi.fn<() => Promise<Project[]>>(),
     create: vi.fn<(input: ProjectInput) => Promise<Project>>(),
+    remove: vi.fn<(id: number) => Promise<void>>(),
   },
 }))
 
@@ -51,6 +52,23 @@ describe('ProjectsView', () => {
 
     expect(wrapper.text()).toContain('수원 인계동 파스타')
     expect(wrapper.text()).toContain('참고 글 2 · 글 1')
+  })
+
+  it('키워드를 지우기 전에 카드 안에서 한 번 더 묻고, 지우면 목록에서 뺀다', async () => {
+    vi.mocked(projectApi.list).mockResolvedValue([project, { ...project, id: 8, keyword: '테스트' }])
+    vi.mocked(projectApi.remove).mockResolvedValue()
+    const { wrapper } = mountView()
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="테스트 키워드 삭제"]').trigger('click')
+    expect(wrapper.get('[role="alert"]').text()).toContain('키워드를 지울까요?')
+    expect(projectApi.remove).not.toHaveBeenCalled()
+    await wrapper.findAll('button').find((b) => b.text() === '지우기')!.trigger('click')
+    await flushPromises()
+
+    expect(projectApi.remove).toHaveBeenCalledWith(8)
+    expect(wrapper.text()).not.toContain('테스트')
+    expect(wrapper.text()).toContain('수원 인계동 파스타')
   })
 
   it('만들기에 성공하면 상세 화면으로 이동한다', async () => {

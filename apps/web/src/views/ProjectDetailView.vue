@@ -48,6 +48,21 @@ async function newPost() {
   }
 }
 
+const confirmPostId = ref<number | null>(null)
+const deletingPost = ref(false)
+
+async function removePost(post: Post) {
+  deletingPost.value = true
+  try {
+    await postApi.remove(post.id)
+    posts.value = posts.value.filter((p) => p.id !== post.id)
+    if (project.value) project.value.post_count = Math.max(0, (project.value.post_count ?? 1) - 1)
+    confirmPostId.value = null
+  } finally {
+    deletingPost.value = false
+  }
+}
+
 async function remove() {
   deleting.value = true
   try {
@@ -89,16 +104,36 @@ async function remove() {
       <section class="flex flex-col gap-2.5">
         <h2 class="m-0 text-sm font-bold">이 키워드로 쓴 글</h2>
         <p v-if="posts.length === 0" class="rounded-[18px] border-[1.5px] border-line bg-white p-5 text-sub">아직 쓴 글이 없어요.</p>
-        <RouterLink
+        <div
           v-for="post in posts"
           :key="post.id"
-          :to="{ name: 'post', params: { id: post.id } }"
-          class="flex items-center gap-4 rounded-[18px] border-[1.5px] border-line bg-white px-5 py-4 text-ink no-underline hover:border-ink hover:text-ink"
+          class="flex items-center gap-2 rounded-[18px] border-[1.5px] border-line bg-white pr-3 hover:border-ink"
         >
-          <span class="min-w-0 flex-1 truncate font-bold">{{ post.title || '제목 없음' }}</span>
-          <span class="text-[13px] whitespace-nowrap text-sub">사진 {{ post.image_count ?? 0 }} · {{ relativeDate(post.updated_at) }}</span>
-          <span class="rounded-xl bg-lemon px-3 py-2 text-[13px] font-bold">이어서</span>
-        </RouterLink>
+          <div v-if="confirmPostId === post.id" class="flex flex-1 flex-wrap items-center gap-2 px-5 py-4" role="alert">
+            <span class="min-w-0 flex-1 text-sm"><b>{{ post.title || '제목 없음' }}</b> 글을 지울까요? 사진도 함께 지워져요.</span>
+            <button type="button" :disabled="deletingPost" class="rounded-xl bg-ink px-3 py-2 text-[13px] font-bold text-cream disabled:opacity-50" @click="removePost(post)">지우기</button>
+            <button type="button" class="rounded-xl border-[1.5px] border-ink px-3 py-2 text-[13px] font-bold" @click="confirmPostId = null">취소</button>
+          </div>
+          <template v-else>
+            <RouterLink
+              :to="{ name: 'post', params: { id: post.id } }"
+              class="flex min-w-0 flex-1 items-center gap-4 py-4 pl-5 text-ink no-underline hover:text-ink"
+            >
+              <span class="min-w-0 flex-1 truncate font-bold">{{ post.title || '제목 없음' }}</span>
+              <span class="text-[13px] whitespace-nowrap text-sub">사진 {{ post.image_count ?? 0 }} · {{ relativeDate(post.updated_at) }}</span>
+              <span class="rounded-xl bg-lemon px-3 py-2 text-[13px] font-bold">이어서</span>
+            </RouterLink>
+            <button
+              type="button"
+              :aria-label="`${post.title || '제목 없음'} 글 삭제`"
+              title="삭제"
+              class="flex size-9 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-lilac-soft hover:text-ink"
+              @click="confirmPostId = post.id"
+            >
+              ✕
+            </button>
+          </template>
+        </div>
       </section>
     </section>
 
@@ -128,8 +163,13 @@ async function remove() {
       </button>
       <p v-if="createPostError" role="alert" class="m-0 text-sm text-red-600">글을 만들지 못했어요.</p>
 
-      <div class="mt-auto flex flex-col gap-2 pt-6 text-[13px]">
-        <button v-if="!confirmingDelete" type="button" class="self-start text-sub underline" @click="confirmingDelete = true">
+      <div class="flex flex-col gap-2 text-[13px]">
+        <button
+          v-if="!confirmingDelete"
+          type="button"
+          class="h-11 rounded-2xl border-[1.5px] border-ink bg-white px-4 text-sm font-bold hover:bg-lemon"
+          @click="confirmingDelete = true"
+        >
           키워드 삭제
         </button>
         <div v-else class="flex flex-col gap-2 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3">
