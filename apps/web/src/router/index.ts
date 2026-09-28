@@ -61,6 +61,13 @@ export const routes: RouteRecordRaw[] = [
     meta: { wide: true },
   },
   {
+    // 북마크 버튼 "Blog AI로 보내기"가 여는 받기 화면
+    path: '/import',
+    name: 'import',
+    component: () => import('../views/ImportView.vue'),
+    meta: { wide: true },
+  },
+  {
     path: '/admin',
     name: 'admin',
     component: () => import('../views/AdminView.vue'),

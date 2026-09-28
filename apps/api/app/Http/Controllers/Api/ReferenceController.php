@@ -34,7 +34,7 @@ class ReferenceController extends Controller
 
         [$created, $skipped] = $request->has('urls')
             ? $this->storeUrls($project, $request->validated('urls'))
-            : [[$this->storeText($project, $request->validated('text'), $request->validated('title'))], []];
+            : $this->storeTextFor($project, $request->validated('text'), $request->validated('title'), $request->validated('source_url'));
 
         return response()->json([
             'data' => ReferenceResource::collection(collect($created)->each->load('features')),
@@ -130,10 +130,34 @@ class ReferenceController extends Controller
         return [$created, $skipped];
     }
 
-    private function storeText(KeywordProject $project, string $text, ?string $title): ReferenceDocument
+    /**
+     * 본문 추가. 원래 주소가 오면 같은 주소 항목을 찾아 "본문 필요"면 채우고, 이미 읽은 글이면 건너뛴다.
+     *
+     * @return array{0: list<ReferenceDocument>, 1: list<array{url: string, reason: string}>}
+     */
+    private function storeTextFor(KeywordProject $project, string $text, ?string $title, ?string $sourceUrl): array
+    {
+        $url = $sourceUrl ? ReferenceUrl::normalize($sourceUrl) : null;
+        $existing = $url ? $project->references()->where('source_url', $url)->first() : null;
+        if ($existing && ! in_array($existing->parse_status, [ParseStatus::NeedsText, ParseStatus::Failed], true)) {
+            return [[], [['url' => $url, 'reason' => '이미 등록된 글입니다.']]];
+        }
+        if ($existing) {
+            Storage::disk('uploads')->put(ParseReferenceJob::textKey($existing), $text);
+            $existing->update(['title' => $title ?? $existing->title, 'parse_status' => ParseStatus::Pending, 'error_message' => null]);
+            ParseReferenceJob::dispatch($existing);
+
+            return [[$existing], []];
+        }
+
+        return [[$this->storeText($project, $text, $title, $url)], []];
+    }
+
+    private function storeText(KeywordProject $project, string $text, ?string $title, ?string $url = null): ReferenceDocument
     {
         $reference = $project->references()->create([
             'source_type' => 'user_text',
+            'source_url' => $url,
             'title' => $title,
             'usage_permission' => 'user_provided',
             'parse_status' => ParseStatus::Pending,

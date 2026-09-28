@@ -481,6 +481,22 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
 - 상태 확인 2초마다, 끝나면 오른쪽 패널(마지막 학습)도 새로 읽음. 실제 학습으로 확인 후 데모 카테고리 삭제
 - 테스트: api 136개, worker 153개(+1 건너뜀), web 64개
 
+## 2026-09-28 추가: 북마크 버튼 "Blog AI로 보내기"(붙여넣기 없이 학습)
+
+네이버 글 본문 붙여넣기가 번거로워, 사용자 브라우저에서 보고 있는 글을 버튼 한 번으로 보낸다(서버는 네이버에 접속하지 않음 — 붙여넣기와 같은 방식, 한 번에 한 글).
+- `lib/bookmarklet.ts`: 즐겨찾기용 `javascript:` 코드. 네이버 PC(`#mainFrame` 안 문서)·모바일의 SmartEditor(`.se-main-container`,
+  `se-sectionTitle`→"# 소제목", `se-image/imageGroup/imageStrip`→"[사진]"×장수, `se-text-paragraph`→문단, `.wrap_tag` 해시태그),
+  그 밖의 사이트는 article/main/body에서 h1~h4·p·li·img로 같은 형식을 만든다. `window.open(APP/import)` 후 postMessage로 넘기고 받음 확인까지 재전송
+- 받기 화면 `/import`(ImportView): 제목·주소·글자/소제목/사진/해시태그 요약·미리보기, 학습 카테고리(마지막 선택 기억), "추가하고 바로 학습"
+  (글 읽기가 끝날 때까지 기다린 뒤 학습 시작). 이미 있는 글이면 알려 줌
+- 서버: 본문 추가에 `source_url`(원래 주소) 허용. 같은 주소가 이미 읽혔으면 건너뛰고, "본문 필요"·실패였던 같은 주소면 그 항목에 본문을 채운다.
+  본문이 있으면 파서는 항상 본문으로 읽는다(주소에 접속 안 함)
+- 설치: 관리 › 카테고리별 학습 오른쪽 노란 카드의 "★ Blog AI로 보내기"를 즐겨찾기바로 끌어다 놓기(안 되면 주소 복사). 설치 시점의 Blog AI 주소
+  (localhost·Tailscale)로 보낸다
+- 확인: 네이버 구조를 흉내 낸 로컬 페이지(iframe mainFrame 포함)에서 버튼 실행 → 받기 화면(제목, 소제목 2·사진 3·해시태그 3) → 추가·학습까지.
+  실제 네이버에는 자동 도구로 접속하지 않았다
+- 테스트: api 138개, worker 153개(+1 건너뜀), web 67개
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

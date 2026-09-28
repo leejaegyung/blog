@@ -21,6 +21,8 @@ class StoreReferencesRequest extends FormRequest
             'urls.*' => ['required', 'string', 'max:2000', 'url:http,https'],
             'text' => ['required_without:urls', 'string', 'min:20', 'max:100000'],
             'title' => ['nullable', 'string', 'max:200'],
+            // 본문과 함께 원래 글 주소(북마크 버튼 "Blog AI로 보내기"). 서버는 이 주소에 접속하지 않는다
+            'source_url' => ['nullable', 'prohibits:urls', 'string', 'max:2000', 'url:http,https'],
         ];
     }
 

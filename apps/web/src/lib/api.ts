@@ -430,6 +430,14 @@ export const referenceApi = {
     })
     return data.data[0]!
   },
+  /** 북마크 버튼으로 보낸 글: 본문 + 원래 주소. 이미 있는 글이면 skipped로 돌아온다 */
+  async send(projectId: number, input: { text: string; title?: string | null; sourceUrl?: string | null }) {
+    const { data } = await http.post<{ data: Reference[]; skipped: { url: string; reason: string }[] }>(
+      `/projects/${projectId}/references`,
+      { text: input.text, title: input.title || null, source_url: input.sourceUrl || null },
+    )
+    return data
+  },
   async pasteText(id: number, text: string, title?: string) {
     const { data } = await http.post<Wrapped<Reference>>(`/references/${id}/text`, {
       text,
