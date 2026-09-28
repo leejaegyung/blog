@@ -446,6 +446,14 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
 - 기본 순서: `claude_code:opus, claude_code:sonnet, codex:gpt-6-astra`
 - 테스트: api 131개, worker 152개(+1 건너뜀: API 헤더 키 테스트), web 61개
 
+## 2026-09-28 추가: Tailscale로 휴대폰·다른 기기에서 접속
+
+- Docker 포트는 그대로 `127.0.0.1:8080`(자동 로그인이라 같은 와이파이에 열지 않음). `tailscale serve --bg --http=8080 http://127.0.0.1:8080`로
+  내 tailnet 기기에만 연다(재부팅해도 유지). 주소: `http://leejk-macbookpro:8080`, `http://leejk-macbookpro.tail01cfec.ts.net:8080`
+- IP(`100.108.73.0:8080`)로는 serve가 404를 준다(이름으로만 응답) → 기기 이름 주소를 쓴다
+- `.env` `SANCTUM_STATEFUL_DOMAINS`에 두 주소를 더해 로그인 쿠키(자동 로그인)가 동작. 확인: 두 주소 모두 `/api/user` 자동 로그인, 모바일 크기 브라우저에서 홈·관리 오류 없음
+- 끄기: `tailscale serve --http=8080 off`
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

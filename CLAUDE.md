@@ -40,6 +40,9 @@ infra/nginx     SPA 서빙 + /api·/sanctum·/up → app:9000 (fastcgi)
 - 운영 이미지는 코드를 복사해 굽는다. 코드 변경 후 확인하려면 `make up`으로 재빌드.
 - **자동 로그인**(`AUTH_AUTO_LOGIN=true`, 계정 `AUTH_AUTO_LOGIN_USER`): 로그인 화면 없이 브라우저 요청을 그 계정으로 로그인시킨다
   (`AutoLogin` 미들웨어, 인증 미들웨어보다 먼저 실행되도록 우선순위 지정). **그래서 포트는 `127.0.0.1`에만 연다.**
+  휴대폰·다른 기기는 Tailscale로만: `tailscale serve --bg --http=8080 http://127.0.0.1:8080`(내 tailnet 기기만, 설정 유지)로
+  `http://<기기이름>:8080`에 열고, 그 주소를 `.env`의 `SANCTUM_STATEFUL_DOMAINS`에 더한다. IP 주소로는 안 열린다(serve는 이름으로만 응답).
+  끄기: `tailscale serve --http=8080 off`
   서버·공유 네트워크에 올릴 때는 `AUTH_AUTO_LOGIN=false`로 바꾸고 포트 바인딩을 다시 검토한다.
 - 인증은 Sanctum SPA 쿠키 세션(토큰 아님). 새 API는 `auth:sanctum` 그룹 안에 두고, 소유권은 Policy로 검사한다.
 - LLM은 OpenAI(GPT)와 Anthropic(Claude) 둘 다 지원한다. 모든 호출은 `app/llm/router.py`의 `LLMRouter`를 거친다
