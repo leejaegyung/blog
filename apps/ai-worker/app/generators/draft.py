@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.analyzers.exposure import merge_tags
 from app.generators.writing_plan import TONE_LABELS, FactInput, Tone
 from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Target
@@ -53,6 +54,8 @@ class DraftInput(BaseModel):
     image_ids: list[int]
     # 사진 분석 결과(있으면): {id: {"type": ..., "description": ...}}
     photo_notes: dict[int, dict] = {}
+    # 키워드 분석의 추천 해시태그(사용자가 고친 목록이 있으면 그것). 초안 태그 앞에 붙인다
+    hashtags: list[str] = []
 
 
 class ContentBlock(BaseModel):
@@ -143,7 +146,8 @@ def check_draft(draft: Draft, data: DraftInput) -> CheckedDraft:
     warnings.extend(unsupported_specifics(body, data.facts))
     warnings.extend(missing_facts(body, data.facts, data.plan.get("required_fact_keys") or []))
 
-    tags = list(dict.fromkeys(t.strip().lstrip("#").replace(" ", "") for t in draft.tags if t.strip()))[:15]
+    # 추천 해시태그를 먼저, AI가 글에 맞춰 단 태그로 채운다(네이버 태그는 최대 30개)
+    tags = merge_tags(data.hashtags, draft.tags, limit=min(30, max(15, len(data.hashtags))))
     keyword = " ".join(data.keyword.split())
     return CheckedDraft(
         title=title,

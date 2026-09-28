@@ -37,6 +37,11 @@ class WizardTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.keyword', '수원 인계동 파스타')
             ->assertJsonPath('data.tone', 'natural');
+        // 아무것도 넣지 않은 글이 있으면 새로 만들지 않고 그 글을 돌려준다
+        $this->actingAs($this->user)->postJson('/api/posts/start', ['keyword' => '수원 인계동 파스타'])
+            ->assertOk()
+            ->assertJsonPath('data.id', $first->json('data.id'));
+        Post::find($first->json('data.id'))->facts()->create(['fact_key' => '가격', 'fact_value' => '19,000원']);
         $this->actingAs($this->user)->postJson('/api/posts/start', ['keyword' => '수원 인계동 파스타'])->assertCreated();
 
         $this->assertSame(1, KeywordProject::count());

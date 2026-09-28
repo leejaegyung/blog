@@ -23,6 +23,8 @@ class KeywordAnalysisResource extends JsonResource
             'related_keywords' => $this->related_keywords_json ?? [],
             'writing_tips' => $insight['writing_tips'] ?? [],
             'stats' => $this->stats_json,
+            // 검색 노출 가이드: 목표치(targets)·원칙(principles)·추천 해시태그(hashtags)·검사 기준(checks)
+            'guide' => $this->guide_json,
             'insight_error' => $this->insight_error,
             'prompt_version' => $this->prompt_version,
             'analyzer_version' => $this->analyzer_version,

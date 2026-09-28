@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { postApi, type PlanSection, type Post } from '@/lib/api'
 import { validationErrors } from '@/lib/http'
 import StepLayout from '@/components/flow/StepLayout.vue'
@@ -227,6 +228,17 @@ onBeforeUnmount(() => clearTimeout(timer))
         <div class="flex flex-wrap gap-1">
           <span v-for="word in plan.keywords.secondary" :key="word" class="rounded-full bg-lilac-soft px-2.5 py-1 text-xs">{{ word }}</span>
         </div>
+      </PanelCard>
+      <PanelCard v-if="post.recommended_hashtags?.length">
+        <span class="text-sm font-bold">달 해시태그 {{ post.recommended_hashtags.length }}개</span>
+        <div class="flex flex-wrap gap-1">
+          <span v-for="tag in post.recommended_hashtags.slice(0, 12)" :key="tag" class="rounded-full bg-lilac px-2.5 py-1 text-xs font-semibold">#{{ tag }}</span>
+          <span v-if="post.recommended_hashtags.length > 12" class="px-1 py-1 text-xs text-sub">외 {{ post.recommended_hashtags.length - 12 }}개</span>
+        </div>
+        <span class="text-sub">
+          초안을 쓰면 자동으로 달아요.
+          <RouterLink v-if="post.keyword_project_id" :to="{ name: 'project', params: { id: post.keyword_project_id } }" class="font-bold">키워드에서 고치기</RouterLink>
+        </span>
       </PanelCard>
       <span class="text-xs leading-normal text-sub">검색 의도 · {{ plan.search_intent }}</span>
     </template>

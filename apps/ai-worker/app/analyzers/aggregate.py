@@ -66,6 +66,9 @@ class KeywordStats(BaseModel):
     ending_summary_share: float
     ending_recommendation_share: float
     ending_engagement_share: float
+    # 참고 글에 달린 해시태그(나중에 더한 항목)
+    hashtags: list[TermFrequency] = []
+    hashtag_count: Spread | None = None  # 해시태그를 단 글들의 태그 수
 
 
 LAYOUT_NAMES = {"H": "소제목", "P": "문단", "I": "사진", "L": "목록", "Q": "인용", "T": "표"}
@@ -112,6 +115,8 @@ def aggregate(features: list[DocumentFeatures], keyword: str) -> KeywordStats | 
         ending_summary_share=_share(sum(f.ending.has_summary for f in features), n),
         ending_recommendation_share=_share(sum(f.ending.has_recommendation for f in features), n),
         ending_engagement_share=_share(sum(f.ending.asks_engagement for f in features), n),
+        hashtags=_document_frequency([f.hashtags for f in features], n, exclude=set(), limit=30),
+        hashtag_count=_spread(counts) if (counts := [len(f.hashtags) for f in features if f.hashtags]) else None,
     )
 
 

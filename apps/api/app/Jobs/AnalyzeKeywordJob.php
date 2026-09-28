@@ -79,6 +79,7 @@ class AnalyzeKeywordJob implements ShouldQueue
             'must_answer_json' => $insight['must_answer'] ?? null,
             'stats_json' => $stats,
             'insight_json' => $insight,
+            'guide_json' => $result['guide'] ?? null,
             'insight_error' => $result['insight_error'],
             'prompt_version' => $result['prompt_version'],
             'source_hash' => self::sourceHash($project),

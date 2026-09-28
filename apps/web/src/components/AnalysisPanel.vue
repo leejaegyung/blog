@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { analysisApi, type KeywordAnalysis, type ProjectStatus } from '@/lib/api'
+import { analysisApi, type KeywordAnalysis, type Project, type ProjectStatus } from '@/lib/api'
 import ShareBar from '@/components/ShareBar.vue'
+import ExposureGuide from '@/components/ExposureGuide.vue'
 
-const props = defineProps<{ projectId: number; referenceCount: number }>()
-const emit = defineEmits<{ status: [status: ProjectStatus] }>()
+const props = defineProps<{ projectId: number; referenceCount: number; customHashtags?: string[] | null }>()
+const emit = defineEmits<{ status: [status: ProjectStatus]; hashtagsSaved: [project: Project] }>()
 
 const POLL_MS = 3000
 
@@ -136,6 +137,13 @@ onBeforeUnmount(() => clearTimeout(timer))
             : 'API 키를 설정한 뒤 다시 분석하면 검색 의도와 추천 목차가 나옵니다.'
         }}
       </p>
+
+      <ExposureGuide
+        :project-id="projectId"
+        :guide="analysis.guide"
+        :custom-hashtags="customHashtags"
+        @saved="(project) => emit('hashtagsSaved', project)"
+      />
 
       <div v-if="analysis.primary_intent" class="grid gap-4 md:grid-cols-2">
         <div class="space-y-3 rounded-[18px] border-[1.5px] border-line bg-white p-4">

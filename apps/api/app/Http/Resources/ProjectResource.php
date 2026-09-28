@@ -17,6 +17,8 @@ class ProjectResource extends JsonResource
             'status' => $this->status,
             'last_analyzed_at' => $this->last_analyzed_at,
             'analysis_version' => $this->analysis_version,
+            // 사용자가 고친 해시태그(null이면 분석 추천을 쓴다)
+            'hashtags' => $this->hashtags_json,
             'reference_count' => $this->whenCounted('references'),
             'post_count' => $this->whenCounted('posts'),
             'created_at' => $this->created_at,

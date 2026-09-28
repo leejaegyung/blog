@@ -57,6 +57,14 @@ def test_flattens_blocks_and_cleans_images_lists_tags() -> None:
     assert "image_unplaced" in codes  # 3번 사진 누락
 
 
+def test_recommended_hashtags_come_first_and_are_merged() -> None:
+    data = INPUT.model_copy(update={"hashtags": ["수원맛집", "#인계동 데이트", "인계동파스타"]})
+
+    checked = check_draft(draft(), data)
+
+    assert checked.tags == ["수원맛집", "인계동데이트", "인계동파스타"]
+
+
 def test_text_rendering_and_length_warning() -> None:
     checked = check_draft(draft(), INPUT)
 

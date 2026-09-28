@@ -7,7 +7,7 @@ from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "keyword-analysis-v1"
+PROMPT_VERSION = "keyword-analysis-v2"
 
 
 class IntentShare(BaseModel):
@@ -29,6 +29,7 @@ class KeywordInsight(BaseModel):
     title_guidelines: list[str]
     related_keywords: list[str]
     writing_tips: list[str]
+    hashtags: list[str] = Field(description="검색하는 사람이 찾아볼 만한 해시태그(# 없이, 띄어쓰기 없이)")
 
 
 def build_request(keyword: str, category: str | None, stats: KeywordStats | None) -> LLMRequest:

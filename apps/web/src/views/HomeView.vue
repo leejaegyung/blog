@@ -28,6 +28,24 @@ function row(post: Post): Row {
   }
 }
 
+const confirmId = ref<number | null>(null)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+async function remove(post: Post) {
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await postApi.remove(post.id)
+    posts.value = posts.value.filter((p) => p.id !== post.id)
+    confirmId.value = null
+  } catch {
+    deleteError.value = '글을 지우지 못했어요.'
+  } finally {
+    deleting.value = false
+  }
+}
+
 function start() {
   router.push({ name: 'write-start', query: keyword.value.trim() ? { keyword: keyword.value.trim() } : {} })
 }
@@ -81,28 +99,54 @@ onMounted(async () => {
       <p v-else-if="!posts.length" class="rounded-[18px] border-[1.5px] border-line bg-white p-5 text-sub">
         아직 쓴 글이 없어요. 왼쪽에서 첫 글을 시작해 보세요.
       </p>
-      <RouterLink
+      <div
         v-for="r in posts.map(row)"
         :key="r.post.id"
-        :to="{ name: 'flow', params: { id: r.post.id, step: r.step } }"
-        class="flex items-center gap-3 border-b border-[#eadbee] py-3.5 text-ink no-underline hover:text-ink lg:mb-1.5 lg:gap-4 lg:rounded-[18px] lg:border-[1.5px] lg:border-line lg:bg-white lg:px-5 lg:py-[18px] lg:hover:border-ink"
+        class="flex items-center gap-2 border-b border-[#eadbee] lg:mb-1.5 lg:rounded-[18px] lg:border-[1.5px] lg:border-line lg:bg-white lg:pr-3 lg:hover:border-ink"
       >
-        <div class="flex min-w-0 flex-1 flex-col gap-2">
-          <span class="truncate text-[15px] font-bold lg:text-[17px]">{{ r.post.keyword || r.post.title || '제목 없음' }}</span>
-          <div class="flex items-center gap-2.5">
-            <div class="h-[5px] w-[84px] shrink-0 overflow-hidden rounded-[3px] bg-track lg:h-1.5 lg:w-[140px]" aria-hidden="true">
-              <div class="h-full bg-ink" :style="{ width: `${r.pct}%` }" />
-            </div>
-            <span class="text-xs text-sub lg:text-[13px]">{{ r.label }}<span class="hidden lg:inline"> · {{ relativeDate(r.post.updated_at) }}</span></span>
-          </div>
+        <!-- 지우기 전에 카드 안에서 한 번 더 확인한다(브라우저 확인 창은 쓰지 않는다) -->
+        <div v-if="confirmId === r.post.id" class="flex flex-1 flex-wrap items-center gap-2 py-3.5 lg:px-5 lg:py-[18px]" role="alert">
+          <span class="min-w-0 flex-1 text-sm">
+            <b>{{ r.post.keyword || r.post.title || '제목 없음' }}</b> 글을 지울까요? 사진도 함께 지워지고 되돌릴 수 없어요.
+          </span>
+          <button type="button" :disabled="deleting" class="rounded-xl bg-ink px-3 py-2 text-[13px] font-bold text-cream disabled:opacity-50" @click="remove(r.post)">
+            {{ deleting ? '지우는 중…' : '지우기' }}
+          </button>
+          <button type="button" class="rounded-xl border-[1.5px] border-ink px-3 py-2 text-[13px] font-bold" @click="confirmId = null">취소</button>
         </div>
-        <span
-          :class="r.done ? 'bg-lilac-soft' : 'bg-lemon'"
-          class="rounded-xl px-3 py-2 text-[13px] font-bold whitespace-nowrap lg:px-4 lg:py-2.5 lg:text-sm"
-        >
-          {{ r.done ? '보기' : '이어서' }}
-        </span>
-      </RouterLink>
+        <template v-else>
+          <RouterLink
+            :to="{ name: 'flow', params: { id: r.post.id, step: r.step } }"
+            class="flex min-w-0 flex-1 items-center gap-3 py-3.5 text-ink no-underline hover:text-ink lg:gap-4 lg:py-[18px] lg:pl-5"
+          >
+            <div class="flex min-w-0 flex-1 flex-col gap-2">
+              <span class="truncate text-[15px] font-bold lg:text-[17px]">{{ r.post.keyword || r.post.title || '제목 없음' }}</span>
+              <div class="flex items-center gap-2.5">
+                <div class="h-[5px] w-[84px] shrink-0 overflow-hidden rounded-[3px] bg-track lg:h-1.5 lg:w-[140px]" aria-hidden="true">
+                  <div class="h-full bg-ink" :style="{ width: `${r.pct}%` }" />
+                </div>
+                <span class="text-xs text-sub lg:text-[13px]">{{ r.label }}<span class="hidden lg:inline"> · {{ relativeDate(r.post.updated_at) }}</span></span>
+              </div>
+            </div>
+            <span
+              :class="r.done ? 'bg-lilac-soft' : 'bg-lemon'"
+              class="rounded-xl px-3 py-2 text-[13px] font-bold whitespace-nowrap lg:px-4 lg:py-2.5 lg:text-sm"
+            >
+              {{ r.done ? '보기' : '이어서' }}
+            </span>
+          </RouterLink>
+          <button
+            type="button"
+            :aria-label="`${r.post.keyword || r.post.title || '제목 없음'} 글 삭제`"
+            title="삭제"
+            class="flex size-9 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-lilac-soft hover:text-ink"
+            @click="confirmId = r.post.id"
+          >
+            ✕
+          </button>
+        </template>
+      </div>
+      <p v-if="deleteError" role="alert" class="text-sm text-red-600">{{ deleteError }}</p>
     </div>
   </section>
 </template>

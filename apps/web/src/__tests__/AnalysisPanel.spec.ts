@@ -22,6 +22,7 @@ const ANALYSIS: KeywordAnalysis = {
   primary_intent: '맛집 방문 후기',
   intent_distribution: [{ label: '맛집 방문 후기', share: 0.7 }],
   must_answer: ['주차가 되나요?'],
+  guide: null,
   recommended_outline: [{ heading: '위치와 주차', purpose: '찾아가는 법', photo_hint: '외관 1장' }],
   title_guidelines: ['키워드를 앞에'],
   related_keywords: ['주차'],

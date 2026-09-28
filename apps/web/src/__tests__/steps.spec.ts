@@ -10,7 +10,7 @@ import UploadStep from '@/components/steps/UploadStep.vue'
 import KeywordStep from '@/components/steps/KeywordStep.vue'
 import PhotoStep from '@/components/steps/PhotoStep.vue'
 import { analysisApi, imageApi, postApi, referenceApi, type ExportResult, type Post, type PostImage } from '@/lib/api'
-import { copyRich } from '@/lib/clipboard'
+import { copyRich, copyText } from '@/lib/clipboard'
 
 vi.mock('@/lib/api', () => ({
   postApi: {
@@ -188,6 +188,14 @@ describe('4 글 계획', () => {
     expect(flow.go).toHaveBeenCalledWith(5)
   })
 
+  it('초안에 자동으로 달 해시태그를 보여준다', () => {
+    const { wrapper } = mountStep(PlanStep as unknown as DefineComponent, {
+      post: post({ plan: PLAN, status: 'planned', keyword_project_id: null, recommended_hashtags: ['인계동파스타', '수원맛집'] }),
+    })
+    expect(wrapper.text()).toContain('달 해시태그 2개')
+    expect(wrapper.text()).toContain('#수원맛집')
+  })
+
   it('아직 안 쓰인 사진을 목차로 끌어다 놓으면 그 섹션에 넣어 저장한다', async () => {
     vi.mocked(postApi.savePlan).mockResolvedValue(post({ plan: PLAN }))
     vi.mocked(postApi.generate).mockResolvedValue(post({ status: 'generating' }))
@@ -283,6 +291,19 @@ describe('6 네이버에 올리기', () => {
     await flushPromises()
     expect(postApi.publish).toHaveBeenCalledWith(7, 'https://blog.naver.com/me/1')
     expect(flow.update).toHaveBeenCalled()
+  })
+
+  it('해시태그가 있으면 태그 복사 단계가 생기고 #을 붙여 복사한다', async () => {
+    vi.mocked(postApi.exportPost).mockResolvedValue({ html: '<p>본문</p>', text: '본문', tags: ['인계동파스타', '수원맛집'], warnings: [], photos: [] })
+    const { wrapper } = mountStep(UploadStep as unknown as DefineComponent, { post: post({ content: { blocks: [], tags: [] } }) })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('해시태그 2개는 본문 끝에 들어가요')
+    await button(wrapper, '태그 복사').trigger('click')
+    await flushPromises()
+    expect(copyText).toHaveBeenCalledWith('#인계동파스타 #수원맛집')
+    const rows = wrapper.findAll('span').filter((el) => el.text() === '게시한 글 주소 붙여넣기')
+    expect(rows[0]!.element.previousElementSibling!.textContent).toBe('4')
   })
 
   it('붙여넣기는 클립보드의 글 주소를 게시 주소 칸에 넣는다', async () => {

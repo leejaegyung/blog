@@ -11,6 +11,8 @@ export type Project = {
   status: ProjectStatus
   last_analyzed_at: string | null
   analysis_version: string | null
+  // 사용자가 고친 해시태그(null이면 분석 추천을 쓴다)
+  hashtags?: string[] | null
   reference_count?: number
   post_count?: number
   created_at: string
@@ -73,6 +75,17 @@ export type KeywordStats = {
   ending_engagement_share: number
 }
 
+/** 검색 노출 가이드(참고 글 통계 + 네이버 공개 원칙, 코드 계산). 순위 보장이 아니다 */
+export type GuideTarget = { key: string; label: string; target: string; basis: string; min: number | null; max: number | null }
+export type HashtagSuggestion = { tag: string; source: 'keyword' | 'references' | 'ai'; share: number | null }
+export type ExposureGuide = {
+  version: string
+  reference_count: number
+  targets: GuideTarget[]
+  principles: string[]
+  hashtags: HashtagSuggestion[]
+}
+
 export type KeywordAnalysis = {
   id: number
   primary_intent: string | null
@@ -83,6 +96,7 @@ export type KeywordAnalysis = {
   related_keywords: string[]
   writing_tips: string[]
   stats: KeywordStats | null
+  guide: ExposureGuide | null
   insight_error: string | null
   prompt_version: string | null
   stale: boolean
@@ -199,6 +213,8 @@ export type Post = {
   plan_stale: boolean | null
   content: { blocks: ContentBlock[]; tags: string[] } | null
   content_original: { blocks: ContentBlock[]; tags: string[] } | null
+  // 이 키워드로 쓸 때 다는 해시태그(글 하나를 불러올 때만)
+  recommended_hashtags?: string[]
   draft_meta: {
     char_count: number
     target_length: number
@@ -264,6 +280,11 @@ export const projectApi = {
   async remove(id: number) {
     await http.delete(`/projects/${id}`)
   },
+  /** null이면 분석 추천으로 되돌린다 */
+  async saveHashtags(id: number, hashtags: string[] | null) {
+    const { data } = await http.put<Wrapped<Project>>(`/projects/${id}/hashtags`, { hashtags })
+    return data.data
+  },
 }
 
 export const postApi = {
@@ -276,6 +297,10 @@ export const postApi = {
   async get(id: number) {
     const { data } = await http.get<Wrapped<Post>>(`/posts/${id}`)
     return data.data
+  },
+  /** 글과 사진을 지운다(되돌릴 수 없다) */
+  async remove(id: number) {
+    await http.delete(`/posts/${id}`)
   },
   async start(keyword: string, category?: string) {
     const { data } = await http.post<Wrapped<Post>>('/posts/start', {

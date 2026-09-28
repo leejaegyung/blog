@@ -55,6 +55,13 @@ class KeywordAnalysisTest extends TestCase
                 'writing_tips' => ['사진은 2~3장씩'],
             ] : null,
             'insight_error' => $withInsight ? null : 'AI 해석을 만들지 못했습니다: not_configured',
+            'guide' => [
+                'version' => 'guide-1', 'reference_count' => 2,
+                'targets' => [['key' => 'length', 'label' => '본문 길이', 'target' => '1,800~2,600자', 'basis' => '참고 글 2개', 'min' => 1800, 'max' => 2600]],
+                'principles' => ['직접 찍은 사진'],
+                'hashtags' => [['tag' => '인계동파스타', 'source' => 'keyword', 'share' => null], ['tag' => '인계동맛집', 'source' => 'references', 'share' => 1.0]],
+                'checks' => ['title_keyword_start' => true, 'keyword_in_first_paragraph' => true, 'photo_min' => 4, 'heading_min' => 3, 'hashtag_min' => 5, 'hashtag_max' => 15],
+            ],
             'prompt_version' => 'keyword-analysis-v1',
             'generations' => [[
                 'provider' => 'anthropic', 'model' => 'claude-opus-5', 'status' => $withInsight ? 'success' : 'failed',
@@ -87,6 +94,9 @@ class KeywordAnalysisTest extends TestCase
         $analysis = $this->project->latestAnalysis()->sole();
         $this->assertSame('맛집 방문 후기', $analysis->primary_intent);
         $this->assertSame(['주차가 되나요?'], $analysis->must_answer_json);
+        $this->assertSame('1,800~2,600자', $analysis->guide_json['targets'][0]['target']);
+        // 사용자가 고친 적이 없으면 분석의 추천 해시태그를 쓴다
+        $this->assertSame(['인계동파스타', '인계동맛집'], $this->project->fresh()->hashtags());
         $this->assertSame('stats-1+keyword-analysis-v1', $analysis->analyzer_version);
         $this->assertTrue($analysis->expires_at->between(now()->addDays(6), now()->addDays(8)));
         $this->assertSame(ProjectStatus::Analyzed, $this->project->fresh()->status);

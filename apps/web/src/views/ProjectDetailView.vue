@@ -81,7 +81,9 @@ async function remove() {
       <AnalysisPanel
         :project-id="project.id"
         :reference-count="project.reference_count ?? 0"
+        :custom-hashtags="project.hashtags"
         @status="(status) => project && (project.status = status)"
+        @hashtags-saved="(saved) => project && (project.hashtags = saved.hashtags)"
       />
 
       <section class="flex flex-col gap-2.5">

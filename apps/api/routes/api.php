@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PostPublishController;
 use App\Http\Controllers\Api\PostQualityController;
 use App\Http\Controllers\Api\PostRewriteController;
 use App\Http\Controllers\Api\ProjectAnalysisController;
+use App\Http\Controllers\Api\ProjectHashtagController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ReferenceController;
 use App\Http\Controllers\Api\WizardController;
@@ -42,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('projects', ProjectController::class);
     Route::get('/projects/{project}/analysis', [ProjectAnalysisController::class, 'show']);
     Route::post('/projects/{project}/analyze', [ProjectAnalysisController::class, 'analyze']);
+    Route::put('/projects/{project}/hashtags', ProjectHashtagController::class);
 
     Route::controller(ReferenceController::class)->group(function () {
         Route::get('/projects/{project}/references', 'index');
@@ -53,7 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/posts/start', [WizardController::class, 'start']);
     Route::post('/posts/{post}/autopilot', [WizardController::class, 'autopilot']);
-    Route::apiResource('posts', PostController::class)->except('destroy');
+    Route::apiResource('posts', PostController::class);
     Route::post('/posts/{post}/plan', [PostPlanController::class, 'store']);
     Route::put('/posts/{post}/plan', [PostPlanController::class, 'update']);
     Route::post('/posts/{post}/generate', [PostDraftController::class, 'store']);

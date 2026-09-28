@@ -39,7 +39,8 @@ async function load() {
 }
 
 function update(next: Post) {
-  post.value = next
+  // 응답에 따라 사진·사실·추천 해시태그 같은 항목이 빠져 오므로 같은 글이면 합친다
+  post.value = post.value?.id === next.id ? { ...post.value, ...next } : next
   ui.crumb = next.keyword ?? ui.crumb
 }
 

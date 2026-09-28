@@ -62,3 +62,16 @@ def test_single_reference_keeps_single_document_terms() -> None:
 
 def test_no_references() -> None:
     assert aggregate([], "파스타") is None
+
+
+def test_hashtag_frequency_and_count() -> None:
+    tagged = [
+        features([P("인계동 파스타 다녀왔어요."), P("#인계동맛집 #수원맛집 #파스타")]),
+        features([P("인계동 파스타 후기."), P("#인계동맛집 #데이트")]),
+        features([P("인계동 파스타 먹었어요.")]),
+    ]
+    stats = aggregate(tagged, "인계동 파스타")
+
+    assert [(t.term, t.documents) for t in stats.hashtags] == [("인계동맛집", 2)]
+    assert stats.hashtag_count.median == 2.5
+    assert aggregate(DOCS, "인계동 파스타").hashtag_count is None

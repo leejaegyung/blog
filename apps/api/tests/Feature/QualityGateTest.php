@@ -23,7 +23,9 @@ class QualityGateTest extends TestCase
 
         $this->post = Post::factory()->create(['title' => '인계동 파스타 후기', 'target_length' => 1500]);
         $this->post->project->update(['keyword' => '인계동 파스타']);
-        $this->post->project->analyses()->create(['analyzer_version' => 'x', 'stats_json' => ['keyword_per_1000_chars' => ['p75' => 3.5]]]);
+        $this->post->project->analyses()->create(['analyzer_version' => 'x', 'stats_json' => ['keyword_per_1000_chars' => ['p75' => 3.5]],
+            'guide_json' => ['checks' => ['photo_min' => 4, 'heading_min' => 3, 'hashtag_min' => 5, 'hashtag_max' => 15,
+                'title_keyword_start' => true, 'keyword_in_first_paragraph' => false]]]);
         $this->post->facts()->create(['fact_key' => '가격', 'fact_value' => '19,000원']);
         $this->image = $this->post->images()->create(['storage_key' => 'a.jpg', 'vision_json' => ['usable' => false, 'privacy_flags' => ['사람 얼굴']]]);
         $this->post->forceFill([
@@ -59,7 +61,8 @@ class QualityGateTest extends TestCase
             && $r['blocks'][0]['text'] === '런치 19,000원' && $r['facts'][0]['fact_value'] === '19,000원'
             && $r['images'][0] === ['id' => $this->image->id, 'usable' => false, 'privacy_flags' => ['사람 얼굴']]
             && $r['keyword_density_p75'] === 3.5 && $r['target_length'] === 1500
-            && $r['plan']['forbidden_claims'] === ['주차 단정 금지']);
+            && $r['plan']['forbidden_claims'] === ['주차 단정 금지']
+            && $r['tags'] === ['파스타'] && $r['guide']['photo_min'] === 4);
         $this->assertNotNull($this->post->fresh()->quality_checked_at);
     }
 

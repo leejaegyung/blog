@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PostRequest;
 use App\Http\Resources\PostResource;
+use App\Models\Generation;
 use App\Models\Post;
 use App\Support\PostContent;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
 {
@@ -108,8 +111,27 @@ class PostController extends Controller
         ])->save();
     }
 
+    /** 글과 사진 파일·사실을 지운다. AI 사용 기록(generations)은 사용량 통계에 남긴다. */
+    public function destroy(Post $post): Response
+    {
+        Gate::authorize('delete', $post);
+
+        $files = $post->images()->get(['storage_key', 'thumb_key'])
+            ->flatMap(fn ($image) => [$image->storage_key, $image->thumb_key])
+            ->filter()
+            ->all();
+
+        DB::transaction(function () use ($post) {
+            Generation::where('post_id', $post->id)->update(['post_id' => null]);
+            $post->delete();
+        });
+        Storage::disk('uploads')->delete($files);
+
+        return response()->noContent();
+    }
+
     private function resource(Post $post): PostResource
     {
-        return new PostResource($post->refresh()->load(['project', 'facts', 'images']));
+        return new PostResource($post->refresh()->load(['project.latestAnalysis', 'facts', 'images']));
     }
 }

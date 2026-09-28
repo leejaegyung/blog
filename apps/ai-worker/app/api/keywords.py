@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.analyzers.aggregate import KeywordStats, aggregate
+from app.analyzers.exposure import ExposureGuide, build_guide
 from app.analyzers.features import DocumentFeatures
 from app.api.llm import GenerationMeta, generation_meta
 from app.generators.keyword_insight import PROMPT_VERSION, KeywordInsight, generate_insight
@@ -26,6 +27,8 @@ class AnalyzeResponse(BaseModel):
     # 모든 LLM 대상이 실패하면 null. 통계는 그래도 돌려준다.
     insight: KeywordInsight | None
     insight_error: str | None
+    # 검색 노출 가이드·추천 해시태그(코드 계산). AI 해석이 실패해도 돌려준다
+    guide: ExposureGuide
     prompt_version: str
     generations: list[GenerationMeta]
 
@@ -48,14 +51,17 @@ async def analyze(body: AnalyzeRequest, llm: Annotated[LLMRouter, Depends(get_ro
             stats=stats,
             insight=None,
             insight_error="AI 해석을 만들지 못했습니다: " + ", ".join(kinds),
+            guide=build_guide(keyword, body.category, stats),
             prompt_version=PROMPT_VERSION,
             generations=generation_meta(failed.outcome),
         )
 
+    insight = outcome.result.parsed
     return AnalyzeResponse(
         stats=stats,
-        insight=outcome.result.parsed,
+        insight=insight,
         insight_error=None,
+        guide=build_guide(keyword, body.category, stats, insight.hashtags),
         prompt_version=PROMPT_VERSION,
         generations=generation_meta(outcome),
     )

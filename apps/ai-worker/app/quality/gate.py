@@ -11,11 +11,12 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.analyzers.exposure import GuideChecks
 from app.analyzers.nlp import nouns, sentences
 from app.generators.draft import SPECIFIC_PATTERNS, ContentBlock, _compact
 from app.generators.writing_plan import SLOT_FACT_HINTS, FactInput
 
-GATE_VERSION = "quality-1"
+GATE_VERSION = "quality-2"
 
 Severity = Literal["error", "warning", "info"]
 
@@ -26,6 +27,7 @@ SELF_PAID = re.compile(r"내돈내산|내 돈 내 산|직접 결제|자비로")
 PERSONAL_PHONE = re.compile(r"01[016789]-?\d{3,4}-?\d{4}")
 MAX_PARAGRAPH_SENTENCES = 4
 KEYWORD_DENSITY_LIMIT = 8.0  # 1000자당. 참고자료 통계가 있으면 그 p75의 2배와 비교한다
+MAX_TAGS = 30  # 네이버 블로그 태그 상한
 DENSITY_MIN_CHARS = 500  # 이보다 짧은 글은 몇 번만 나와도 밀도가 튀어 판정하지 않는다
 
 
@@ -45,6 +47,8 @@ class QualityInput(BaseModel):
     images: list[ImageState] = []
     target_length: int = 2500
     keyword_density_p75: float | None = None
+    # 키워드 분석의 검색 노출 가이드 기준(없으면 태그 개수 상한만 본다)
+    guide: GuideChecks | None = None
 
 
 class Issue(BaseModel):
@@ -208,8 +212,31 @@ def check(data: QualityInput) -> QualityReport:
     if unused and placed:
         issues.append(Issue(code="unused_photos", severity="info", message=f"쓰지 않은 사진이 {len(unused)}장 있습니다."))
 
-    # 점수 (기획서 19장)
+    # 12. 검색 노출 가이드(참고 글 통계 기준 — 순위 보장 아님)
     headings = [i for i, b in enumerate(blocks) if b.type == "heading"]
+    if len(data.tags) > MAX_TAGS:
+        issues.append(Issue(code="hashtags_many", severity="warning",
+                            message=f"해시태그가 {len(data.tags)}개예요. 네이버 태그는 {MAX_TAGS}개까지 달 수 있어요."))
+    if guide := data.guide:
+        if len(data.tags) < guide.hashtag_min:
+            issues.append(Issue(code="hashtags_few", severity="info",
+                                message=f"해시태그가 {len(data.tags)}개예요. 글과 관련된 태그를 {guide.hashtag_min}개 이상 달아 보세요."))
+        if data.images and len(placed) < guide.photo_min:
+            issues.append(Issue(code="photos_few", severity="info",
+                                message=f"본문 사진이 {len(placed)}장이에요. 참고 글은 보통 {guide.photo_min}장 이상 넣었어요."))
+        if len(headings) < guide.heading_min:
+            issues.append(Issue(code="headings_few", severity="info",
+                                message=f"소제목이 {len(headings)}개예요. 참고 글은 보통 {guide.heading_min}개 이상이에요."))
+        first = paragraphs[0] if paragraphs else None
+        if keyword and guide.keyword_in_first_paragraph and first and not any(t in first[1] for t in keyword.split()):
+            issues.append(Issue(code="first_paragraph_keyword", severity="info",
+                                message="첫 문단에 키워드가 없어요. 검색한 사람이 바로 알아보게 넣어 보세요.",
+                                block_index=first[0], excerpt=first[1][:30] or None))
+        if keyword and guide.title_keyword_start and title_has_keyword and data.title.find(keyword.split()[0]) > 2:
+            issues.append(Issue(code="title_keyword_start", severity="info",
+                                message="제목을 키워드로 시작하면 검색 결과에서 눈에 잘 띄어요."))
+
+    # 점수 (기획서 19장)
     usable_ids = [image.id for image in data.images if image.usable and not image.privacy_flags]
     title_nouns = [n for n in dict.fromkeys(nouns(data.title)) if n not in keyword.split()]
     risky = sum(1 for i in issues if i.code in {"unsupported_specific", "forbidden_claim", "exaggeration",
@@ -247,6 +274,7 @@ def check(data: QualityInput) -> QualityReport:
             "image_count": len(placed),
             "facts_reflected": reflected,
             "facts_total": len(data.facts),
+            "tag_count": len(data.tags),
         },
     )
 

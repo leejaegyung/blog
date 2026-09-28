@@ -109,7 +109,18 @@ function scheduleSave() {
 }
 
 function tags() {
-  return [...new Set(tagsInput.value.split(/[,\s]+/).map((t) => t.replace(/^#/, '').trim()).filter(Boolean))]
+  return [...new Set(tagsInput.value.split(/[,\s#]+/).map((t) => t.replace(/[^0-9A-Za-z가-힣_]/g, '')).filter(Boolean))]
+}
+
+// 키워드의 추천 해시태그 중 아직 안 단 것
+const missingTags = computed(() => {
+  const current = new Set(tags().map((t) => t.toLowerCase()))
+  return (props.post.recommended_hashtags ?? []).filter((t) => !current.has(t.toLowerCase()))
+})
+
+function addTags(list: string[]) {
+  tagsInput.value = [...tags(), ...list].slice(0, 30).join(', ')
+  scheduleSave()
 }
 
 async function save() {
@@ -300,9 +311,16 @@ defineExpose({ save, insertImage, rewrite, reveal, removeSentence, editor })
     </div>
 
     <label class="flex flex-col gap-1.5">
-      <span class="text-[13px] font-bold">태그 <span class="font-medium text-sub">(쉼표로 구분)</span></span>
+      <span class="text-[13px] font-bold">해시태그 {{ tags().length }}개 <span class="font-medium text-sub">(쉼표·띄어쓰기로 구분, 30개까지)</span></span>
       <input v-model="tagsInput" class="rounded-xl border-[1.5px] border-line bg-white px-3.5 py-2.5 text-sm outline-none focus:border-ink" @input="scheduleSave" />
     </label>
+    <div v-if="missingTags.length" class="flex flex-wrap items-center gap-1.5 text-xs">
+      <span class="font-bold">키워드 추천</span>
+      <button v-for="tag in missingTags" :key="tag" type="button" class="rounded-full border-[1.5px] border-line bg-white px-2 py-0.5 hover:border-ink" @click="addTags([tag])">
+        + #{{ tag }}
+      </button>
+      <button v-if="missingTags.length > 1" type="button" class="font-bold underline" @click="addTags(missingTags)">모두 달기</button>
+    </div>
   </div>
 </template>
 

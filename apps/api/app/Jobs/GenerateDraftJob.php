@@ -16,6 +16,9 @@ class GenerateDraftJob implements ShouldQueue
 {
     use Queueable, TracksPipeline;
 
+    // 기다리는 동안 글이 지워졌으면 조용히 버린다
+    public bool $deleteWhenMissingModels = true;
+
     public int $tries = 3;
 
     public int $timeout = 290;
@@ -27,7 +30,7 @@ class GenerateDraftJob implements ShouldQueue
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder, QualityGate $gate): void
     {
-        $post = $this->post->fresh()->load(['project', 'facts', 'images']);
+        $post = $this->post->fresh()->load(['project.latestAnalysis', 'facts', 'images']);
         // 체인에서 앞 단계(계획)가 실패했으면 초안을 쓰지 않는다
         if ($this->pipelinePostId && ($this->pipelineFailed() || ! $post->plan_json)) {
             return;
@@ -49,6 +52,8 @@ class GenerateDraftJob implements ShouldQueue
             'photo_notes' => $post->images->filter(fn ($image) => $image->vision_json)
                 ->mapWithKeys(fn ($image) => [$image->id => collect($image->vision_json)->only(['type', 'description'])->all()])
                 ->all() ?: (object) [],
+            // 키워드의 해시태그를 초안 태그로 자동으로 단다
+            'hashtags' => $post->project?->hashtags() ?? [],
         ]);
 
         $recorder->record($result['generations'], purpose: 'draft', promptVersion: $result['prompt_version'], post: $post);

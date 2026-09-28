@@ -34,6 +34,9 @@ ENGAGEMENT = re.compile(r"공감|댓글|이웃|구독|좋아요")
 SUMMARY_WORDS = re.compile(r"총평|정리|마무리|결론|한줄평|한 줄 평")
 GREETING = re.compile(r"안녕하세요|반갑습니다|안녕")
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+# 글 끝의 "#인계동맛집 #파스타" 같은 해시태그. 짧은 라벨이라 원문 문장이 아니다
+HASHTAG = re.compile(r"(?<![\w&#])#([0-9A-Za-z가-힣_]{1,30})")
+MAX_HASHTAGS = 30
 
 
 class TitleFeatures(BaseModel):
@@ -99,6 +102,8 @@ class DocumentFeatures(BaseModel):
     slots: dict[str, bool]
     intro_type: Literal["greeting", "question", "summary", "story", "none"]
     ending: EndingFeatures
+    # features-1에 나중에 더한 항목: 예전에 뽑은 특징에는 없으므로 기본값을 둔다
+    hashtags: list[str] = []
 
 
 def extract_features(document: ParsedDocument, keyword: str) -> DocumentFeatures:
@@ -131,7 +136,14 @@ def extract_features(document: ParsedDocument, keyword: str) -> DocumentFeatures
         slots={slot: bool(re.search(pattern, text)) for slot, pattern in SLOT_PATTERNS.items()},
         intro_type=_intro_type(paragraphs, keyword),
         ending=_ending(blocks),
+        hashtags=extract_hashtags(text),
     )
+
+
+def extract_hashtags(text: str) -> list[str]:
+    """본문의 #태그를 순서대로 중복 없이. 숫자만 있는 것(#1 같은 번호)은 태그로 보지 않는다."""
+    tags = (m.group(1) for m in HASHTAG.finditer(text))
+    return list(dict.fromkeys(tag for tag in tags if not tag.isdigit()))[:MAX_HASHTAGS]
 
 
 def _title(title: str | None, keyword: str) -> TitleFeatures | None:

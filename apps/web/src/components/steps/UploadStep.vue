@@ -127,20 +127,40 @@ watch(signature, () => {
 onMounted(prepare)
 onBeforeUnmount(() => clearTimeout(timer))
 
-const steps = computed(() => [
-  { n: 1, text: '제목을 복사해 네이버 글쓰기에 붙여넣기', action: '제목 복사', disabled: false, run: copyTitle },
-  {
-    n: 2,
-    text: photoCount.value ? `본문을 서식째 복사해 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요` : '본문을 서식째 복사해 붙여넣기',
-    action: ready.value ? '본문 복사' : '준비 중…',
-    disabled: !ready.value,
-    run: copyBody,
-  },
-  ...(photoCount.value
-    ? [{ n: 3, text: '사진이 빠졌다면 [사진 1] 자리에 같은 번호 사진 넣기', action: `사진 ${photoCount.value}장 받기`, disabled: false, run: downloadPhotos }]
-    : []),
-  { n: photoCount.value ? 4 : 3, text: '게시한 글 주소 붙여넣기', action: '붙여넣기', disabled: false, run: pasteUrl },
-])
+const tagList = computed(() => prepared.value?.result.tags ?? props.post.content?.tags ?? [])
+
+async function copyTags() {
+  await copyText(tagList.value.map((t) => `#${t}`).join(' '))
+  status.value = `해시태그 ${tagList.value.length}개를 복사했어요. 네이버 발행 창의 태그 칸에 붙여넣으세요.`
+}
+
+type UploadAction = { text: string; action: string; disabled: boolean; run: () => unknown }
+const steps = computed(() => {
+  const list: UploadAction[] = [
+    { text: '제목을 복사해 네이버 글쓰기에 붙여넣기', action: '제목 복사', disabled: false, run: copyTitle },
+    {
+      text: photoCount.value
+        ? `본문을 서식째 복사해 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
+        : '본문을 서식째 복사해 붙여넣기',
+      action: ready.value ? '본문 복사' : '준비 중…',
+      disabled: !ready.value,
+      run: copyBody,
+    },
+  ]
+  if (tagList.value.length) {
+    list.push({
+      text: `해시태그 ${tagList.value.length}개는 본문 끝에 들어가요 — 발행 창 태그 칸에도 붙여넣기`,
+      action: '태그 복사',
+      disabled: false,
+      run: copyTags,
+    })
+  }
+  if (photoCount.value) {
+    list.push({ text: '사진이 빠졌다면 [사진 1] 자리에 같은 번호 사진 넣기', action: `사진 ${photoCount.value}장 받기`, disabled: false, run: downloadPhotos })
+  }
+  list.push({ text: '게시한 글 주소 붙여넣기', action: '붙여넣기', disabled: false, run: pasteUrl })
+  return list.map((step, index) => ({ ...step, n: index + 1 }))
+})
 </script>
 
 <template>

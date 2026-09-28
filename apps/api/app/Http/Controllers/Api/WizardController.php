@@ -36,9 +36,19 @@ class WizardController extends Controller
         if (! $project->category && ! empty($data['category'])) {
             $project->update(['category' => $data['category']]);
         }
-        $post = $request->user()->posts()->create(['keyword_project_id' => $project->id, 'tone' => 'natural', 'target_length' => 2500]);
+        // 같은 키워드로 시작만 하고 아무것도 넣지 않은 글이 있으면 새로 만들지 않고 그 글을 이어 쓴다
+        $empty = $request->user()->posts()
+            ->where('keyword_project_id', $project->id)
+            ->where('status', PostStatus::Draft)
+            ->whereNull('plan_json')
+            ->whereNull('content_json')
+            ->doesntHave('images')
+            ->doesntHave('facts')
+            ->latest('id')
+            ->first();
+        $post = $empty ?? $request->user()->posts()->create(['keyword_project_id' => $project->id, 'tone' => 'natural', 'target_length' => 2500]);
 
-        return (new PostResource($post->refresh()->load(['project', 'facts', 'images'])))->response()->setStatusCode(201);
+        return (new PostResource($post->refresh()->load(['project.latestAnalysis', 'facts', 'images'])))->response()->setStatusCode($empty ? 200 : 201);
     }
 
     /** until=plan: 사진 분석→키워드 분석→계획까지만(글 계획 단계에서 사용자가 고른 뒤 초안을 쓴다). 기본은 초안까지. */
@@ -47,7 +57,7 @@ class WizardController extends Controller
         $untilPlan = $request->input('until') === 'plan';
         Gate::authorize('update', $post);
         $post->load(['project.latestAnalysis', 'facts', 'images']);
-        $respond = fn () => (new PostResource($post->refresh()->load(['project', 'facts', 'images'])))->response()->setStatusCode(202);
+        $respond = fn () => (new PostResource($post->refresh()->load(['project.latestAnalysis', 'facts', 'images'])))->response()->setStatusCode(202);
 
         if ($post->pipeline_status === 'running') {
             return $respond();

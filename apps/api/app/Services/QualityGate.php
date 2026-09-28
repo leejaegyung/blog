@@ -28,6 +28,8 @@ class QualityGate
             ])->values()->all(),
             'target_length' => $post->target_length ?? 2500,
             'keyword_density_p75' => $post->project?->latestAnalysis?->stats_json['keyword_per_1000_chars']['p75'] ?? null,
+            // 검색 노출 가이드 기준(사진·소제목·해시태그 수, 첫 문단·제목의 키워드)
+            'guide' => $post->project?->latestAnalysis?->guide_json['checks'] ?? null,
         ]);
 
         $post->forceFill([

@@ -119,4 +119,25 @@ class PostTest extends TestCase
         $this->actingAs($this->user)->getJson("/api/posts/{$post->id}")->assertForbidden();
         $this->actingAs($this->user)->patchJson("/api/posts/{$post->id}", ['title' => 'x'])->assertForbidden();
     }
+
+    public function test_delete_removes_post_photos_and_keeps_usage_records(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('uploads');
+        $post = Post::factory()->create();
+        \Illuminate\Support\Facades\Storage::disk('uploads')->put('users/1/a.jpg', 'x');
+        \Illuminate\Support\Facades\Storage::disk('uploads')->put('users/1/a_thumb.jpg', 'x');
+        $post->images()->create(['storage_key' => 'users/1/a.jpg', 'thumb_key' => 'users/1/a_thumb.jpg']);
+        $post->facts()->create(['fact_key' => '가격', 'fact_value' => '1원']);
+        $generation = \App\Models\Generation::create([
+            'post_id' => $post->id, 'purpose' => 'draft', 'provider' => 'anthropic', 'model' => 'm', 'status' => 'success',
+        ]);
+
+        $this->actingAs(User::factory()->create())->deleteJson("/api/posts/{$post->id}")->assertForbidden();
+        $this->actingAs($post->user)->deleteJson("/api/posts/{$post->id}")->assertNoContent();
+
+        $this->assertModelMissing($post);
+        $this->assertSame(0, \App\Models\PostImage::count() + \App\Models\PostFact::count());
+        \Illuminate\Support\Facades\Storage::disk('uploads')->assertMissing(['users/1/a.jpg', 'users/1/a_thumb.jpg']);
+        $this->assertNull($generation->fresh()->post_id);
+    }
 }

@@ -29,6 +29,11 @@ class PostResource extends JsonResource
             'plan_error' => $this->plan_error,
             'content' => $this->content_json,
             'content_original' => $this->content_original_json,
+            // 이 키워드로 쓸 때 다는 해시태그(프로젝트와 최근 분석을 함께 불러온 응답에만)
+            'recommended_hashtags' => $this->when(
+                $this->relationLoaded('project') && $this->project?->relationLoaded('latestAnalysis'),
+                fn () => $this->project?->hashtags() ?? [],
+            ),
             'draft_meta' => $this->draft_meta_json,
             'draft_error' => $this->draft_error,
             'quality' => $this->quality_json ? collect($this->quality_json)->except('source_hash')->all() : null,

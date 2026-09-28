@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.analyzers.exposure import GuideChecks
 from app.generators.draft import ContentBlock
 from app.generators.writing_plan import FactInput
 from app.main import app
@@ -134,4 +135,25 @@ def test_endpoint() -> None:
     })
 
     assert response.status_code == 200
-    assert response.json()["version"] == "quality-1"
+    assert response.json()["version"] == "quality-2"
+
+
+def test_exposure_guide_checks() -> None:
+    guide = GuideChecks(title_keyword_start=True, keyword_in_first_paragraph=True, photo_min=5, heading_min=3,
+                        hashtag_min=5, hashtag_max=15)
+    blocks = [P("오늘 다녀온 곳이에요.")] + GOOD[1:]
+    report, codes = run(blocks, title="OO파스타 런치 세트 인계동 파스타 후기", tags=["인계동파스타"], guide=guide)
+
+    assert {"hashtags_few", "photos_few", "headings_few", "first_paragraph_keyword", "title_keyword_start"} <= codes
+    first = next(i for i in report.issues if i.code == "first_paragraph_keyword")
+    assert first.block_index == 0 and first.severity == "info"
+    assert report.metrics["tag_count"] == 1
+
+    _, clean = run(tags=[f"태그{i}" for i in range(6)], guide=guide.model_copy(update={"photo_min": 2, "heading_min": 2}))
+    assert not clean & {"hashtags_few", "photos_few", "headings_few", "first_paragraph_keyword", "title_keyword_start"}
+
+
+def test_too_many_tags_is_flagged_without_guide() -> None:
+    _, codes = run(tags=[f"태그{i}" for i in range(31)])
+
+    assert "hashtags_many" in codes

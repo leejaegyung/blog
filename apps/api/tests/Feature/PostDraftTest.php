@@ -83,6 +83,18 @@ class PostDraftTest extends TestCase
         $this->assertSame('draft', Generation::sole()->purpose);
     }
 
+    public function test_job_sends_keyword_hashtags_custom_first_then_analysis(): void
+    {
+        $this->post->project->analyses()->create(['analyzer_version' => 'x', 'guide_json' => ['hashtags' => [['tag' => '분석태그', 'source' => 'ai']]]]);
+        $this->runJob($this->draftResponse());
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['hashtags'] === ['분석태그']);
+
+        $this->post->project->forceFill(['hashtags_json' => ['내태그']])->save();
+        $this->post->forceFill(['status' => PostStatus::Planned])->save();
+        $this->runJob($this->draftResponse());
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['hashtags'] === ['내태그']);
+    }
+
     public function test_llm_failure_keeps_plan_and_records_error(): void
     {
         $this->runJob(['draft' => null, 'draft_error' => '초안을 만들지 못했습니다: billing', 'prompt_version' => 'blog-draft-v1', 'generations' => []]);

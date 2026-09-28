@@ -14,6 +14,9 @@ class AnalyzeImagesJob implements ShouldQueue
 {
     use Queueable, TracksPipeline;
 
+    // 기다리는 동안 글이 지워졌으면 조용히 버린다
+    public bool $deleteWhenMissingModels = true;
+
     public int $tries = 3;
 
     public int $timeout = 290;

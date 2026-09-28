@@ -102,3 +102,9 @@ def test_english_noise_is_filtered() -> None:
     from app.analyzers.nlp import nouns
 
     assert nouns("The pasta has 200 mg of salt and Pasta is from Italy") == ["pasta", "salt", "pasta", "italy"]
+
+
+def test_hashtags_are_extracted_without_numbers_or_duplicates() -> None:
+    f = extract_features(doc([P("잘 먹었어요. 1번 메뉴 추천!"), P("#인계동맛집 #수원파스타 #1 #인계동맛집 C#언어 #데이트_코스")]), "인계동 파스타")
+
+    assert f.hashtags == ["인계동맛집", "수원파스타", "데이트_코스"]
