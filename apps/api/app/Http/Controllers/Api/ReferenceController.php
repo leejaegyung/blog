@@ -132,7 +132,7 @@ class ReferenceController extends Controller
     }
 
     /**
-     * 본문 추가. 원래 주소가 오면 같은 주소 항목을 찾아 "본문 필요"면 채우고, 이미 읽은 글이면 건너뛴다.
+     * 본문 추가. 원래 주소가 오면 같은 주소 항목을 찾아 그 항목에 새 본문을 넣고 다시 읽는다(중복으로 만들지 않는다).
      *
      * @return array{0: list<ReferenceDocument>, 1: list<array{url: string, reason: string}>}
      */
@@ -142,9 +142,7 @@ class ReferenceController extends Controller
         $existing = $url
             ? $project->references()->whereNotNull('source_url')->get()->first(fn ($r) => ReferenceUrl::normalize($r->source_url) === $url)
             : null;
-        if ($existing && ! in_array($existing->parse_status, [ParseStatus::NeedsText, ParseStatus::Failed], true)) {
-            return [[], [['url' => $url, 'reason' => '이미 등록된 글입니다.']]];
-        }
+        // 같은 글을 다시 보내면 새 본문으로 다시 읽는다(본문 필요·실패는 채우고, 이미 읽은 글은 새 기준으로 갱신)
         if ($existing) {
             Storage::disk('uploads')->put(ParseReferenceJob::textKey($existing), $text);
             $existing->update(['title' => $title ?? $existing->title, 'parse_status' => ParseStatus::Pending, 'error_message' => null]);

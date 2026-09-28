@@ -4,6 +4,7 @@
  * 사용자가 자기 브라우저로 보고 있는 글(네이버 블로그 등)에서 누르면, 그 화면에 보이는 제목·소제목·본문·사진 위치를
  * 읽어 Blog AI의 받기 화면(/import)으로 넘긴다. 서버는 그 글 주소에 접속하지 않는다(붙여넣기와 같은 방식, 한 번에 한 글).
  * 본문 형식은 워커의 붙여넣기 파서(references/extract.py from_text)와 같다: "# 소제목", "[사진]", 빈 줄로 문단 구분.
+ * 사진으로 세지 않는 것: 스티커·링크 미리보기·지도·동영상 블록, 폭 200px 미만(이모티콘·아이콘), 같은 이미지 반복.
  */
 
 // 브라우저 주소창에서 실행되므로 구형 문법만 쓴다. __APP__는 설치할 때의 Blog AI 주소로 바뀐다
@@ -15,12 +16,20 @@ var out=[];
 function add(t){t=(t||'').replace(/\\u200b/g,'').replace(/[ \\t]+/g,' ').trim();if(t)out.push(t);}
 function gap(){if(out.length&&out[out.length-1]!=='')out.push('');}
 function cls(el){return ' '+(typeof el.className==='string'?el.className:'')+' ';}
+var seen={};
+function w(img){return Math.max(img.naturalWidth||0,parseInt(img.getAttribute('data-width')||img.getAttribute('width')||'0',10)||0,img.getBoundingClientRect().width||0);}
+function photos(el){var list=el.tagName==='IMG'?[el]:[].slice.call(el.querySelectorAll('img')),n=0;
+for(var i=0;i<list.length;i++){var im=list[i],src=im.getAttribute('data-lazy-src')||im.getAttribute('data-src')||im.src||'';
+if(/sticker|emoticon|emoji|icon|profile|thumb_default/i.test(im.className+' '+src))continue;
+if(w(im)<200)continue;
+if(src&&seen[src])continue;if(src)seen[src]=1;n++;}return n;}
 function walk(el){
 for(var c=el.firstElementChild;c;c=c.nextElementSibling){
 var k=cls(c),t=c.tagName;
 if(/^(SCRIPT|STYLE|NOSCRIPT|BUTTON|NAV|FOOTER|HEADER|IFRAME|FORM)$/.test(t))continue;
 if(/ se-sectionTitle | se_sectionTitle /.test(k)||/^H[1-4]$/.test(t)){gap();add('# '+c.innerText.replace(/\\s+/g,' '));gap();continue;}
-if(t==='IMG'||/ se-image | se-imageGroup | se-imageStrip | se-sticker | se_image /.test(k)){var n=t==='IMG'?1:Math.max(1,c.querySelectorAll('img').length);gap();for(var i=0;i<n;i++)add('[사진]');gap();continue;}
+if(/ se-sticker | se-oglink | se-map | se-placesMap | se-video | se-file | se-poll | se-schedule | se_sticker /.test(k))continue;
+if(t==='IMG'||/ se-image | se-imageGroup | se-imageStrip | se_image /.test(k)){var n=photos(c);if(n){gap();for(var i=0;i<n;i++)add('[사진]');gap();}continue;}
 if(t==='P'||t==='LI'||/ se-text-paragraph /.test(k)){add(c.innerText);continue;}
 if(!c.firstElementChild){add(c.innerText);continue;}
 walk(c);

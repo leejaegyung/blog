@@ -31,10 +31,13 @@ class ReferenceSendTest extends TestCase
         Storage::disk('uploads')->assertExists(ParseReferenceJob::textKey($category->references()->find($id)));
         Queue::assertPushed(ParseReferenceJob::class, 1);
 
-        // 같은 글을 또 보내면 건너뛴다(이미 읽는 중·읽음)
-        $this->actingAs($user)->postJson($url, $body)->assertCreated()
-            ->assertJsonCount(0, 'data')
-            ->assertJsonPath('skipped.0.reason', '이미 등록된 글입니다.');
+        // 같은 글을 또 보내면 새로 만들지 않고 그 항목을 새 본문으로 다시 읽는다
+        $category->references()->whereKey($id)->update(['parse_status' => 'parsed']);
+        $this->actingAs($user)->postJson($url, [...$body, 'text' => $body['text']."\n\n추가 문단입니다."])->assertCreated()
+            ->assertJsonPath('data.0.id', $id)
+            ->assertJsonPath('data.0.parse_status', 'pending');
+        $this->assertSame(1, $category->references()->count());
+        $this->assertStringContainsString('추가 문단', Storage::disk('uploads')->get(ParseReferenceJob::textKey($category->references()->find($id))));
     }
 
     public function test_sending_fills_a_naver_url_that_needed_text(): void
