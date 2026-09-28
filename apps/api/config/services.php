@@ -41,7 +41,7 @@ return [
         'claude_bridge_token' => env('CLAUDE_BRIDGE_TOKEN'),
         'anthropic_key' => env('ANTHROPIC_API_KEY'),
         'openai_key' => env('OPENAI_API_KEY'),
-        'route' => env('LLM_ROUTE', 'anthropic:claude-opus-5,openai:gpt-5.5'),
+        'route' => env('LLM_ROUTE', 'claude_code:opus,codex:gpt-6-astra'),
     ],
 
     'ai_worker' => [

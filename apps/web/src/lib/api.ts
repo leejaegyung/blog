@@ -498,10 +498,12 @@ export const adminApi = {
 
 // claude_code·codex: 이 Mac의 Claude 구독(Claude Code)·ChatGPT 구독(Codex CLI)을 claude-bridge로 쓴다(키 없음, key_prefix null)
 export type LlmProviderId = 'claude_code' | 'codex' | 'anthropic' | 'openai'
+export type LlmModel = { id: string; label: string; description: string }
 export type LlmProvider = {
   provider: LlmProviderId
   label: string
-  models: string[]
+  // 연결기가 알려 준 구독 계정의 모델(못 받으면 기본 목록)
+  models: LlmModel[]
   key_prefix: string | null
   console: string
   source: 'admin' | 'env' | 'bridge' | 'none'

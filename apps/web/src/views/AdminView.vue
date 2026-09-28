@@ -68,7 +68,7 @@ onMounted(load)
       <div class="flex flex-col gap-2">
         <span class="text-[13px] font-bold text-accent">관리</span>
         <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal lg:text-[40px]">AI 연결과 사용량</h1>
-        <p class="m-0 text-[15px] text-body lg:text-base">키와 시도 순서를 바꾸면 바로 적용돼요. 금액은 공급자 콘솔에서 확인해요.</p>
+        <p class="m-0 text-[15px] text-body lg:text-base">구독 연결 상태를 확인하고, 글쓰기에 쓸 모델과 순서를 골라요.</p>
       </div>
 
       <LlmSettingsPanel />
@@ -148,7 +148,7 @@ onMounted(load)
         <div class="flex flex-col gap-1.5 rounded-[14px] border-[1.5px] border-line bg-white p-3.5">
           <span class="text-sm font-bold">토큰</span>
           <span class="text-lg font-bold tabular-nums">{{ num(usage.kpi.tokens) }}</span>
-          <span class="text-xs text-sub">금액은 공급자 콘솔에서 확인</span>
+          <span class="text-xs text-sub">구독 한도 안에서 쓰여요</span>
         </div>
         <div class="flex flex-col gap-1.5 rounded-[14px] border-[1.5px] border-line bg-white p-3.5">
           <span class="text-sm font-bold">초안 평균 생성 시간</span>

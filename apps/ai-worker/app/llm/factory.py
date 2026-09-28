@@ -11,15 +11,13 @@ import json
 from collections import OrderedDict
 from dataclasses import dataclass
 
-import anthropic
 import httpx2
-import openai
 from fastapi import Request
 
 from app.config import get_settings
-from app.llm.anthropic_adapter import AnthropicAdapter
+# from app.llm.anthropic_adapter import AnthropicAdapter  # [API 연결 꺼 둠]
 from app.llm.claude_code_adapter import SubscriptionAdapter
-from app.llm.openai_adapter import OpenAIAdapter
+# from app.llm.openai_adapter import OpenAIAdapter  # [API 연결 꺼 둠]
 from app.llm.router import LLMRouter
 from app.llm.types import LLMAdapter, Target
 
@@ -61,23 +59,24 @@ def build_router(config: LLMConfig) -> LLMRouter:
     settings = get_settings()
     adapters: dict[str, LLMAdapter] = {}
 
-    # 키가 없는 공급자는 등록하지 않는다 → 라우터가 not_configured로 건너뛴다.
-    if config.anthropic_api_key:
-        adapters["anthropic"] = AnthropicAdapter(
-            anthropic.AsyncAnthropic(
-                api_key=config.anthropic_api_key,
-                max_retries=settings.llm_max_retries,
-                timeout=settings.llm_timeout_seconds,
-            )
-        )
-    if config.openai_api_key:
-        adapters["openai"] = OpenAIAdapter(
-            openai.AsyncOpenAI(
-                api_key=config.openai_api_key,
-                max_retries=settings.llm_max_retries,
-                timeout=settings.llm_timeout_seconds,
-            )
-        )
+    # [API 연결 꺼 둠 2026-09-28] 글쓰기는 구독(claude_code·codex)으로만 한다. API로 다시 쓰려면 아래 주석을 풀고
+    # Laravel LlmSettings::PROVIDERS·routes/api.php의 키 관리 주석도 함께 푼다. 어댑터 코드(anthropic_adapter·openai_adapter)는 남겨 둔다.
+    # if config.anthropic_api_key:
+    #     adapters["anthropic"] = AnthropicAdapter(
+    #         anthropic.AsyncAnthropic(
+    #             api_key=config.anthropic_api_key,
+    #             max_retries=settings.llm_max_retries,
+    #             timeout=settings.llm_timeout_seconds,
+    #         )
+    #     )
+    # if config.openai_api_key:
+    #     adapters["openai"] = OpenAIAdapter(
+    #         openai.AsyncOpenAI(
+    #             api_key=config.openai_api_key,
+    #             max_retries=settings.llm_max_retries,
+    #             timeout=settings.llm_timeout_seconds,
+    #         )
+    #     )
 
     if settings.claude_bridge_token:
         client = httpx2.AsyncClient()

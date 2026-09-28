@@ -1,8 +1,12 @@
 import base64
 import json
 
+import httpx2
+import pytest
+
 from fastapi.testclient import TestClient
 
+from app.config import get_settings
 from app.llm import factory
 from app.llm.openai_adapter import OpenAIAdapter
 from app.llm.types import LLMResult
@@ -20,7 +24,8 @@ def test_header_config_overrides_environment() -> None:
 
     router = factory.build_router(config)
 
-    assert set(router._adapters) == {"anthropic"}
+    # [API 연결 꺼 둠] 키가 있어도 API 공급자는 등록하지 않는다(구독 연결기 토큰이 없으면 아무것도 없음)
+    assert set(router._adapters) == set()
     assert [str(t) for t in router.default_route] == ["openai:gpt-5.4-mini", "anthropic:claude-sonnet-5"]
 
 
@@ -36,6 +41,7 @@ def test_bad_route_entries_are_skipped() -> None:
     assert [str(t) for t in router.default_route] == ["openai:gpt-5.5"]
 
 
+@pytest.mark.skip(reason="[API 연결 꺼 둠 2026-09-28] factory의 API 어댑터 등록을 다시 켜면 되살린다")
 def test_ping_uses_keys_from_header_without_restart(monkeypatch) -> None:
     seen: list[str] = []
 
@@ -64,3 +70,20 @@ def test_routers_are_cached_per_config() -> None:
     raw = header({"anthropic_api_key": "sk-ant-a", "route": "anthropic:claude-opus-5"})
     assert factory.get_router(Req(raw)) is factory.get_router(Req(raw))
     assert factory.get_router(Req(raw)) is not factory.get_router(Req(header({"anthropic_api_key": "sk-ant-b"})))
+
+
+def test_models_come_from_bridge_or_explain_why_not(monkeypatch) -> None:
+    client = TestClient(app)
+    assert "CLAUDE_BRIDGE_TOKEN" in client.get("/llm/models").json()["error"]
+
+    monkeypatch.setattr(get_settings(), "claude_bridge_token", "tok")
+    bridge = httpx2.MockTransport(lambda request: httpx2.Response(200, json={
+        "claude_code": [{"id": "opus", "label": "Opus", "description": "최고"}],
+        "codex": [{"id": "gpt-6-astra", "label": "GPT-6-Astra", "description": ""}],
+    }) if request.headers["authorization"] == "Bearer tok" else httpx2.Response(401))
+    real = httpx2.AsyncClient
+    monkeypatch.setattr(httpx2, "AsyncClient", lambda **kw: real(transport=bridge, **kw))
+
+    body = client.get("/llm/models").json()
+    assert [m["id"] for m in body["codex"]] == ["gpt-6-astra"] and body["claude_code"][0]["label"] == "Opus"
+    assert body["error"] is None

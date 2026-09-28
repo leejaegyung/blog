@@ -68,7 +68,7 @@ async function deleteKey(provider: LlmProvider) {
 }
 
 async function test(provider: LlmProvider) {
-  const model = route.value.find((t) => t.provider === provider.provider)?.model ?? provider.models[0]
+  const model = route.value.find((t) => t.provider === provider.provider)?.model ?? provider.models[0]?.id
   tests[provider.provider] = 'running'
   try {
     tests[provider.provider] = await llmApi.test(`${provider.provider}:${model}`)
@@ -86,7 +86,16 @@ function move(index: number, to: number) {
 }
 
 function addTarget() {
-  route.value = [...route.value, { provider: 'openai', model: 'gpt-5.5' }]
+  const provider = state.value?.providers[0]
+  if (provider) route.value = [...route.value, { provider: provider.provider, model: provider.models[0]?.id ?? '' }]
+}
+
+/** 저장된 모델이 목록에 없으면(예: 계정에서 빠진 모델) 그대로 보이게 앞에 넣는다 */
+function optionsFor(target: LlmTarget) {
+  const models = modelsFor(target.provider)
+  return models.some((m) => m.id === target.model) || !target.model
+    ? models
+    : [{ id: target.model, label: `${target.model} (목록에 없음)`, description: '' }, ...models]
 }
 
 async function saveRoute() {
@@ -116,8 +125,8 @@ defineExpose({ load })
   <section class="flex flex-col gap-3.5">
     <h2 class="m-0 text-sm font-bold">AI 공급자</h2>
     <p class="m-0 text-[13px] leading-normal text-sub">
-      관리 화면에서 넣은 키는 암호화해 저장하고 .env 키보다 먼저 씁니다. 저장하면 재시작 없이 바로
-      적용됩니다. 키 원문은 다시 보여주지 않습니다.
+      이 Mac에 로그인된 Claude·ChatGPT 구독으로 글을 써요(API 키·크레딧 필요 없음). 모델과 순서를 바꾸면
+      재시작 없이 바로 적용돼요.
     </p>
     <p v-if="loadError" role="alert" class="text-red-600">AI 공급자 설정을 불러오지 못했습니다.</p>
 
@@ -248,7 +257,7 @@ defineExpose({ load })
         </span>
       </div>
       <p class="m-0 text-[13px] text-sub">
-        위에서부터 시도하고, 실패(크레딧 부족·장애·거절 등)하면 다음 모델로 넘어갑니다.
+        위에서부터 시도하고, 실패(구독 한도·연결기 꺼짐·거절 등)하면 다음 모델로 넘어갑니다.
       </p>
       <ol class="m-0 flex list-none flex-col gap-2 p-0">
         <li v-for="(target, index) in route" :key="index" class="flex flex-wrap items-center gap-2 rounded-[14px] border-[1.5px] border-line px-3 py-2">
@@ -257,24 +266,24 @@ defineExpose({ load })
             v-model="target.provider"
             :aria-label="`${index + 1}번 공급자`"
             class="rounded-[10px] border-[1.5px] border-line bg-white px-2 py-1.5 text-sm font-semibold"
-            @change="target.model = modelsFor(target.provider)[0] ?? ''"
+            @change="target.model = modelsFor(target.provider)[0]?.id ?? ''"
           >
             <option v-for="p in state.providers" :key="p.provider" :value="p.provider">{{ p.label }}</option>
           </select>
-          <input
+          <select
             v-model="target.model"
-            :list="`models-${target.provider}`"
             :aria-label="`${index + 1}번 모델`"
-            class="min-w-0 flex-[1_1_10rem] rounded-[10px] border-[1.5px] border-line px-2 py-1.5 font-mono text-[13px] outline-none focus:border-ink"
-          />
+            class="min-w-0 flex-[1_1_10rem] rounded-[10px] border-[1.5px] border-line bg-white px-2 py-1.5 text-sm outline-none focus:border-ink"
+          >
+            <option v-for="m in optionsFor(target)" :key="m.id" :value="m.id">
+              {{ m.label }}{{ m.description ? ` — ${m.description}` : '' }}
+            </option>
+          </select>
           <button type="button" :disabled="index === 0" :aria-label="`${index + 1}번 위로`" class="rounded-lg px-1.5 font-bold hover:bg-lilac-soft disabled:opacity-30" @click="move(index, index - 1)">↑</button>
           <button type="button" :disabled="index === route.length - 1" :aria-label="`${index + 1}번 아래로`" class="rounded-lg px-1.5 font-bold hover:bg-lilac-soft disabled:opacity-30" @click="move(index, index + 1)">↓</button>
           <button type="button" :disabled="route.length === 1" :aria-label="`${index + 1}번 삭제`" class="rounded-lg px-1.5 text-muted hover:text-ink disabled:opacity-30" @click="route = route.filter((_, i) => i !== index)">✕</button>
         </li>
       </ol>
-      <datalist v-for="p in state.providers" :id="`models-${p.provider}`" :key="p.provider">
-        <option v-for="m in p.models" :key="m" :value="m" />
-      </datalist>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" :disabled="route.length >= 6" class="rounded-xl border-[1.5px] border-ink px-3 py-2 text-sm font-bold disabled:opacity-40" @click="addTarget">+ 모델 추가</button>
         <button type="button" class="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-cream" @click="saveRoute">순서 저장</button>

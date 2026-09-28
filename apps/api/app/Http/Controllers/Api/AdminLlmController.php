@@ -9,6 +9,7 @@ use App\Services\AiWorker\GenerationRecorder;
 use App\Services\LlmSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -69,7 +70,7 @@ class AdminLlmController extends Controller
     /** 지정한 대상(없으면 현재 순서)으로 연결을 확인한다. 호출 기록은 사용량에 남는다. */
     public function test(Request $request, AiWorkerClient $worker, GenerationRecorder $recorder): JsonResponse
     {
-        $data = $request->validate(['target' => ['nullable', 'string', 'regex:/^(anthropic|openai|claude_code|codex):[a-z0-9][a-z0-9.\-]*$/']]);
+        $data = $request->validate(['target' => ['nullable', 'string', 'regex:/^(claude_code|codex):[a-z0-9][a-z0-9.\-]*$/']]);
 
         try {
             $result = $worker->pingLlm(array_filter([$data['target'] ?? null]));
@@ -99,11 +100,20 @@ class AdminLlmController extends Controller
 
     private function state(): array
     {
+        // 연결기가 알려 주는 모델 목록(구독 계정 기준)을 10분 동안 쓴다. 못 받으면 기본 목록
+        $live = Cache::get('llm.subscription_models');
+        if ($live === null) {
+            $live = app(AiWorkerClient::class)->subscriptionModels();
+            if ($live['error'] === null) {
+                Cache::put('llm.subscription_models', $live, 600);
+            }
+        }
+
         return [
             'providers' => collect(LlmSettings::PROVIDERS)->map(fn ($meta, $provider) => [
                 'provider' => $provider,
                 'label' => $meta['label'],
-                'models' => $meta['models'],
+                'models' => ($live[$provider] ?? []) ?: $meta['models'],
                 'key_prefix' => $meta['key_prefix'],
                 'console' => $meta['console'],
                 'source' => $this->settings->source($provider),

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
 
     # "provider:model"을 쉼표로 나열한 기본 순서. 앞에서 실패하면 다음으로 넘어간다.
-    llm_route: str = "anthropic:claude-opus-5,openai:gpt-5.5"
+    llm_route: str = "claude_code:opus,codex:gpt-6-astra"
     # SDK 자체 재시도(지수 백오프) 횟수. 이후 다음 공급자로 fallback 한다.
     llm_max_retries: int = 3
     llm_timeout_seconds: float = 300.0

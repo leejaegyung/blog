@@ -34,8 +34,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::prefix('admin/llm')->controller(AdminLlmController::class)->group(function () {
         Route::get('/', 'show');
-        Route::put('/keys/{provider}', 'updateKey');
-        Route::delete('/keys/{provider}', 'deleteKey');
+        // [API 연결 꺼 둠 2026-09-28] 키 관리 경로. 다시 쓰려면 LlmSettings::PROVIDERS 주석과 함께 푼다
+        // Route::put('/keys/{provider}', 'updateKey');
+        // Route::delete('/keys/{provider}', 'deleteKey');
         Route::put('/route', 'updateRoute');
         Route::post('/test', 'test');
     });

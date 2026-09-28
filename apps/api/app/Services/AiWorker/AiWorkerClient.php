@@ -58,6 +58,26 @@ class AiWorkerClient
      *
      * @throws AiWorkerUnavailableException
      */
+    /**
+     * 구독별로 고를 수 있는 모델 목록(연결기가 알려 준다). 실패하면 빈 목록.
+     *
+     * @return array{claude_code: list<array{id: string, label: string, description: string}>, codex: list<array{id: string, label: string, description: string}>, error: ?string}
+     */
+    public function subscriptionModels(): array
+    {
+        try {
+            $response = $this->http(10)->get('/llm/models');
+        } catch (ConnectionException) {
+            return ['claude_code' => [], 'codex' => [], 'error' => 'AI Worker에 연결하지 못했습니다.'];
+        }
+
+        return [
+            'claude_code' => $response->json('claude_code') ?? [],
+            'codex' => $response->json('codex') ?? [],
+            'error' => $response->successful() ? $response->json('error') : "AI Worker 오류 ({$response->status()})",
+        ];
+    }
+
     public function pingLlm(array $targets = []): array
     {
         try {

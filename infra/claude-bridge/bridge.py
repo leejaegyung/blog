@@ -54,6 +54,14 @@ TIMEOUT = int(ENV.get("CLAUDE_BRIDGE_TIMEOUT", "290"))
 CLAUDE = ENV.get("CLAUDE_BIN") or shutil.which("claude") or str(Path.home() / ".local/bin/claude")
 CODEX = ENV.get("CODEX_BIN") or shutil.which("codex") or "codex"
 API_KEY_VARS = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"}
+CODEX_MODELS_CACHE = Path.home() / ".codex/models_cache.json"
+
+# Claude Code는 별칭으로 최신 모델을 고른다
+CLAUDE_MODELS = [
+    {"id": "opus", "label": "Opus", "description": "가장 좋은 품질(구독 한도를 가장 많이 씀)"},
+    {"id": "sonnet", "label": "Sonnet", "description": "품질과 속도의 균형"},
+    {"id": "haiku", "label": "Haiku", "description": "빠르고 가벼움"},
+]
 
 slots = threading.BoundedSemaphore(PARALLEL)
 
@@ -68,6 +76,19 @@ def valid_model(model: str) -> bool:
 
 def valid_codex_model(model: str) -> bool:
     return model.startswith(("gpt-", "o")) and model.replace("-", "").replace(".", "").isalnum()
+
+
+def codex_models() -> list[dict]:
+    """Codex가 로그인한 ChatGPT 계정 기준으로 받아 둔 모델 목록(숨김 모델 제외)."""
+    try:
+        data = json.loads(CODEX_MODELS_CACHE.read_text())
+    except (OSError, ValueError):
+        return []
+    return [
+        {"id": m["slug"], "label": m.get("display_name") or m["slug"], "description": m.get("description") or ""}
+        for m in data.get("models", [])
+        if m.get("slug") and m.get("visibility") == "list" and valid_codex_model(m["slug"])
+    ]
 
 
 def subscription_env() -> dict[str, str]:
@@ -227,10 +248,12 @@ class Handler(BaseHTTPRequestHandler):
         return bool(TOKEN) and hmac.compare_digest(given, TOKEN)
 
     def do_GET(self) -> None:
-        if self.path != "/health":
+        if self.path not in ("/health", "/models"):
             return self.reply(404, {"error": "not found"})
         if not self.authorized():
             return self.reply(401, {"error": "토큰이 맞지 않습니다."})
+        if self.path == "/models":
+            return self.reply(200, {"claude_code": CLAUDE_MODELS, "codex": codex_models()})
         self.reply(200, {"ok": True, "claude": CLAUDE, "codex": CODEX, "parallel": PARALLEL})
 
     def do_POST(self) -> None:

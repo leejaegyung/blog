@@ -433,6 +433,19 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
 - 실제 확인(2026-09-28): codex만으로 사진 2장 분석 → 키워드 분석 → 계획 → 초안 완료(검사 75점, 해시태그 자동)
 - 테스트: api 132개, worker 152개, web 60개
 
+## 2026-09-28 추가: 모델 고르기 + API 연결 꺼 둠(주석)
+
+- 관리 › 시도 순서의 모델을 드롭다운으로. 목록은 연결기 `GET /models`가 준다: Claude Code는 opus·sonnet·haiku,
+  Codex는 `~/.codex/models_cache.json`의 공개(list) 모델(gpt-6-astra·gpt-6-sol·gpt-6-luna·gpt-5.6-*·gpt-5.5).
+  워커 `GET /llm/models` → Laravel(성공만 10분 캐시, 실패하면 기본 목록). 저장값이 목록에 없으면 "(목록에 없음)"으로 보여 준다
+- **API 연결 꺼 둠(주석 처리, 코드는 남김)**: 구독 두 개로 충분해 Anthropic·OpenAI API 공급자를 끔
+  - Laravel `LlmSettings::PROVIDERS`의 anthropic·openai, `routes/api.php` 키 관리 경로, 워커 헤더의 키 — 주석
+  - 워커 `app/llm/factory.py`의 API 어댑터 등록 — 주석(`anthropic_adapter.py`·`openai_adapter.py`와 그 테스트는 남김)
+  - `.env`의 `ANTHROPIC_API_KEY`·`OPENAI_API_KEY` 주석, 관리 화면에 저장돼 있던 키는 삭제
+  - 다시 켜려면 "[API 연결 꺼 둠" 표시가 있는 주석을 모두 푼다
+- 기본 순서: `claude_code:opus, claude_code:sonnet, codex:gpt-6-astra`
+- 테스트: api 131개, worker 152개(+1 건너뜀: API 헤더 키 테스트), web 61개
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

@@ -17,8 +17,8 @@ vi.mock('@/lib/api', () => ({
 
 const STATE: LlmState = {
   providers: [
-    { provider: 'anthropic', label: 'Anthropic (Claude)', models: ['claude-opus-5', 'claude-sonnet-5'], key_prefix: 'sk-ant-', console: 'https://c', source: 'admin', masked_key: 'sk-ant-…wAA', updated_at: null },
-    { provider: 'openai', label: 'OpenAI (GPT)', models: ['gpt-5.5'], key_prefix: 'sk-', console: 'https://o', source: 'none', masked_key: null, updated_at: null },
+    { provider: 'anthropic', label: 'Anthropic (Claude)', models: [{ id: 'claude-opus-5', label: 'claude-opus-5', description: '' }, { id: 'claude-sonnet-5', label: 'claude-sonnet-5', description: '' }], key_prefix: 'sk-ant-', console: 'https://c', source: 'admin', masked_key: 'sk-ant-…wAA', updated_at: null },
+    { provider: 'openai', label: 'OpenAI (GPT)', models: [{ id: 'gpt-5.5', label: 'gpt-5.5', description: '' }], key_prefix: 'sk-', console: 'https://o', source: 'none', masked_key: null, updated_at: null },
   ],
   route: [
     { provider: 'anthropic', model: 'claude-opus-5' },
@@ -52,7 +52,7 @@ describe('LlmSettingsPanel', () => {
   })
 
   it('구독 Claude는 키 입력 없이 연결기 상태를 보여준다', async () => {
-    const subscription = { provider: 'claude_code' as const, label: 'Claude 구독 (Claude Code)', models: ['opus', 'sonnet'], key_prefix: null, console: 'https://claude.ai', masked_key: null, updated_at: null }
+    const subscription = { provider: 'claude_code' as const, label: 'Claude 구독 (Claude Code)', models: [{ id: 'opus', label: 'Opus', description: '최고 품질' }, { id: 'sonnet', label: 'Sonnet', description: '' }], key_prefix: null, console: 'https://claude.ai', masked_key: null, updated_at: null }
     vi.mocked(llmApi.get).mockResolvedValue({ ...STATE, providers: [{ ...subscription, source: 'none' }, ...STATE.providers] })
     const wrapper = await mountPanel()
 
@@ -64,6 +64,21 @@ describe('LlmSettingsPanel', () => {
     const ready = await mountPanel()
     expect(ready.text()).toContain('연결기 설정됨')
     expect(ready.text()).not.toContain('make claude-bridge-install')
+  })
+
+  it('모델은 드롭다운으로 고르고, 목록에 없는 저장값도 보여준다', async () => {
+    const codex = { provider: 'codex' as const, label: 'ChatGPT 구독 (Codex)', key_prefix: null, console: 'https://c', source: 'bridge' as const, masked_key: null, updated_at: null,
+      models: [{ id: 'gpt-6-astra', label: 'GPT-6-Astra', description: '가장 좋은 품질' }, { id: 'gpt-6-sol', label: 'GPT-6-Sol', description: '균형' }] }
+    vi.mocked(llmApi.get).mockResolvedValue({ providers: [codex], route: [{ provider: 'codex', model: 'gpt-4-old' }], route_source: 'admin' })
+    vi.mocked(llmApi.saveRoute).mockResolvedValue({ providers: [codex], route: [{ provider: 'codex', model: 'gpt-6-sol' }], route_source: 'admin' })
+    const wrapper = await mountPanel()
+
+    const select = wrapper.get('select[aria-label="1번 모델"]')
+    expect(select.findAll('option').map((o) => o.text())).toEqual(['gpt-4-old (목록에 없음)', 'GPT-6-Astra — 가장 좋은 품질', 'GPT-6-Sol — 균형'])
+    await select.setValue('gpt-6-sol')
+    await button(wrapper, '순서 저장').trigger('click')
+    await flushPromises()
+    expect(llmApi.saveRoute).toHaveBeenCalledWith([{ provider: 'codex', model: 'gpt-6-sol' }])
   })
 
   it('키를 저장하면 입력칸을 비운다', async () => {

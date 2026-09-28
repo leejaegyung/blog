@@ -11,33 +11,47 @@ use Illuminate\Support\Facades\Crypt;
  */
 class LlmSettings
 {
+    /*
+     * 글쓰기는 이 Mac의 구독(Claude Code·Codex CLI)으로 한다. models는 연결기가 목록을 못 줄 때 쓰는 기본 목록이다.
+     * [API 연결 꺼 둠 2026-09-28] Anthropic·OpenAI API 키 공급자는 주석으로 남겨 둔다. 다시 쓰려면 아래 두 항목과
+     * routes/api.php의 키 관리 경로, 워커 app/llm/factory.py의 API 어댑터 등록 주석을 함께 푼다.
+     */
     public const PROVIDERS = [
-        // 이 Mac의 Claude Code(구독 로그인)를 claude-bridge로 쓴다. API 키·크레딧이 필요 없다
+        // 이 Mac의 Claude Code(구독 로그인)를 claude-bridge로 쓴다
         'claude_code' => [
             'label' => 'Claude 구독 (Claude Code)',
-            'models' => ['opus', 'sonnet', 'haiku'],
+            'models' => [
+                ['id' => 'opus', 'label' => 'Opus', 'description' => '가장 좋은 품질(구독 한도를 가장 많이 씀)'],
+                ['id' => 'sonnet', 'label' => 'Sonnet', 'description' => '품질과 속도의 균형'],
+                ['id' => 'haiku', 'label' => 'Haiku', 'description' => '빠르고 가벼움'],
+            ],
             'key_prefix' => null,
             'console' => 'https://claude.ai/settings/usage',
         ],
         // 이 Mac의 Codex CLI(ChatGPT 구독 로그인)를 claude-bridge로 쓴다
         'codex' => [
             'label' => 'ChatGPT 구독 (Codex)',
-            'models' => ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
+            'models' => [
+                ['id' => 'gpt-6-astra', 'label' => 'GPT-6-Astra', 'description' => '가장 좋은 품질'],
+                ['id' => 'gpt-6-sol', 'label' => 'GPT-6-Sol', 'description' => '균형'],
+                ['id' => 'gpt-6-luna', 'label' => 'GPT-6-Luna', 'description' => '빠르고 가벼움'],
+                ['id' => 'gpt-5.5', 'label' => 'GPT-5.5', 'description' => '이전 모델'],
+            ],
             'key_prefix' => null,
             'console' => 'https://chatgpt.com/codex/settings/usage',
         ],
-        'anthropic' => [
-            'label' => 'Anthropic (Claude)',
-            'models' => ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'],
-            'key_prefix' => 'sk-ant-',
-            'console' => 'https://console.anthropic.com/settings/keys',
-        ],
-        'openai' => [
-            'label' => 'OpenAI (GPT)',
-            'models' => ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'],
-            'key_prefix' => 'sk-',
-            'console' => 'https://platform.openai.com/api-keys',
-        ],
+        // 'anthropic' => [
+        //     'label' => 'Anthropic (Claude)',
+        //     'models' => [['id' => 'claude-opus-5', 'label' => 'claude-opus-5', 'description' => ''], ['id' => 'claude-sonnet-5', 'label' => 'claude-sonnet-5', 'description' => '']],
+        //     'key_prefix' => 'sk-ant-',
+        //     'console' => 'https://console.anthropic.com/settings/keys',
+        // ],
+        // 'openai' => [
+        //     'label' => 'OpenAI (GPT)',
+        //     'models' => [['id' => 'gpt-5.5', 'label' => 'gpt-5.5', 'description' => '']],
+        //     'key_prefix' => 'sk-',
+        //     'console' => 'https://platform.openai.com/api-keys',
+        // ],
     ];
 
     public function apiKey(string $provider): ?string
@@ -112,8 +126,9 @@ class LlmSettings
     public function workerHeader(): string
     {
         return base64_encode(json_encode([
-            'anthropic_api_key' => $this->apiKey('anthropic') ?? '',
-            'openai_api_key' => $this->apiKey('openai') ?? '',
+            // [API 연결 꺼 둠] 키는 보내지 않는다(워커도 API 어댑터를 등록하지 않는다)
+            // 'anthropic_api_key' => $this->apiKey('anthropic') ?? '',
+            // 'openai_api_key' => $this->apiKey('openai') ?? '',
             'route' => implode(',', $this->route()),
         ]));
     }

@@ -5,8 +5,11 @@
 
 from typing import Annotated
 
+import httpx2
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
+from app.config import get_settings
 
 from app.llm.factory import get_router
 from app.llm.router import AllTargetsFailed, LLMRouter, RouteOutcome
@@ -87,3 +90,34 @@ async def ping(body: PingRequest, llm: Annotated[LLMRouter, Depends(get_router)]
         ) from failed
 
     return PingResponse(text=outcome.result.text.strip(), generations=generation_meta(outcome))
+
+
+class ModelOption(BaseModel):
+    id: str
+    label: str
+    description: str = ""
+
+
+class ModelsResponse(BaseModel):
+    """구독별로 고를 수 있는 모델(관리 화면 드롭다운). 연결기가 꺼져 있으면 빈 목록과 이유."""
+
+    claude_code: list[ModelOption] = []
+    codex: list[ModelOption] = []
+    error: str | None = None
+
+
+@router.get("/models")
+async def models() -> ModelsResponse:
+    settings = get_settings()
+    if not settings.claude_bridge_token:
+        return ModelsResponse(error="연결기 토큰(CLAUDE_BRIDGE_TOKEN)이 없습니다.")
+    try:
+        async with httpx2.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{settings.claude_bridge_url.rstrip('/')}/models",
+                headers={"Authorization": f"Bearer {settings.claude_bridge_token}"},
+            )
+        response.raise_for_status()
+        return ModelsResponse.model_validate(response.json())
+    except (httpx2.HTTPError, ValueError):
+        return ModelsResponse(error="구독 연결기(claude-bridge)에 연결하지 못했습니다.")
