@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AdminLlmController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\NaverSettingsController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\PostDraftController;
 use App\Http\Controllers\Api\PostImageController;
@@ -40,6 +41,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/route', 'updateRoute');
         Route::post('/test', 'test');
     });
+
+    Route::get('/settings/naver', [NaverSettingsController::class, 'show']);
+    Route::put('/settings/naver', [NaverSettingsController::class, 'update']);
 
     Route::apiResource('projects', ProjectController::class);
     Route::get('/projects/{project}/analysis', [ProjectAnalysisController::class, 'show']);

@@ -4,6 +4,8 @@ import { postApi, type ExportResult, type Post } from '@/lib/api'
 import { validationErrors } from '@/lib/http'
 import { copyRich, copyText } from '@/lib/clipboard'
 import { buildPasteHtml } from '@/lib/naverExport'
+import { naverWriteUrl } from '@/lib/naver'
+import { useAuthStore } from '@/stores/auth'
 import StepLayout from '@/components/flow/StepLayout.vue'
 import NextButton from '@/components/flow/NextButton.vue'
 import PanelCard from '@/components/flow/PanelCard.vue'
@@ -12,8 +14,10 @@ import { useFlow } from './useFlow'
 const props = defineProps<{ post: Post }>()
 const flow = useFlow()
 
-// 네이버에 로그인되어 있으면 내 블로그 글쓰기 화면으로 이동한다(공식 글쓰기 API는 2020년 종료)
-const NAVER_WRITE_URL = 'https://blog.naver.com/GoBlogWrite.naver'
+// 네이버에 로그인되어 있으면 내 블로그 글쓰기 화면으로 이동한다(공식 글쓰기 API는 2020년 종료).
+// 관리 화면에서 블로그 아이디를 넣으면 https://blog.naver.com/{아이디}?Redirect=Write& 로 연다
+const auth = useAuthStore()
+const writeUrl = computed(() => naverWriteUrl(auth.naverBlogId))
 
 type Prepared = { html: string; text: string; embedded: number; result: ExportResult; signature: string }
 const prepared = ref<Prepared | null>(null)
@@ -53,7 +57,7 @@ async function prepare() {
 
 function openNaver() {
   if (opened.value) return
-  window.open(NAVER_WRITE_URL, '_blank', 'noopener')
+  window.open(writeUrl.value, '_blank', 'noopener')
   opened.value = true
 }
 

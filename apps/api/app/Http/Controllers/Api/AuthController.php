@@ -46,7 +46,11 @@ class AuthController extends Controller
     public function me(Request $request): UserResource
     {
         return (new UserResource($request->user()))->additional([
-            'meta' => ['auto_login' => (bool) config('auth.auto_login.enabled')],
+            'meta' => [
+                'auto_login' => (bool) config('auth.auto_login.enabled'),
+                // 6단계 "네이버 글쓰기 열기"가 쓰는 내 블로그 아이디
+                'naver_blog_id' => NaverSettingsController::blogId(),
+            ],
         ]);
     }
 }

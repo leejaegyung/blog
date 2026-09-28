@@ -2,7 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
-import { adminApi, type FailedJob, type Usage } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
+import { naverWriteUrl } from '@/lib/naver'
+import { validationErrors } from '@/lib/http'
+import { adminApi, settingsApi, type FailedJob, type Usage } from '@/lib/api'
 import LlmSettingsPanel from '@/components/LlmSettingsPanel.vue'
 
 const PURPOSES: Record<string, string> = {
@@ -24,6 +27,21 @@ const JOBS: Record<string, string> = {
 const ui = useUiStore()
 ui.crumb = '관리'
 ui.saveState = null
+
+// 내 네이버 블로그: 6단계에서 이 블로그의 글쓰기(편집기)를 바로 연다
+const auth = useAuthStore()
+const blogInput = ref(auth.naverBlogId ?? '')
+const blogMessage = ref<{ ok: boolean; text: string } | null>(null)
+async function saveBlog() {
+  blogMessage.value = null
+  try {
+    auth.naverBlogId = await settingsApi.saveNaverBlogId(blogInput.value)
+    blogInput.value = auth.naverBlogId ?? ''
+    blogMessage.value = { ok: true, text: auth.naverBlogId ? '저장했어요. 6단계에서 이 블로그 글쓰기가 열려요.' : '지웠어요. 네이버 기본 글쓰기로 열려요.' }
+  } catch (e) {
+    blogMessage.value = { ok: false, text: validationErrors(e)?.blog_id?.[0] ?? '저장하지 못했어요.' }
+  }
+}
 
 const days = ref(30)
 const usage = ref<Usage | null>(null)
@@ -70,6 +88,25 @@ onMounted(load)
         <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal lg:text-[40px]">AI 연결과 사용량</h1>
         <p class="m-0 text-[15px] text-body lg:text-base">구독 연결 상태를 확인하고, 글쓰기에 쓸 모델과 순서를 골라요.</p>
       </div>
+
+      <form class="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-line bg-white p-5" @submit.prevent="saveBlog">
+        <h2 class="m-0 text-[17px] font-bold">내 네이버 블로그</h2>
+        <p class="m-0 text-[13px] text-sub">6단계 “네이버에 올리기”에서 이 블로그의 글쓰기 편집기를 바로 열어요. 아이디나 블로그 주소를 넣으세요.</p>
+        <div class="flex flex-wrap gap-2">
+          <input
+            v-model="blogInput"
+            aria-label="네이버 블로그 아이디"
+            placeholder="예: leejk4791 또는 https://blog.naver.com/leejk4791"
+            class="min-w-0 flex-[1_1_14rem] rounded-xl border-[1.5px] border-line px-3 py-2.5 text-sm outline-none focus:border-ink"
+          />
+          <button type="submit" class="h-10 rounded-xl bg-ink px-4 text-sm font-bold text-cream">저장</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 text-[13px]">
+          <a :href="naverWriteUrl(auth.naverBlogId)" target="_blank" rel="noopener noreferrer" class="font-bold">글쓰기 열어 보기 ↗</a>
+          <span class="text-sub">{{ naverWriteUrl(auth.naverBlogId) }}</span>
+        </div>
+        <span v-if="blogMessage" :role="blogMessage.ok ? 'status' : 'alert'" :class="blogMessage.ok ? 'text-sub' : 'text-red-600'" class="text-[13px]">{{ blogMessage.text }}</span>
+      </form>
 
       <LlmSettingsPanel />
 

@@ -11,6 +11,8 @@ import KeywordStep from '@/components/steps/KeywordStep.vue'
 import PhotoStep from '@/components/steps/PhotoStep.vue'
 import { analysisApi, imageApi, postApi, projectApi, referenceApi, type ExportResult, type Post, type PostImage, type Project } from '@/lib/api'
 import { copyRich, copyText } from '@/lib/clipboard'
+import { useAuthStore } from '@/stores/auth'
+import { naverWriteUrl } from '@/lib/naver'
 
 vi.mock('@/lib/api', () => ({
   postApi: {
@@ -268,6 +270,7 @@ describe('5 초안 다듬기', () => {
 
 describe('6 네이버에 올리기', () => {
   it('제목 복사로 네이버 글쓰기를 열고, 본문을 사진과 함께 한 번에 복사한 뒤, 게시 주소를 기록한다', async () => {
+    useAuthStore().naverBlogId = 'leejk4791'  // 관리 화면에서 넣은 내 블로그 → 내 블로그 편집기를 연다
     const open = vi.fn<(...args: unknown[]) => void>()
     vi.stubGlobal('open', open)
     vi.mocked(copyRich).mockResolvedValue()
@@ -286,7 +289,7 @@ describe('6 네이버에 올리기', () => {
 
     await button(wrapper, '제목 복사').trigger('click')
     await flushPromises()
-    expect(open).toHaveBeenCalledWith('https://blog.naver.com/GoBlogWrite.naver', '_blank', 'noopener')
+    expect(open).toHaveBeenCalledWith('https://blog.naver.com/leejk4791?Redirect=Write&', '_blank', 'noopener')
     expect(wrapper.text()).toContain('네이버 글쓰기를 열었어요')
 
     await button(wrapper, '본문 복사').trigger('click')
@@ -328,5 +331,12 @@ describe('6 네이버에 올리기', () => {
     await flushPromises()
     expect((wrapper.get('#published-url').element as HTMLInputElement).value).toBe('https://blog.naver.com/me/2')
     vi.unstubAllGlobals()
+  })
+})
+
+describe('네이버 글쓰기 주소', () => {
+  it('블로그 아이디가 있으면 내 블로그 편집기, 없으면 기본 글쓰기', () => {
+    expect(naverWriteUrl('leejk4791')).toBe('https://blog.naver.com/leejk4791?Redirect=Write&')
+    expect(naverWriteUrl(null)).toBe('https://blog.naver.com/GoBlogWrite.naver')
   })
 })

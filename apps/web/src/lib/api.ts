@@ -262,8 +262,16 @@ export const authApi = {
     await http.post('/logout')
   },
   async me() {
-    const { data } = await http.get<Wrapped<User> & { meta?: { auto_login?: boolean } }>('/user')
-    return { user: data.data, autoLogin: data.meta?.auto_login ?? false }
+    const { data } = await http.get<Wrapped<User> & { meta?: { auto_login?: boolean; naver_blog_id?: string | null } }>('/user')
+    return { user: data.data, autoLogin: data.meta?.auto_login ?? false, naverBlogId: data.meta?.naver_blog_id ?? null }
+  },
+}
+
+/** 내 네이버 블로그 아이디(6단계에서 내 블로그 글쓰기를 바로 연다). 주소를 통째로 넣어도 서버가 아이디만 뽑는다 */
+export const settingsApi = {
+  async saveNaverBlogId(blogId: string) {
+    const { data } = await http.put<{ data: { blog_id: string | null } }>('/settings/naver', { blog_id: blogId })
+    return data.data.blog_id
   },
 }
 

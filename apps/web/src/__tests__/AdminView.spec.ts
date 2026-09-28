@@ -6,6 +6,7 @@ import { adminApi, type FailedJob, type Usage } from '@/lib/api'
 
 vi.mock('@/components/LlmSettingsPanel.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/lib/api', () => ({
+  settingsApi: { saveNaverBlogId: vi.fn<(id: string) => Promise<string | null>>() },
   adminApi: {
     usage: vi.fn<(days: number) => Promise<Usage>>(),
     failedJobs: vi.fn<() => Promise<FailedJob[]>>(),

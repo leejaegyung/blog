@@ -525,6 +525,14 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
   (대기 중이면 서버가 새로 넣지 않음) → 7개 보내도 학습 1번
 - 테스트: api 145개, worker 155개(+1 건너뜀), web 67개
 
+## 2026-09-28 추가: 내 네이버 블로그 글쓰기 주소
+
+- 관리 › "내 네이버 블로그"에 아이디(또는 블로그 주소 통째로)를 넣으면 6단계 글쓰기가 `https://blog.naver.com/{아이디}?Redirect=Write&`로 열린다
+  (없으면 `GoBlogWrite.naver`). 저장: `app_settings`의 `naver.blog_id`, `GET/PUT /api/settings/naver`, `/api/user` meta `naver_blog_id`
+- 기본값으로 `leejk4791`을 저장해 둠
+- 6단계 흐름은 그대로: ① 제목 복사(처음 누를 때 내 블로그 편집기 열기) → ② 본문 복사(사진을 본문 안에 넣은 한 번 붙여넣기) → …
+  네이버 편집기는 제목 칸과 본문 칸이 따로라 제목·본문은 각각 한 번씩 붙여넣는다. 사진이 붙는지는 실제 편집기에서 확인 필요
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,
