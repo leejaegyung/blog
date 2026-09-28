@@ -53,4 +53,25 @@ class ReferenceSendTest extends TestCase
             ->assertJsonPath('data.0.parse_status', 'pending');
         $this->assertSame(1, $category->references()->count());
     }
+
+    public function test_naver_address_forms_count_as_the_same_post(): void
+    {
+        $this->assertSame('https://blog.naver.com/me/223', \App\Support\ReferenceUrl::normalize('https://m.blog.naver.com/me/223#top'));
+        $this->assertSame('https://blog.naver.com/me/223', \App\Support\ReferenceUrl::normalize('https://blog.naver.com/PostView.naver?blogId=me&logNo=223&redirect=Dlog'));
+        $this->assertSame('https://blog.naver.com/me/223', \App\Support\ReferenceUrl::normalize('https://blog.naver.com/me?Redirect=Log&logNo=223'));
+        $this->assertSame('https://example.com/a?x=1', \App\Support\ReferenceUrl::normalize('https://example.com/a?x=1#b'));
+
+        Queue::fake();
+        Storage::fake('uploads');
+        $user = User::factory()->create();
+        $category = $user->keywordProjects()->create(['keyword' => '맛집', 'kind' => KeywordProject::KIND_CATEGORY]);
+        $url = "/api/projects/{$category->id}/references";
+        // 예전에 모바일 주소로 넣어 "본문 필요"였던 글을 PC 화면에서 버튼으로 보내면 그 항목이 채워진다
+        $waiting = $this->actingAs($user)->postJson($url, ['urls' => ['https://m.blog.naver.com/me/223']])->json('data.0.id');
+        $this->actingAs($user)->postJson($url, ['text' => str_repeat('본문 내용입니다. ', 5), 'source_url' => 'https://blog.naver.com/PostView.naver?blogId=me&logNo=223'])
+            ->assertJsonPath('data.0.id', $waiting);
+        $this->actingAs($user)->postJson($url, ['urls' => ['https://blog.naver.com/me/223']])
+            ->assertJsonPath('skipped.0.reason', '이미 등록된 주소입니다.');
+        $this->assertSame(1, $category->references()->count());
+    }
 }

@@ -9,8 +9,8 @@
 // 브라우저 주소창에서 실행되므로 구형 문법만 쓴다. __APP__는 설치할 때의 Blog AI 주소로 바뀐다
 const SOURCE = `(function(){
 var APP='__APP__';
-var doc=document;var f=document.getElementById('mainFrame');
-try{if(f&&f.contentDocument&&f.contentDocument.body)doc=f.contentDocument;}catch(e){}
+var doc=document,src=location.href;var f=document.getElementById('mainFrame');
+try{if(f&&f.contentDocument&&f.contentDocument.body){doc=f.contentDocument;src=f.contentWindow.location.href;}}catch(e){}
 var out=[];
 function add(t){t=(t||'').replace(/\\u200b/g,'').replace(/[ \\t]+/g,' ').trim();if(t)out.push(t);}
 function gap(){if(out.length&&out[out.length-1]!=='')out.push('');}
@@ -31,7 +31,7 @@ walk(root);
 var tags=[].map.call(doc.querySelectorAll('.wrap_tag a,.post_tag a,.tag_area a,.se-hash-tag'),function(a){return (a.innerText||'').trim();}).filter(function(x){return /^#/.test(x);});
 if(tags.length){gap();add(tags.join(' '));}
 var tn=doc.querySelector('.se-title-text,.pcol1,.se_title,.tit_h3');
-var data={type:'blog-ai-import',title:((tn&&tn.innerText)||doc.title||document.title).trim(),text:out.join('\\n').replace(/\\n{3,}/g,'\\n\\n').trim(),url:location.href};
+var data={type:'blog-ai-import',title:((tn&&tn.innerText)||doc.title||document.title).trim(),text:out.join('\\n').replace(/\\n{3,}/g,'\\n\\n').trim(),url:src};
 if(data.text.length<20){alert('Blog AI: 이 화면에서 본문을 찾지 못했어요.');return;}
 var w=window.open(APP+'/import','blog-ai-import');
 if(!w){alert('Blog AI: 팝업이 막혔어요. 이 사이트의 팝업을 허용해 주세요.');return;}

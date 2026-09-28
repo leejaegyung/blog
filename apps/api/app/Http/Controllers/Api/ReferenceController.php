@@ -98,7 +98,8 @@ class ReferenceController extends Controller
      */
     private function storeUrls(KeywordProject $project, array $urls): array
     {
-        $existing = $project->references()->whereNotNull('source_url')->pluck('source_url')->all();
+        // 예전에 저장된 주소도 같은 방식으로 맞춰 비교한다(네이버 PC·모바일·PostView 주소가 같은 글로 보인다)
+        $existing = $project->references()->whereNotNull('source_url')->pluck('source_url')->map(fn ($u) => ReferenceUrl::normalize($u))->all();
         $created = [];
         $skipped = [];
 
@@ -138,7 +139,9 @@ class ReferenceController extends Controller
     private function storeTextFor(KeywordProject $project, string $text, ?string $title, ?string $sourceUrl): array
     {
         $url = $sourceUrl ? ReferenceUrl::normalize($sourceUrl) : null;
-        $existing = $url ? $project->references()->where('source_url', $url)->first() : null;
+        $existing = $url
+            ? $project->references()->whereNotNull('source_url')->get()->first(fn ($r) => ReferenceUrl::normalize($r->source_url) === $url)
+            : null;
         if ($existing && ! in_array($existing->parse_status, [ParseStatus::NeedsText, ParseStatus::Failed], true)) {
             return [[], [['url' => $url, 'reason' => '이미 등록된 글입니다.']]];
         }
