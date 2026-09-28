@@ -65,6 +65,9 @@ services:
 
   ai-worker:
     build: ./apps/ai-worker
+    # 호스트의 claude-bridge(Claude 구독)에 닿기 위해(Docker Desktop은 기본 제공, 리눅스용)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file: .env
     environment:
       UPLOAD_PATH: /data/uploads

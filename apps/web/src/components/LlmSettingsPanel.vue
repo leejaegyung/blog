@@ -6,6 +6,7 @@ import { validationErrors } from '@/lib/http'
 const SOURCE = {
   admin: { label: '관리 화면에서 설정', color: 'bg-lilac' },
   env: { label: '.env에서 설정', color: 'bg-lilac-soft' },
+  bridge: { label: '연결기 설정됨', color: 'bg-lilac' },
   none: { label: '키 없음', color: 'border border-ink bg-lemon' },
 } as const
 
@@ -132,9 +133,17 @@ defineExpose({ load })
             {{ SOURCE[provider.source].label }}
           </span>
         </div>
-        <p class="m-0 font-mono text-[13px] text-sub">{{ provider.masked_key ?? '—' }}</p>
+        <template v-if="provider.key_prefix === null">
+          <p class="m-0 text-[13px] leading-normal text-sub">
+            API 키·크레딧 없이 이 Mac에 로그인된 Claude Code(구독)로 글을 써요. Mac이 켜져 있고 연결기가 돌아야 해요.
+          </p>
+          <p v-if="provider.source === 'none'" class="m-0 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px]">
+            연결기가 아직 설정되지 않았어요. 터미널에서 <code class="font-mono">make claude-bridge-install</code> 을 한 번 실행하세요.
+          </p>
+        </template>
+        <p v-else class="m-0 font-mono text-[13px] text-sub">{{ provider.masked_key ?? '—' }}</p>
 
-        <form class="flex flex-wrap gap-2" @submit.prevent="saveKey(provider)">
+        <form v-if="provider.key_prefix !== null" class="flex flex-wrap gap-2" @submit.prevent="saveKey(provider)">
           <input
             v-model="keyInputs[provider.provider]"
             type="password"
@@ -176,7 +185,7 @@ defineExpose({ load })
             rel="noopener noreferrer"
             class="ml-auto text-[13px] text-sub underline"
           >
-            키 발급·크레딧 확인
+            {{ provider.key_prefix === null ? '구독 사용량 확인' : '키 발급·크레딧 확인' }}
           </a>
         </div>
 

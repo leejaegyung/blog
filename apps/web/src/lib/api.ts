@@ -496,18 +496,20 @@ export const adminApi = {
   },
 }
 
+// claude_code: 이 Mac의 Claude 구독(Claude Code)을 claude-bridge로 쓴다(키 없음, key_prefix null)
+export type LlmProviderId = 'claude_code' | 'anthropic' | 'openai'
 export type LlmProvider = {
-  provider: 'anthropic' | 'openai'
+  provider: LlmProviderId
   label: string
   models: string[]
-  key_prefix: string
+  key_prefix: string | null
   console: string
-  source: 'admin' | 'env' | 'none'
+  source: 'admin' | 'env' | 'bridge' | 'none'
   masked_key: string | null
   updated_at: string | null
 }
 
-export type LlmTarget = { provider: 'anthropic' | 'openai'; model: string }
+export type LlmTarget = { provider: LlmProviderId; model: string }
 
 export type LlmState = {
   providers: LlmProvider[]

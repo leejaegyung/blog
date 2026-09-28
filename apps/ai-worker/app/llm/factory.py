@@ -12,11 +12,13 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 import anthropic
+import httpx2
 import openai
 from fastapi import Request
 
 from app.config import get_settings
 from app.llm.anthropic_adapter import AnthropicAdapter
+from app.llm.claude_code_adapter import ClaudeCodeAdapter
 from app.llm.openai_adapter import OpenAIAdapter
 from app.llm.router import LLMRouter
 from app.llm.types import LLMAdapter, Target
@@ -75,6 +77,11 @@ def build_router(config: LLMConfig) -> LLMRouter:
                 max_retries=settings.llm_max_retries,
                 timeout=settings.llm_timeout_seconds,
             )
+        )
+
+    if settings.claude_bridge_token:
+        adapters["claude_code"] = ClaudeCodeAdapter(
+            httpx2.AsyncClient(), settings.claude_bridge_url, settings.claude_bridge_token, settings.llm_timeout_seconds
         )
 
     route = []

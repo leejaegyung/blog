@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     llm_max_retries: int = 3
     llm_timeout_seconds: float = 300.0
 
+    # Claude 구독(Claude Code) 연결기. 토큰이 없으면 claude_code 대상은 not_configured로 건너뛴다
+    claude_bridge_url: str = "http://host.docker.internal:8790"
+    claude_bridge_token: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

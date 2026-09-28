@@ -37,6 +37,8 @@ return [
 
     // 관리 화면(LlmSettings)에 값이 없을 때 쓰는 기본값
     'llm' => [
+        // Claude 구독(Claude Code) 연결기 토큰이 있으면 관리 화면에 '연결기 설정됨'으로 보인다
+        'claude_bridge_token' => env('CLAUDE_BRIDGE_TOKEN'),
         'anthropic_key' => env('ANTHROPIC_API_KEY'),
         'openai_key' => env('OPENAI_API_KEY'),
         'route' => env('LLM_ROUTE', 'anthropic:claude-opus-5,openai:gpt-5.5'),

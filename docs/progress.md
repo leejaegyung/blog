@@ -406,6 +406,22 @@
 - 관리 › 연결 테스트가 실패하면 **키가 속한 계정(조직·프로젝트 ID, 응답 헤더 `anthropic-organization-id`·`openai-organization`/`openai-project`)**과
   **공급자 응답 원문**(sk-… 가림, 300자)을 보여준다. 크레딧을 넣은 조직과 비교하게 하려는 것. 로그에는 남기지 않는다(`LLMError.account`)
 
+## 2026-09-28 추가: Claude 구독(Claude Code)으로 글쓰기 — API 크레딧 없이
+
+API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(구독)를 세 번째 공급자 `claude_code`로 붙였다.
+- `infra/claude-bridge/bridge.py`(표준 라이브러리): 127.0.0.1:8790, 토큰 인증, `claude -p --safe-mode --tools "" --no-session-persistence
+  --output-format json --model <opus|sonnet|haiku> --system-prompt … [--json-schema …]`, 프롬프트는 stdin, 요청마다 임시 폴더,
+  사진은 임시 파일로 두고 그때만 Read 허용, ANTHROPIC_API_KEY는 넘기지 않음(구독 로그인 사용), 동시 2개, 로그에는 시간·모델·토큰만
+- 워커 `ClaudeCodeAdapter`: pydantic 스키마를 `--json-schema`로 넘기고 `structured_output`을 검증. 연결기 꺼짐→unavailable,
+  구독 한도→rate_limited(다음 대상으로), 로그인 문제→auth. 토큰(`CLAUDE_BRIDGE_TOKEN`)이 있어야 등록
+- 기본 시도 순서: `claude_code:opus, claude_code:sonnet, anthropic:claude-opus-5, openai:gpt-5.5`
+- 관리 화면: "Claude 구독 (Claude Code)" 카드(키 입력 없음, 연결기 설정됨/미설정 안내, 구독 사용량 링크)
+- 실행: `make claude-bridge-install` → LaunchAgent(로그인 시 자동, KeepAlive). macOS가 launchd의 데스크톱 폴더 접근을 막아
+  bridge.py·토큰을 `~/.blog-ai`에 복사해 실행
+- 실제 확인(2026-09-28): 연결 테스트 claude-opus-5-5 성공, 사진 3장 분석 → 키워드 분석 → 계획 → 초안까지 약 1분 30초에 완료,
+  추천 해시태그 15개 자동으로 달림, 검사 82.5점
+- 테스트: api 132개, worker 150개, web 60개
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

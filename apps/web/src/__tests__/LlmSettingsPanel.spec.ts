@@ -51,6 +51,21 @@ describe('LlmSettingsPanel', () => {
     expect(button(wrapper, '연결 테스트', 1).attributes('disabled')).toBeDefined()
   })
 
+  it('구독 Claude는 키 입력 없이 연결기 상태를 보여준다', async () => {
+    const subscription = { provider: 'claude_code' as const, label: 'Claude 구독 (Claude Code)', models: ['opus', 'sonnet'], key_prefix: null, console: 'https://claude.ai', masked_key: null, updated_at: null }
+    vi.mocked(llmApi.get).mockResolvedValue({ ...STATE, providers: [{ ...subscription, source: 'none' }, ...STATE.providers] })
+    const wrapper = await mountPanel()
+
+    expect(wrapper.find('input[aria-label="Claude 구독 (Claude Code) API 키"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('make claude-bridge-install')
+    expect(wrapper.text()).toContain('구독 사용량 확인')
+
+    vi.mocked(llmApi.get).mockResolvedValue({ ...STATE, providers: [{ ...subscription, source: 'bridge' }, ...STATE.providers] })
+    const ready = await mountPanel()
+    expect(ready.text()).toContain('연결기 설정됨')
+    expect(ready.text()).not.toContain('make claude-bridge-install')
+  })
+
   it('키를 저장하면 입력칸을 비운다', async () => {
     vi.mocked(llmApi.saveKey).mockResolvedValue(STATE)
     const wrapper = await mountPanel()

@@ -26,6 +26,7 @@ class AdminLlmController extends Controller
     {
         $this->ensureProvider($provider);
         $prefix = LlmSettings::PROVIDERS[$provider]['key_prefix'];
+        abort_if($prefix === null, 422, '이 공급자는 API 키 없이 구독 로그인으로 동작합니다.');
         $key = trim((string) $request->validate(['api_key' => ['required', 'string', 'min:20', 'max:300']])['api_key']);
 
         if (! str_starts_with($key, $prefix) || preg_match('/\s/', $key)) {
@@ -68,7 +69,7 @@ class AdminLlmController extends Controller
     /** 지정한 대상(없으면 현재 순서)으로 연결을 확인한다. 호출 기록은 사용량에 남는다. */
     public function test(Request $request, AiWorkerClient $worker, GenerationRecorder $recorder): JsonResponse
     {
-        $data = $request->validate(['target' => ['nullable', 'string', 'regex:/^(anthropic|openai):[a-z0-9][a-z0-9.\-]*$/']]);
+        $data = $request->validate(['target' => ['nullable', 'string', 'regex:/^(anthropic|openai|claude_code):[a-z0-9][a-z0-9.\-]*$/']]);
 
         try {
             $result = $worker->pingLlm(array_filter([$data['target'] ?? null]));

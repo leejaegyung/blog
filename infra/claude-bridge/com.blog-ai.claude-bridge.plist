@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- make claude-bridge-install 이 경로를 채워 ~/Library/LaunchAgents 에 복사한다 -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.blog-ai.claude-bridge</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>__HOME__/bridge.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>__HOME__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>__PATH__</string>
+    <key>CLAUDE_BRIDGE_ENV_FILE</key><string>__HOME__/bridge.env</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>__HOME__/claude-bridge.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/claude-bridge.log</string>
+</dict>
+</plist>

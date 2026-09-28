@@ -12,6 +12,13 @@ use Illuminate\Support\Facades\Crypt;
 class LlmSettings
 {
     public const PROVIDERS = [
+        // 이 Mac의 Claude Code(구독 로그인)를 claude-bridge로 쓴다. API 키·크레딧이 필요 없다
+        'claude_code' => [
+            'label' => 'Claude 구독 (Claude Code)',
+            'models' => ['opus', 'sonnet', 'haiku'],
+            'key_prefix' => null,
+            'console' => 'https://claude.ai/settings/usage',
+        ],
         'anthropic' => [
             'label' => 'Anthropic (Claude)',
             'models' => ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'],
@@ -31,9 +38,13 @@ class LlmSettings
         return $this->storedKey($provider) ?? (config("services.llm.{$provider}_key") ?: null);
     }
 
-    /** @return 'admin'|'env'|'none' */
+    /** @return 'admin'|'env'|'bridge'|'none' */
     public function source(string $provider): string
     {
+        if (self::PROVIDERS[$provider]['key_prefix'] === null) {
+            return config('services.llm.claude_bridge_token') ? 'bridge' : 'none';
+        }
+
         return match (true) {
             $this->storedKey($provider) !== null => 'admin',
             (bool) config("services.llm.{$provider}_key") => 'env',
