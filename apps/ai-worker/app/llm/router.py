@@ -29,6 +29,10 @@ class RouteOutcome:
         return last.result if last else None
 
 
+# 이 오류가 나면 다음 대상으로 넘어가지 않고 멈춘다(토큰을 두 번 쓰지 않게)
+STOP_KINDS = {"timeout"}
+
+
 class AllTargetsFailed(Exception):
     def __init__(self, outcome: RouteOutcome) -> None:
         super().__init__("모든 LLM 대상이 실패했습니다.")
@@ -57,6 +61,8 @@ class LLMRouter:
                 outcome.attempts.append(Attempt(target=target, latency_ms=_elapsed(started), error=error))
                 log("llm_attempt", provider=target.provider, model=target.model, status="failed",
                     error_kind=error.kind, latency_ms=_elapsed(started))
+                if error.kind in STOP_KINDS:
+                    break  # 시간 초과는 다음 모델로 넘어가지 않는다(앞 호출이 이미 사용량을 썼을 수 있다)
                 continue
             outcome.attempts.append(Attempt(target=target, latency_ms=_elapsed(started), result=result))
             log("llm_attempt", provider=result.provider, model=result.model, status="success",

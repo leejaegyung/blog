@@ -141,6 +141,15 @@ onMounted(load)
             <span class="text-xs">실패 {{ Math.round(usage.kpi.llm_failure_rate * 100) }}%</span>
           </div>
         </div>
+        <div
+          v-if="usage.hour"
+          :class="usage.hour.limit && usage.hour.calls >= usage.hour.limit ? 'border-2 border-ink bg-lemon' : 'border-[1.5px] border-line bg-white'"
+          class="flex flex-col gap-1.5 rounded-[14px] p-3.5"
+        >
+          <span class="text-sm font-bold">최근 1시간 AI 호출</span>
+          <span class="text-lg font-bold tabular-nums">{{ usage.hour.calls }} / {{ usage.hour.limit || '제한 없음' }}</span>
+          <span class="text-xs text-sub">토큰 누수 안전장치: 한도를 넘으면 AI를 새로 부르지 않고, 한 시간 안에 풀려요.</span>
+        </div>
         <div class="flex flex-col gap-1.5 rounded-[14px] border-[1.5px] border-line bg-white p-3.5">
           <span class="text-sm font-bold">글 / 초안 / 게시</span>
           <span class="text-lg font-bold tabular-nums">{{ usage.kpi.posts }} / {{ usage.kpi.drafted }} / {{ usage.kpi.published }}</span>

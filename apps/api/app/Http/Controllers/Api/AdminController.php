@@ -43,6 +43,11 @@ class AdminController extends Controller
         $calls = (int) $byGroup->sum('calls');
 
         return response()->json(['data' => [
+            // 토큰 누수 안전장치: 최근 1시간 AI 호출 수와 한도
+            'hour' => [
+                'calls' => Generation::where('created_at', '>=', now()->subHour())->count(),
+                'limit' => (int) config('services.llm.max_calls_per_hour', 60),
+            ],
             'days' => $days,
             'kpi' => [
                 'posts' => (clone $posts)->where('created_at', '>=', $since)->count(),

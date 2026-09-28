@@ -7,6 +7,8 @@ use App\Models\Post;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
 use App\Jobs\Concerns\TracksPipeline;
+use App\Jobs\Middleware\NoRetryAfterLlmStop;
+use App\Services\AiWorker\LlmStopException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -15,18 +17,26 @@ class GeneratePlanJob implements ShouldQueue
 {
     use Queueable, TracksPipeline;
 
+    // AI 호출(최대 320초)보다 길게. 짧으면 작업이 끊기고 다시 실행돼 사용량을 두 번 쓴다
+    public int $timeout = 330;
+
     // 기다리는 동안 글이 지워졌으면 조용히 버린다
     public bool $deleteWhenMissingModels = true;
 
     public int $tries = 3;
 
-    public int $timeout = 280;
 
     /** @var list<int> */
     public array $backoff = [30, 120];
 
     /** @param  bool  $finishPipeline  계획이 체인의 마지막 단계면 성공 시 진행 상태를 끝낸다 */
     public function __construct(public Post $post, public bool $finishPipeline = false) {}
+
+    /** 시간 초과·시간당 한도로 멈춘 AI 호출은 다시 시도하지 않는다(토큰 누수 방지) */
+    public function middleware(): array
+    {
+        return [new NoRetryAfterLlmStop];
+    }
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
     {
@@ -77,10 +87,10 @@ class GeneratePlanJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $this->pipelineFail('글 계획 서비스에 연결하지 못했습니다.');
+        $this->pipelineFail($exception instanceof LlmStopException ? $exception->getMessage() : '글 계획 서비스에 연결하지 못했습니다.');
         $this->post->forceFill([
             'status' => PostStatus::Failed,
-            'plan_error' => '글 계획 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.',
+            'plan_error' => $exception instanceof LlmStopException ? $exception->getMessage() : '글 계획 서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.',
         ])->save();
     }
 }

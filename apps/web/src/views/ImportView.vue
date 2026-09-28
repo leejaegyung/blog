@@ -12,14 +12,15 @@ ui.crumb = '글 받기'
 ui.saveState = null
 
 const LAST_CATEGORY = 'blog-ai.import.category'
-const PARSE_WAIT_MS = 20000
+// 이 시간 안에 더 보낸 글은 같은 학습에 함께 들어간다
+const LEARN_DELAY_SECONDS = 45
 
 const post = ref<ImportedPost | null>(null)
 const categories = ref<Project[]>([])
 const categoryId = ref<number | null>(null)
 const learnNow = ref(true)
 const waitingTooLong = ref(false)
-const state = ref<'idle' | 'sending' | 'reading' | 'learning' | 'done' | 'skipped'>('idle')
+const state = ref<'idle' | 'sending' | 'learning' | 'done' | 'skipped'>('idle')
 const error = ref<string | null>(null)
 let waitTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -70,18 +71,9 @@ async function send() {
       state.value = 'done'
       return
     }
-    // 글을 다 읽은 뒤에 학습해야 이번 글이 들어간다
-    state.value = 'reading'
-    const id = result.data[0]!.id
-    const started = Date.now()
-    while (Date.now() - started < PARSE_WAIT_MS) {
-      const list = await referenceApi.list(categoryId.value)
-      const status = list.find((r) => r.id === id)?.parse_status
-      if (status && status !== 'pending') break
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
+    // 여러 글을 이어서 보내도 학습은 한 번만: 마지막으로 보낸 뒤 잠시 모았다가 학습한다(이미 대기 중이면 서버가 건너뛴다)
     state.value = 'learning'
-    await analysisApi.analyze(categoryId.value, true)
+    await analysisApi.analyze(categoryId.value, true, LEARN_DELAY_SECONDS)
     state.value = 'done'
   } catch (e) {
     state.value = 'idle'
@@ -170,7 +162,8 @@ onBeforeUnmount(() => {
         이미 {{ chosen?.keyword }}에 있는 글이에요.
       </p>
       <div v-if="state === 'done' && chosen" role="status" class="flex flex-col gap-2 rounded-[18px] border-2 border-ink bg-lilac p-4 text-sm">
-        <b>{{ chosen.keyword }}에 추가했어요{{ learnNow ? ' · 학습을 시작했어요' : '' }}.</b>
+        <b>{{ chosen.keyword }}에 추가했어요{{ learnNow ? ` · 곧 학습해요` : '' }}.</b>
+        <span v-if="learnNow">다른 글도 이어서 보내면 모아서 한 번만 학습해요(마지막으로 보낸 뒤 약 {{ LEARN_DELAY_SECONDS }}초).</span>
         <span>이 창은 닫아도 돼요. 다른 글도 같은 버튼으로 보내면 이어서 추가돼요.</span>
         <RouterLink :to="{ name: 'project', params: { id: chosen.id } }" class="self-start font-bold">학습 진행 보기 →</RouterLink>
       </div>
@@ -185,13 +178,11 @@ onBeforeUnmount(() => {
         {{
           state === 'sending'
             ? '추가하는 중…'
-            : state === 'reading'
-              ? '글 읽는 중…'
-              : state === 'learning'
-                ? '학습 시작하는 중…'
-                : chosen
-                  ? `${chosen.keyword}에 추가${learnNow ? '하고 학습' : ''}`
-                  : '카테고리를 먼저 만들어 주세요'
+            : state === 'learning'
+              ? '학습 예약하는 중…'
+              : chosen
+                ? `${chosen.keyword}에 추가${learnNow ? '하고 학습' : ''}`
+                : '카테고리를 먼저 만들어 주세요'
         }}
       </button>
     </template>

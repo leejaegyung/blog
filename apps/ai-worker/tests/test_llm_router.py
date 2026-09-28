@@ -85,3 +85,16 @@ async def test_raises_with_all_attempts_when_everything_fails() -> None:
 def test_target_parse_rejects_unknown_provider() -> None:
     with pytest.raises(ValueError):
         Target.parse("gemini:pro")
+
+
+async def test_timeout_stops_without_trying_other_models() -> None:
+    # 시간 초과면 앞 호출이 이미 사용량을 썼을 수 있어 다음 모델로 넘어가지 않는다
+    claude = FakeAdapter("claude_code", [LLMError("too slow", kind="timeout")])
+    gpt = FakeAdapter("codex", ["unused"])
+    router = LLMRouter({"claude_code": claude, "codex": gpt}, route("claude_code:opus", "codex:gpt-6-astra"))
+
+    with pytest.raises(AllTargetsFailed) as failed:
+        await router.generate(REQUEST)
+
+    assert [a.error.kind for a in failed.value.outcome.attempts] == ["timeout"]
+    assert gpt.calls == []

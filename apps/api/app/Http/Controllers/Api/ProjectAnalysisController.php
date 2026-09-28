@@ -53,7 +53,9 @@ class ProjectAnalysisController extends Controller
         }
 
         $project->markAnalysisQueued();
-        AnalyzeKeywordJob::dispatch($project);
+        // delay: 보내기 버튼으로 글을 여러 개 보낼 때 잠시 모았다가 한 번만 학습한다(그동안 들어온 요청은 위에서 건너뛴다)
+        $delay = max(0, min(120, $request->integer('delay')));
+        AnalyzeKeywordJob::dispatch($project)->delay($delay ? now()->addSeconds($delay) : null);
 
         return response()->json(['status' => $project->status, 'progress' => $this->progress($project), 'cached' => false], 202);
     }

@@ -49,7 +49,7 @@ services:
 
   queue:
     <<: *api
-    command: php artisan queue:work --sleep=2 --tries=3 --timeout=300
+    command: php artisan queue:work --sleep=2 --tries=3 --timeout=340
     depends_on:
       app:
         condition: service_healthy

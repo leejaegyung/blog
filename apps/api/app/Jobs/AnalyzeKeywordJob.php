@@ -10,6 +10,8 @@ use App\Models\ReferenceDocument;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
 use App\Jobs\Concerns\TracksPipeline;
+use App\Jobs\Middleware\NoRetryAfterLlmStop;
+use App\Services\AiWorker\LlmStopException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -18,6 +20,9 @@ class AnalyzeKeywordJob implements ShouldQueue
 {
     use Queueable, TracksPipeline;
 
+    // AI 호출(최대 320초)보다 길게. 짧으면 작업이 끊기고 다시 실행돼 사용량을 두 번 쓴다
+    public int $timeout = 330;
+
     /** 분석 결과 유효기간(기획서 21장: 일반 키워드 7일) */
     public const TTL_DAYS = 7;
 
@@ -25,7 +30,6 @@ class AnalyzeKeywordJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $timeout = 280;
 
     /** @var list<int> */
     public array $backoff = [30, 120];
@@ -48,6 +52,12 @@ class AnalyzeKeywordJob implements ShouldQueue
             ->all();
 
         return hash('sha256', implode('|', [$project->keyword, $project->category, ...$hashes]));
+    }
+
+    /** 시간 초과·시간당 한도로 멈춘 AI 호출은 다시 시도하지 않는다(토큰 누수 방지) */
+    public function middleware(): array
+    {
+        return [new NoRetryAfterLlmStop];
     }
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
@@ -107,7 +117,7 @@ class AnalyzeKeywordJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $this->pipelineFail('키워드 분석 서비스에 연결하지 못했습니다.');
+        $this->pipelineFail($exception instanceof LlmStopException ? $exception->getMessage() : '키워드 분석 서비스에 연결하지 못했습니다.');
         $this->project->forceFill(['status' => ProjectStatus::Failed, 'analysis_step' => null])->save();
     }
 }

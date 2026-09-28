@@ -39,6 +39,8 @@ return [
     'llm' => [
         // Claude 구독(Claude Code) 연결기 토큰이 있으면 관리 화면에 '연결기 설정됨'으로 보인다
         'claude_bridge_token' => env('CLAUDE_BRIDGE_TOKEN'),
+        // 최근 1시간 AI 호출 한도(0이면 끔). 반복 실행 같은 사고로 구독 사용량이 새지 않게 하는 안전장치
+        'max_calls_per_hour' => (int) env('LLM_MAX_CALLS_PER_HOUR', 60),
         'anthropic_key' => env('ANTHROPIC_API_KEY'),
         'openai_key' => env('OPENAI_API_KEY'),
         'route' => env('LLM_ROUTE', 'claude_code:opus,codex:gpt-6-astra'),

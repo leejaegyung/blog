@@ -59,7 +59,7 @@ async def test_falls_back_to_parsing_text_when_no_structured_output() -> None:
         (httpx2.Response(500, json={}), "unavailable"),
         (httpx2.Response(200, json={"ok": False, "error": "Claude usage limit reached", "api_error_status": 429}), "rate_limited"),
         (httpx2.Response(200, json={"ok": False, "error": "Please run /login", "api_error_status": None}), "auth"),
-        (httpx2.Response(200, json={"ok": False, "error": "timeout", "error_kind": "unavailable"}), "unavailable"),
+        (httpx2.Response(200, json={"ok": False, "error": "280초 안에 끝나지 않았습니다.", "error_kind": "timeout"}), "timeout"),
         (httpx2.Response(200, json={"ok": True, "text": "not json", "structured": None}), "invalid_output"),
     ],
 )
@@ -68,6 +68,16 @@ async def test_error_kinds(response: httpx2.Response, kind: str) -> None:
         await adapter(lambda _: response).generate(LLMRequest(system="s", prompt="p", output_model=Answer), "opus")
 
     assert error.value.kind == kind
+
+
+async def test_slow_bridge_is_timeout() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise httpx2.ReadTimeout("slow", request=request)
+
+    with pytest.raises(LLMError) as error:
+        await adapter(handler).generate(LLMRequest(system="s", prompt="p"), "opus")
+
+    assert error.value.kind == "timeout"
 
 
 async def test_bridge_down_is_unavailable_with_how_to_start() -> None:

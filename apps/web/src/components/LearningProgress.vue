@@ -32,7 +32,7 @@ const steps = computed(() => {
       detail: reading.value ? `${refs.value.parsed}/${refs.value.total}개 읽는 중` : refs.value.total ? `${refs.value.parsed}개 읽음` : '글 없이 키워드로만',
       state: readState,
     },
-    { key: 'queue', label: '차례 기다리기', detail: '앞선 작업이 끝나면 바로 시작해요', state: queueState },
+    { key: 'queue', label: '차례 기다리기', detail: '보낸 글을 잠깐 모았다가 한 번에 학습해요', state: queueState },
     {
       key: 'ai',
       label: props.learning ? 'AI로 글 구성·사진 배치 정리' : 'AI로 검색 의도·목차 정리',

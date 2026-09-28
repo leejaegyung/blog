@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\AiWorkerUnavailableException;
 use App\Services\AiWorker\GenerationRecorder;
+use App\Services\AiWorker\LlmStopException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -32,6 +33,9 @@ class PostRewriteController extends Controller
                 'facts' => $post->facts()->get(['fact_key', 'fact_value'])->toArray(),
                 'forbidden_claims' => $post->plan_json['forbidden_claims'] ?? [],
             ]);
+        } catch (LlmStopException $e) {
+            // 시간 초과·시간당 한도: 이유를 그대로 알려 준다(다시 누르기 전에 알 수 있게)
+            return response()->json(['message' => $e->getMessage()], 429);
         } catch (AiWorkerUnavailableException) {
             return response()->json(['message' => 'AI 서비스에 연결하지 못했습니다.'], 503);
         }

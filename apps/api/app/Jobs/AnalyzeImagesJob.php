@@ -6,6 +6,8 @@ use App\Models\Post;
 use App\Services\AiWorker\AiWorkerClient;
 use App\Services\AiWorker\GenerationRecorder;
 use App\Jobs\Concerns\TracksPipeline;
+use App\Jobs\Middleware\NoRetryAfterLlmStop;
+use App\Services\AiWorker\LlmStopException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
@@ -14,12 +16,14 @@ class AnalyzeImagesJob implements ShouldQueue
 {
     use Queueable, TracksPipeline;
 
+    // AI 호출(최대 320초)보다 길게. 짧으면 작업이 끊기고 다시 실행돼 사용량을 두 번 쓴다
+    public int $timeout = 330;
+
     // 기다리는 동안 글이 지워졌으면 조용히 버린다
     public bool $deleteWhenMissingModels = true;
 
     public int $tries = 3;
 
-    public int $timeout = 290;
 
     /** @var list<int> */
     public array $backoff = [30, 120];
@@ -29,6 +33,12 @@ class AnalyzeImagesJob implements ShouldQueue
      * @param  bool  $force  이미 분석된 사진도 다시 분석한다(사용자가 다시 분석을 요청한 경우)
      */
     public function __construct(public Post $post, public array $imageIds, public bool $force = false) {}
+
+    /** 시간 초과·시간당 한도로 멈춘 AI 호출은 다시 시도하지 않는다(토큰 누수 방지) */
+    public function middleware(): array
+    {
+        return [new NoRetryAfterLlmStop];
+    }
 
     public function handle(AiWorkerClient $worker, GenerationRecorder $recorder): void
     {
@@ -66,10 +76,10 @@ class AnalyzeImagesJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $this->pipelineFail('사진 분석 서비스에 연결하지 못했습니다.');
+        $this->pipelineFail($exception instanceof LlmStopException ? $exception->getMessage() : '사진 분석 서비스에 연결하지 못했습니다.');
         $this->post->images()->whereKey($this->imageIds)->where('vision_status', 'pending')->update([
             'vision_status' => 'failed',
-            'vision_error' => '사진 분석 서비스에 연결하지 못했습니다.',
+            'vision_error' => $exception instanceof LlmStopException ? $exception->getMessage() : '사진 분석 서비스에 연결하지 못했습니다.',
         ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\AiWorker;
 
+use App\Models\Generation;
 use App\Services\LlmSettings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -81,9 +82,9 @@ class AiWorkerClient
     public function pingLlm(array $targets = []): array
     {
         try {
-            $response = $this->llm(120)->post('/llm/ping', ['targets' => $targets ?: null]);
+            $response = $this->llm(self::LLM_TIMEOUT)->post('/llm/ping', ['targets' => $targets ?: null]);
         } catch (ConnectionException $e) {
-            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+            throw $this->connectionFailure($e);
         }
 
         if ($response->successful()) {
@@ -138,10 +139,12 @@ class AiWorkerClient
      */
     public function analyzeKeyword(array $payload): array
     {
+        $this->guardHourlyBudget();
+
         try {
-            $response = $this->llm(240)->post('/keywords/analyze', $payload);
+            $response = $this->llm(self::LLM_TIMEOUT)->post('/keywords/analyze', $payload);
         } catch (ConnectionException $e) {
-            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+            throw $this->connectionFailure($e);
         }
 
         if ($response->failed()) {
@@ -161,10 +164,12 @@ class AiWorkerClient
      */
     public function planPost(array $payload): array
     {
+        $this->guardHourlyBudget();
+
         try {
-            $response = $this->llm(240)->post('/posts/plan', $payload);
+            $response = $this->llm(self::LLM_TIMEOUT)->post('/posts/plan', $payload);
         } catch (ConnectionException $e) {
-            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+            throw $this->connectionFailure($e);
         }
 
         if ($response->failed()) {
@@ -184,10 +189,12 @@ class AiWorkerClient
      */
     public function draftPost(array $payload): array
     {
+        $this->guardHourlyBudget();
+
         try {
-            $response = $this->llm(270)->post('/posts/draft', $payload);
+            $response = $this->llm(self::LLM_TIMEOUT)->post('/posts/draft', $payload);
         } catch (ConnectionException $e) {
-            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+            throw $this->connectionFailure($e);
         }
 
         if ($response->failed()) {
@@ -205,10 +212,12 @@ class AiWorkerClient
      */
     public function rewriteParagraph(array $payload): array
     {
+        $this->guardHourlyBudget();
+
         try {
-            $response = $this->llm(120)->post('/posts/rewrite', $payload);
+            $response = $this->llm(self::LLM_TIMEOUT)->post('/posts/rewrite', $payload);
         } catch (ConnectionException $e) {
-            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+            throw $this->connectionFailure($e);
         }
 
         if ($response->failed()) {
@@ -228,10 +237,12 @@ class AiWorkerClient
      */
     public function analyzeImages(array $payload): array
     {
+        $this->guardHourlyBudget();
+
         try {
-            $response = $this->llm(280)->post('/images/analyze', $payload);
+            $response = $this->llm(self::LLM_TIMEOUT)->post('/images/analyze', $payload);
         } catch (ConnectionException $e) {
-            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+            throw $this->connectionFailure($e);
         }
 
         if ($response->failed()) {
@@ -265,6 +276,31 @@ class AiWorkerClient
     }
 
     /** LLM을 부르지 않는 호출(헬스·사진 처리·파싱·품질 검사)에는 API 키를 보내지 않는다 */
+    /**
+     * AI 호출을 기다리는 시간. 연결기(280초) → 워커(290초)보다 길어야 한다.
+     * 짧으면 AI가 아직 쓰는 중인데 포기하고 다시 보내 사용량을 두 번 쓴다.
+     */
+    public const LLM_TIMEOUT = 320;
+
+    /** 워커에 닿지도 못했으면(다시 시도해도 됨) 그대로, 보낸 뒤 기다리다 끊겼으면 다시 부르지 않는 예외로 */
+    private function connectionFailure(ConnectionException $e): AiWorkerUnavailableException
+    {
+        if (preg_match('/cURL error 28|timed out|timeout/i', $e->getMessage())) {
+            return new LlmCallAbandonedException('AI가 제시간에 답하지 않아 멈췄어요. 사용량을 두 번 쓰지 않도록 자동으로 다시 하지 않아요. 잠시 뒤 다시 눌러 주세요.', previous: $e);
+        }
+
+        return new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+    }
+
+    /** 반복 실행 같은 사고로 토큰이 새지 않게, 최근 1시간 AI 호출이 한도를 넘으면 새로 부르지 않는다 */
+    private function guardHourlyBudget(): void
+    {
+        $limit = (int) config('services.llm.max_calls_per_hour', 60);
+        if ($limit > 0 && Generation::where('created_at', '>=', now()->subHour())->count() >= $limit) {
+            throw new LlmBudgetExceededException("최근 1시간 동안 AI를 {$limit}번 불러 안전을 위해 잠시 멈췄어요. 한 시간 안에 다시 풀려요(관리 화면에서 확인).");
+        }
+    }
+
     private function http(int $timeout): PendingRequest
     {
         return Http::baseUrl(config('services.ai_worker.url'))

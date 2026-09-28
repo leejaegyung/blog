@@ -82,7 +82,7 @@ def build_router(config: LLMConfig) -> LLMRouter:
         client = httpx2.AsyncClient()
         for provider in ("claude_code", "codex"):
             adapters[provider] = SubscriptionAdapter(
-                provider, client, settings.claude_bridge_url, settings.claude_bridge_token, settings.llm_timeout_seconds
+                provider, client, settings.claude_bridge_url, settings.claude_bridge_token, settings.claude_bridge_timeout_seconds
             )
 
     route = []

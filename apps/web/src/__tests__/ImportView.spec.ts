@@ -65,8 +65,9 @@ describe('ImportView', () => {
     await flushPromises()
 
     expect(referenceApi.send).toHaveBeenCalledWith(5, { text: TEXT, title: '인계동 파스타 후기', sourceUrl: 'https://blog.naver.com/me/1' })
-    expect(analysisApi.analyze).toHaveBeenCalledWith(5, true)
-    expect(wrapper.text()).toContain('맛집에 추가했어요 · 학습을 시작했어요')
+    expect(analysisApi.analyze).toHaveBeenCalledWith(5, true, 45)
+    expect(wrapper.text()).toContain('맛집에 추가했어요 · 곧 학습해요')
+    expect(wrapper.text()).toContain('모아서 한 번만 학습해요')
   })
 
   it('이미 있는 글이면 알려준다', async () => {

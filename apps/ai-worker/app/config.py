@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Claude 구독(Claude Code) 연결기. 토큰이 없으면 claude_code 대상은 not_configured로 건너뛴다
     claude_bridge_url: str = "http://host.docker.internal:8790"
     claude_bridge_token: str = ""
+    # 연결기(claude -p·codex exec 280초)보다 조금 길게 기다린다. Laravel은 이보다 더 길게 기다린다(320초)
+    claude_bridge_timeout_seconds: float = 290.0
 
 
 @lru_cache

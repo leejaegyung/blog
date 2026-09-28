@@ -468,13 +468,14 @@ export const analysisApi = {
     )
     return data
   },
-  async analyze(projectId: number, force = false) {
+  /** delay(초): 보내기 버튼으로 여러 글을 보낼 때 모았다가 한 번만 학습 */
+  async analyze(projectId: number, force = false, delay = 0) {
     const { data } = await http.post<{
       data?: KeywordAnalysis
       status: ProjectStatus
       progress?: AnalysisProgress
       cached: boolean
-    }>(`/projects/${projectId}/analyze`, { force })
+    }>(`/projects/${projectId}/analyze`, { force, delay: delay || undefined })
     return data
   },
 }
@@ -491,6 +492,8 @@ export type UsageGroup = {
 }
 
 export type Usage = {
+  // 최근 1시간 AI 호출(토큰 누수 안전장치)
+  hour?: { calls: number; limit: number }
   days: number
   kpi: {
     posts: number

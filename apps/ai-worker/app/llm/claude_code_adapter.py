@@ -50,7 +50,7 @@ class SubscriptionAdapter:
                 timeout=self._timeout,
             )
         except httpx2.TimeoutException as error:
-            raise LLMError(f"{LABELS.get(self.provider, '구독')}이 제시간에 답하지 않았습니다.", kind="unavailable") from error
+            raise LLMError(f"{LABELS.get(self.provider, '구독')}이 제시간에 답하지 않았습니다.", kind="timeout") from error
         except httpx2.HTTPError as error:
             raise LLMError(BRIDGE_DOWN, kind="unavailable") from error
 

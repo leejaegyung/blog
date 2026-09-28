@@ -50,7 +50,8 @@ ENV = {**load_env(ENV_FILE), **os.environ}
 PORT = int(ENV.get("CLAUDE_BRIDGE_PORT", "8790"))
 TOKEN = ENV.get("CLAUDE_BRIDGE_TOKEN", "")
 PARALLEL = int(ENV.get("CLAUDE_BRIDGE_PARALLEL", "2"))
-TIMEOUT = int(ENV.get("CLAUDE_BRIDGE_TIMEOUT", "290"))
+# 워커(290초)·Laravel(320초)보다 먼저 끝나야 뒤에서 포기하고 다시 부르는 일이 없다
+TIMEOUT = int(ENV.get("CLAUDE_BRIDGE_TIMEOUT", "280"))
 CLAUDE = ENV.get("CLAUDE_BIN") or shutil.which("claude") or str(Path.home() / ".local/bin/claude")
 CODEX = ENV.get("CODEX_BIN") or shutil.which("codex") or "codex"
 API_KEY_VARS = {"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY"}
@@ -129,7 +130,7 @@ def run_codex(body: dict) -> dict:
             done = subprocess.run(command, input=str(body.get("prompt") or ""), capture_output=True, text=True,
                                   cwd=work, env=subscription_env(), timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
-            return {"ok": False, "error": f"{TIMEOUT}초 안에 끝나지 않았습니다.", "error_kind": "unavailable"}
+            return {"ok": False, "error": f"{TIMEOUT}초 안에 끝나지 않았습니다.", "error_kind": "timeout"}
         except FileNotFoundError:
             return {"ok": False, "error": f"codex 명령을 찾지 못했습니다: {CODEX}", "error_kind": "not_configured"}
 
@@ -198,7 +199,7 @@ def run_claude(body: dict) -> dict:
             done = subprocess.run(command, input=prompt, capture_output=True, text=True, cwd=work,
                                   env=subscription_env(), timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
-            return {"ok": False, "error": f"{TIMEOUT}초 안에 끝나지 않았습니다.", "error_kind": "unavailable"}
+            return {"ok": False, "error": f"{TIMEOUT}초 안에 끝나지 않았습니다.", "error_kind": "timeout"}
         except FileNotFoundError:
             return {"ok": False, "error": f"claude 명령을 찾지 못했습니다: {CLAUDE}", "error_kind": "not_configured"}
 
