@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
  */
 class BackupDatabase extends Command
 {
-    protected $signature = 'app:backup {--keep=14 : 남길 백업 개수}';
+    protected $signature = 'app:backup {--keep=72 : 남길 백업 개수(같은 종류끼리)} {--tag= : 종류 이름(예: before-migrate). 비우면 정기 백업}';
 
     protected $description = 'SQLite DB를 /data/backups에 백업하고 오래된 백업을 지운다';
 
@@ -21,11 +21,16 @@ class BackupDatabase extends Command
     {
         $dir = config('app.backup_path');
         File::ensureDirectoryExists($dir);
-        $path = $dir.'/blog-ai-'.now()->format('Ymd-His').'.sqlite';
+        $tag = preg_replace('/[^a-z0-9-]/', '', (string) $this->option('tag'));
+        $prefix = $dir.'/blog-ai-'.($tag !== '' ? "{$tag}-" : '');
+        $path = $prefix.now()->format('Ymd-His').'.sqlite';
 
         DB::statement('VACUUM INTO ?', [$path]);
 
-        $backups = collect(File::glob($dir.'/blog-ai-*.sqlite'))->sort()->values();
+        // 같은 종류끼리만 오래된 것을 지운다(정기 백업이 DB 변경 직전 백업을 밀어내지 않게)
+        $backups = collect(File::glob($prefix.'*.sqlite'))
+            ->filter(fn ($file) => $tag !== '' || preg_match('/blog-ai-\d{8}-\d{6}\.sqlite$/', $file))
+            ->sort()->values();
         $backups->slice(0, max(0, $backups->count() - (int) $this->option('keep')))->each(fn ($old) => File::delete($old));
 
         Log::info('database_backup', ['path' => $path, 'bytes' => filesize($path)]);

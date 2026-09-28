@@ -46,4 +46,19 @@ class BackupTest extends TestCase
         $copy = new \PDO('sqlite:'.$this->dir.'/backups/'.$files[1]);
         $this->assertSame('백업할 내용', $copy->query('select body from notes')->fetchColumn());
     }
+
+    public function test_tagged_backups_rotate_separately_from_regular_ones(): void
+    {
+        touch("{$this->dir}/backups/blog-ai-20260101-000000.sqlite");
+        touch("{$this->dir}/backups/blog-ai-before-migrate-20260101-000000.sqlite");
+
+        $this->artisan('app:backup', ['--tag' => 'before-migrate', '--keep' => 1])->assertSuccessful();
+        $this->artisan('app:backup', ['--keep' => 1])->assertSuccessful();
+
+        $files = collect(File::glob("{$this->dir}/backups/*.sqlite"))->map(fn ($f) => basename($f));
+        // 정기 1개 + DB 변경 직전 1개가 따로 남는다(서로 밀어내지 않는다)
+        $this->assertCount(1, $files->filter(fn ($f) => str_starts_with($f, 'blog-ai-before-migrate-')));
+        $this->assertCount(1, $files->filter(fn ($f) => preg_match('/^blog-ai-\d{8}-\d{6}\.sqlite$/', $f)));
+        $this->assertNotContains('blog-ai-before-migrate-20260101-000000.sqlite', $files);
+    }
 }

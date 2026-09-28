@@ -12,6 +12,10 @@ chown -R www-data:www-data "$(dirname "$DB_FILE")" /data/uploads /data/backups s
 
 # 마이그레이션은 app 컨테이너에서만 실행한다(queue/scheduler와의 경합 방지).
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+    # DB 구조를 바꾸기 직전에 백업을 남긴다(적용할 변경이 있을 때만). 실패해도 시작은 계속한다
+    if su-exec www-data php artisan migrate:status --pending 2>/dev/null | grep -q Pending; then
+        su-exec www-data php artisan app:backup --tag=before-migrate --keep=20 || true
+    fi
     su-exec www-data php artisan migrate --force
 fi
 
