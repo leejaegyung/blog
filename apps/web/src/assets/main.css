@@ -45,8 +45,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a:hover {
-  color: var(--color-accent);
+/* 기본 링크 색은 base 레이어에 둬야 버튼 모양 링크의 hover:text-* 유틸리티가 이긴다 */
+@layer base {
+  a:hover {
+    color: var(--color-accent);
+  }
 }
 
 /* 디자인의 사선 줄무늬 자리표시(사진 없을 때) */

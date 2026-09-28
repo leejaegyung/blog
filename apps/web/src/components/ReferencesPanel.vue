@@ -233,7 +233,11 @@ defineExpose({ load })
     </p>
     <p v-if="loading" class="text-sub">불러오는 중…</p>
     <p v-else-if="references.length === 0" class="text-sub">
-      아직 참고자료가 없습니다. 이 키워드로 잘 쓰인 글을 추가하면 구성과 사진 배치를 분석합니다.
+      {{
+        learning
+          ? '아직 학습할 글이 없어요. 위 “Blog AI로 보내기” 버튼으로 보내거나 URL을 넣어 주세요.'
+          : '아직 참고자료가 없습니다. 이 키워드로 잘 쓰인 글을 추가하면 구성과 사진 배치를 분석합니다.'
+      }}
     </p>
     <ul v-else class="divide-y divide-line rounded-[18px] border-[1.5px] border-line bg-white">
       <li v-for="reference in references" :key="reference.id" class="space-y-2 px-4 py-3">

@@ -5,6 +5,7 @@ import { AxiosError } from 'axios'
 import { postApi, projectApi, type Post, type Project } from '@/lib/api'
 import ProjectStatusBadge from '@/components/ProjectStatusBadge.vue'
 import ReferencesPanel from '@/components/ReferencesPanel.vue'
+import SendButtonCard from '@/components/SendButtonCard.vue'
 import AnalysisPanel from '@/components/AnalysisPanel.vue'
 import { relativeDate } from '@/lib/flow'
 import { useUiStore } from '@/stores/ui'
@@ -106,6 +107,7 @@ async function remove() {
         </p>
       </div>
 
+      <SendButtonCard v-if="isCategory" />
       <ReferencesPanel :project-id="project.id" :learning="isCategory" @changed="(count) => project && (project.reference_count = count)" />
 
       <AnalysisPanel
