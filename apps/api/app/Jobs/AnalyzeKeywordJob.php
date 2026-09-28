@@ -54,6 +54,8 @@ class AnalyzeKeywordJob implements ShouldQueue
     {
         $this->pipelineStep('analysis');
         $project = $this->project;
+        // 진행 표시: 대기열에서 꺼내 AI로 정리하기 시작했다
+        $project->forceFill(['analysis_step' => 'ai', 'analysis_started_at' => $project->analysis_started_at ?? now()])->save();
 
         // 키워드가 고른 학습 카테고리의 참고 글도 함께 쓴다(카테고리별 학습)
         $features = ReferenceDocument::whereIn('keyword_project_id', self::sourceProjectIds($project))
@@ -96,6 +98,7 @@ class AnalyzeKeywordJob implements ShouldQueue
         ]);
 
         $project->forceFill([
+            'analysis_step' => null,
             'status' => ProjectStatus::Analyzed,
             'last_analyzed_at' => $analysis->created_at,
             'analysis_version' => $analysis->analyzer_version,
@@ -105,6 +108,6 @@ class AnalyzeKeywordJob implements ShouldQueue
     public function failed(?Throwable $exception): void
     {
         $this->pipelineFail('키워드 분석 서비스에 연결하지 못했습니다.');
-        $this->project->forceFill(['status' => ProjectStatus::Failed])->save();
+        $this->project->forceFill(['status' => ProjectStatus::Failed, 'analysis_step' => null])->save();
     }
 }

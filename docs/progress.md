@@ -472,6 +472,15 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
 - 실제 확인: 카테고리 생성 → 본문 붙여넣기 → 학습(구독 LLM) → 해시태그에 참고 글 태그 반영 → 1단계에서 골라 시작 시 추천 해시태그 적용. 데모 데이터는 삭제
 - 테스트: api 135개, worker 153개(+1 건너뜀), web 62개
 
+## 2026-09-28 추가: 학습 진행 상황 표시
+
+- 서버: `keyword_projects.analysis_step`(queued → ai → null)·`analysis_started_at`. 학습을 누르면 queued, 작업이 시작되면 ai,
+  끝나거나 실패하면 null. `GET /projects/{id}/analysis`·`POST …/analyze` 응답에 `progress`(step·started_at·학습할 글 읽기 현황 total/parsed/pending)
+- 화면(`LearningProgress.vue`): 학습할 글 읽기(N/M개) → 차례 기다리기 → AI로 글 구성·사진 배치 정리 → 노출 가이드·해시태그 만들기.
+  서버가 알려 준 단계만 진행 중으로, 경과 초·"보통 20~60초", 진행 막대(AI 단계는 예상 시간에 가까워질수록 느리게, 92%를 넘지 않음, 반짝임)
+- 상태 확인 2초마다, 끝나면 오른쪽 패널(마지막 학습)도 새로 읽음. 실제 학습으로 확인 후 데모 카테고리 삭제
+- 테스트: api 136개, worker 153개(+1 건너뜀), web 64개
+
 ## 전체 개발 순서(Day 1~14) 완료 — 남은 일
 
 1. **Anthropic 크레딧 충전 후 AI 결과 점검**: 프롬프트 6개(keyword-analysis-v1, writing-plan-v2, blog-draft-v2,

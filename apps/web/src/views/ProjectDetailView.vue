@@ -36,6 +36,14 @@ onMounted(async () => {
 
 const isCategory = computed(() => project.value?.kind === 'category')
 
+// 학습(분석)이 끝나면 오른쪽 패널의 "마지막 학습" 등을 새로 읽는다
+async function onStatus(status: Project['status']) {
+  if (!project.value) return
+  const finished = project.value.status === 'analyzing' && status !== 'analyzing'
+  project.value.status = status
+  if (finished) project.value = { ...project.value, ...(await projectApi.get(props.id)) }
+}
+
 async function newPost() {
   if (isCategory.value) {
     // 글쓰기 1단계에서 이 카테고리가 골라진 채로 시작한다
@@ -105,7 +113,7 @@ async function remove() {
         :reference-count="project.reference_count ?? 0"
         :custom-hashtags="project.hashtags"
         :learning="isCategory"
-        @status="(status) => project && (project.status = status)"
+        @status="onStatus"
         @hashtags-saved="(saved) => project && (project.hashtags = saved.hashtags)"
       />
 

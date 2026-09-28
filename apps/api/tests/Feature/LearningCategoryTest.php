@@ -111,4 +111,30 @@ class LearningCategoryTest extends TestCase
         $keyword->forceFill(['hashtags_json' => ['내가고친태그']])->save();
         $this->assertSame(['내가고친태그'], $keyword->fresh()->hashtags());
     }
+
+    public function test_learning_progress_reports_step_time_and_reading(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        $category = $this->category();
+        $this->reference($category, 'a');
+        $category->references()->create(['source_type' => 'user_url', 'source_url' => 'https://ex.com/p', 'usage_permission' => 'user_provided', 'parse_status' => 'pending']);
+
+        $this->actingAs($this->user)->postJson("/api/projects/{$category->id}/analyze")
+            ->assertStatus(202)
+            ->assertJsonPath('progress.step', 'queued')
+            ->assertJsonPath('progress.references', ['total' => 2, 'parsed' => 1, 'pending' => 1]);
+        $this->assertNotNull($category->fresh()->analysis_started_at);
+
+        Http::fake(['*/keywords/analyze' => function () use ($category) {
+            // 워커를 부르는 동안에는 "AI 정리 중"
+            $this->assertSame('ai', $category->fresh()->analysis_step);
+
+            return Http::response(['stats' => null, 'insight' => null, 'insight_error' => 'x', 'guide' => null, 'prompt_version' => 'v', 'generations' => []]);
+        }]);
+        (new AnalyzeKeywordJob($category->fresh()))->handle(app(AiWorkerClient::class), app(GenerationRecorder::class));
+
+        $this->actingAs($this->user)->getJson("/api/projects/{$category->id}/analysis")
+            ->assertJsonPath('status', 'analyzed')
+            ->assertJsonPath('progress.step', null);
+    }
 }

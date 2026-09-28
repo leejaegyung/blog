@@ -446,9 +446,16 @@ export const referenceApi = {
   },
 }
 
+/** 학습(분석) 진행: queued(대기) → ai(AI 정리 중). 학습할 글 읽기(파싱) 현황도 함께 */
+export type AnalysisProgress = {
+  step: 'queued' | 'ai' | null
+  started_at: string | null
+  references: { total: number; parsed: number; pending: number }
+}
+
 export const analysisApi = {
   async get(projectId: number) {
-    const { data } = await http.get<{ data: KeywordAnalysis | null; status: ProjectStatus }>(
+    const { data } = await http.get<{ data: KeywordAnalysis | null; status: ProjectStatus; progress?: AnalysisProgress }>(
       `/projects/${projectId}/analysis`,
     )
     return data
@@ -457,6 +464,7 @@ export const analysisApi = {
     const { data } = await http.post<{
       data?: KeywordAnalysis
       status: ProjectStatus
+      progress?: AnalysisProgress
       cached: boolean
     }>(`/projects/${projectId}/analyze`, { force })
     return data

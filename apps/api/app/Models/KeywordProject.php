@@ -30,6 +30,7 @@ class KeywordProject extends Model
             'status' => ProjectStatus::class,
             'last_analyzed_at' => 'datetime',
             'hashtags_json' => 'array',
+            'analysis_started_at' => 'datetime',
         ];
     }
 
@@ -98,6 +99,16 @@ class KeywordProject extends Model
     public function categoryPosts(): HasManyThrough
     {
         return $this->hasManyThrough(Post::class, self::class, 'learning_category_id', 'keyword_project_id');
+    }
+
+    /** 학습(분석)을 대기열에 넣었다고 표시한다 */
+    public function markAnalysisQueued(): void
+    {
+        $this->forceFill([
+            'status' => ProjectStatus::Analyzing,
+            'analysis_step' => 'queued',
+            'analysis_started_at' => now(),
+        ])->save();
     }
 
     public function isCategory(): bool

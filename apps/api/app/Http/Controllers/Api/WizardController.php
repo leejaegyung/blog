@@ -101,7 +101,7 @@ class WizardController extends Controller
         $fresh = $analysis && $analysis->insight_json && $analysis->expires_at?->isFuture()
             && $analysis->source_hash === AnalyzeKeywordJob::sourceHash($post->project);
         if (! $fresh) {
-            $post->project->forceFill(['status' => ProjectStatus::Analyzing])->save();
+            $post->project->markAnalysisQueued();
             $jobs[] = (new AnalyzeKeywordJob($post->project))->inPipeline($post->id);
         }
 

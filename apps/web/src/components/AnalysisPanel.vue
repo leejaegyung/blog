@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { analysisApi, type KeywordAnalysis, type Project, type ProjectStatus } from '@/lib/api'
+import { analysisApi, type AnalysisProgress, type KeywordAnalysis, type Project, type ProjectStatus } from '@/lib/api'
 import ShareBar from '@/components/ShareBar.vue'
 import ExposureGuide from '@/components/ExposureGuide.vue'
+import LearningProgress from '@/components/LearningProgress.vue'
 
 // learning: 관리 › 카테고리별 학습 화면(분석 대신 "학습"이라고 부른다)
 const props = defineProps<{ projectId: number; referenceCount: number; customHashtags?: string[] | null; learning?: boolean }>()
 const emit = defineEmits<{ status: [status: ProjectStatus]; hashtagsSaved: [project: Project] }>()
 
-const POLL_MS = 3000
+const POLL_MS = 2000
 
 const SLOT_LABELS: Record<string, string> = {
   price: '가격',
@@ -39,6 +40,7 @@ const INTRO_LABELS: Record<string, string> = {
 
 const analysis = ref<KeywordAnalysis | null>(null)
 const status = ref<ProjectStatus>('draft')
+const progress = ref<AnalysisProgress | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -58,6 +60,7 @@ async function load() {
   const result = await analysisApi.get(props.projectId)
   analysis.value = result.data
   status.value = result.status
+  progress.value = result.progress ?? null
   loading.value = false
   emit('status', result.status)
   clearTimeout(timer)
@@ -71,6 +74,7 @@ async function analyze() {
     const result = await analysisApi.analyze(props.projectId, analysis.value !== null && !analysis.value.stale)
     if (result.data) analysis.value = result.data
     status.value = result.status
+    progress.value = result.progress ?? null
     emit('status', result.status)
     if (result.status === 'analyzing') timer = setTimeout(load, POLL_MS)
   } catch {
@@ -96,6 +100,7 @@ onBeforeUnmount(() => clearTimeout(timer))
       </button>
     </div>
 
+    <LearningProgress v-if="analyzing && progress" :progress="progress" :learning="learning" />
     <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
     <p v-if="status === 'failed'" role="alert" class="text-sm text-red-600">
       분석에 실패했습니다. 잠시 뒤 다시 시도해 주세요.
