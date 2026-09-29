@@ -99,7 +99,7 @@ def test_plan_endpoint_returns_checked_plan() -> None:
     body = post(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), INPUT.model_dump())
 
     assert body["plan"]["unplaced_image_ids"] == [13]
-    assert body["prompt_version"] == "writing-plan-v2"
+    assert body["prompt_version"] == "writing-plan-v3"
     sent = json.loads(claude.requests[0].prompt)
     assert sent["tone"] == "자연스러운 후기"
     assert [p["id"] for p in sent["photos"]] == [11, 12, 13]

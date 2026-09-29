@@ -53,6 +53,7 @@ class GenerateDraftJob implements ShouldQueue
 
         $result = $worker->draftPost([
             'keyword' => $post->project?->keyword ?? '',
+            'platform' => $post->platform,
             'tone' => $post->tone?->value ?? 'natural',
             'target_length' => $post->target_length ?? 2500,
             'title' => $post->title ?: ($plan['title_candidates'][0] ?? ''),

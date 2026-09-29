@@ -17,14 +17,14 @@ import { naverWriteUrl } from '@/lib/naver'
 vi.mock('@/lib/api', () => ({
   postApi: {
     get: vi.fn<(id: number) => Promise<Post>>(),
-    start: vi.fn<(keyword: string, category?: string) => Promise<Post>>(),
+    start: vi.fn<(keyword: string, category?: string, learningCategoryId?: number | null, platform?: string) => Promise<Post>>(),
     update: vi.fn<(id: number, input: object) => Promise<Post>>(),
     autopilot: vi.fn<(id: number, until?: string) => Promise<Post>>(),
     savePlan: vi.fn<(id: number, input: object) => Promise<Post>>(),
     generate: vi.fn<(id: number) => Promise<Post>>(),
     qualityCheck: vi.fn<(id: number) => Promise<Post>>(),
-    exportPost: vi.fn<(id: number, record?: boolean) => Promise<ExportResult>>(),
-    publish: vi.fn<(id: number, url: string) => Promise<Post>>(),
+    exportPost: vi.fn<(id: number, record?: boolean, platform?: string) => Promise<ExportResult>>(),
+    publish: vi.fn<(id: number, url: string, platform?: string) => Promise<Post>>(),
     photosZipUrl: (id: number) => `/zip/${id}`,
   },
   imageApi: {
@@ -33,7 +33,7 @@ vi.mock('@/lib/api', () => ({
     remove: vi.fn<() => Promise<void>>(),
     reorder: vi.fn<() => Promise<PostImage[]>>(),
   },
-  projectApi: { list: vi.fn<(kind?: string) => Promise<Project[]>>() },
+  projectApi: { list: vi.fn<(kind?: string, platform?: string) => Promise<Project[]>>() },
   analysisApi: { get: vi.fn<(id: number) => Promise<{ data: null; status: string }>>() },
   referenceApi: {
     list: vi.fn<(id: number) => Promise<never[]>>(),
@@ -89,7 +89,7 @@ describe('1 키워드', () => {
     const { wrapper, flow } = mountStep(KeywordStep as unknown as DefineComponent, { post: null })
 
     await flushPromises()
-    expect(projectApi.list).toHaveBeenCalledWith('category')
+    expect(projectApi.list).toHaveBeenCalledWith('category', 'naver')
     expect(wrapper.text()).toContain('맛집 · 학습한 글 4개 · 학습 완료')  // 처음엔 가장 최근 카테고리
     await wrapper.get('input[aria-label="키워드"]').setValue('인계동 파스타')
     await button(wrapper, '카페').trigger('click')
@@ -100,7 +100,7 @@ describe('1 키워드', () => {
     await button(wrapper, '다음 · 사진 올리기').trigger('click')
     await flushPromises()
 
-    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페', 6)
+    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페', 6, 'naver')
     expect(referenceApi.addUrls).toHaveBeenCalledWith(3, ['https://ex.com/a'])
     expect(flow.go).toHaveBeenCalledWith(2, 7)
   })
@@ -282,7 +282,7 @@ describe('6 네이버에 올리기', () => {
     const { wrapper, flow } = mountStep(UploadStep as unknown as DefineComponent, { post: post({ content: { blocks: [], tags: [] } }) })
     await flushPromises()
 
-    expect(postApi.exportPost).toHaveBeenCalledWith(7, false)
+    expect(postApi.exportPost).toHaveBeenCalledWith(7, false, 'naver')
     const steps = wrapper.text()
     expect(steps.indexOf('제목 복사')).toBeLessThan(steps.indexOf('본문 복사'))
     expect(steps).toContain('사진 1장 받기')
@@ -296,13 +296,13 @@ describe('6 네이버에 올리기', () => {
     await flushPromises()
     expect(copyRich).toHaveBeenCalledWith('<p>본문</p><img>', '본문')
     expect(open).toHaveBeenCalledTimes(1)
-    expect(postApi.exportPost).toHaveBeenLastCalledWith(7, true)
+    expect(postApi.exportPost).toHaveBeenLastCalledWith(7, true, 'naver')
     expect(wrapper.text()).toContain('본문과 사진 1장을 복사했어요')
 
     await wrapper.get('#published-url').setValue('https://blog.naver.com/me/1')
     await button(wrapper, '게시 완료로 기록').trigger('click')
     await flushPromises()
-    expect(postApi.publish).toHaveBeenCalledWith(7, 'https://blog.naver.com/me/1')
+    expect(postApi.publish).toHaveBeenCalledWith(7, 'https://blog.naver.com/me/1', 'naver')
     expect(flow.update).toHaveBeenCalled()
   })
 
@@ -317,6 +317,37 @@ describe('6 네이버에 올리기', () => {
     expect(copyText).toHaveBeenCalledWith('#인계동파스타 #수원맛집')
     const rows = wrapper.findAll('span').filter((el) => el.text() === '게시한 글 주소 붙여넣기')
     expect(rows[0]!.element.previousElementSibling!.textContent).toBe('4')
+  })
+
+  it('티스토리 탭은 내 티스토리 글쓰기를 열고, 태그는 쉼표로 복사하고, 티스토리 주소로 기록한다', async () => {
+    useAuthStore().tistoryHost = 'myblog.tistory.com'
+    const open = vi.fn<(...args: unknown[]) => void>()
+    vi.stubGlobal('open', open)
+    vi.mocked(copyText).mockClear()
+    vi.mocked(postApi.exportPost).mockReset().mockResolvedValue({ html: '<p>본문</p>', text: '본문', tags: ['파스타', '수원'], warnings: [], photos: [] })
+    vi.mocked(postApi.publish).mockResolvedValue(post({ tistory_url: 'https://myblog.tistory.com/3' }))
+    const { wrapper } = mountStep(UploadStep as unknown as DefineComponent, { post: post({ platform: 'tistory', content: { blocks: [], tags: [] } }) })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('티스토리에')
+    expect(postApi.exportPost).toHaveBeenCalledWith(7, false, 'tistory')
+    await button(wrapper, '제목 복사').trigger('click')
+    expect(open).toHaveBeenCalledWith('https://myblog.tistory.com/manage/newpost', '_blank', 'noopener')
+    expect(wrapper.text()).toContain('본문에는 넣지 않았어요')
+    await button(wrapper, '태그 복사').trigger('click')
+    await flushPromises()
+    expect(copyText).toHaveBeenLastCalledWith('파스타,수원')
+
+    await wrapper.get('#published-url').setValue('https://myblog.tistory.com/3')
+    await button(wrapper, '게시 완료로 기록').trigger('click')
+    await flushPromises()
+    expect(postApi.publish).toHaveBeenCalledWith(7, 'https://myblog.tistory.com/3', 'tistory')
+
+    // 네이버 탭으로 바꾸면 네이버 기준으로 다시 준비한다
+    await wrapper.findAll('[role=tab]').find((t) => t.text().includes('네이버'))!.trigger('click')
+    await new Promise((r) => setTimeout(r, 1300))
+    await flushPromises()
+    expect(postApi.exportPost).toHaveBeenLastCalledWith(7, false, 'naver')
   })
 
   it('붙여넣기는 클립보드의 글 주소를 게시 주소 칸에 넣는다', async () => {

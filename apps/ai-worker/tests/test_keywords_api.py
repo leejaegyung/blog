@@ -51,7 +51,7 @@ def test_returns_stats_insight_and_generation_meta() -> None:
 
     assert body["stats"]["reference_count"] == 3
     assert body["insight"]["primary_intent"] == "맛집 방문 후기"
-    assert body["prompt_version"] == "keyword-analysis-v2"
+    assert body["prompt_version"] == "keyword-analysis-v3"
     assert body["generations"][0]["input_tokens"] == 900
 
     request = claude.requests[0]
@@ -110,3 +110,15 @@ def test_guide_survives_llm_failure_without_ai_tags() -> None:
     assert body["insight"] is None
     assert body["guide"]["reference_count"] == 0
     assert [h["source"] for h in body["guide"]["hashtags"]] == ["keyword", "keyword"]
+
+
+def test_platform_is_sent_to_the_prompt_and_guide() -> None:
+    claude = Recorder("anthropic")
+    app.dependency_overrides[get_router] = lambda: LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")])
+    try:
+        body = TestClient(app).post("/keywords/analyze", json={"keyword": "인계동 파스타", "features": [], "platform": "tistory"}).json()
+    finally:
+        app.dependency_overrides.clear()
+
+    assert json.loads(claude.requests[0].prompt)["platform"] == "tistory"
+    assert any("구글" in p for p in body["guide"]["principles"])

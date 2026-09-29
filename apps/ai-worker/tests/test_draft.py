@@ -125,7 +125,7 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     body = call(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), payload)
 
     assert body["draft"]["blocks"][0] == {"type": "image", "text": None, "image_id": 1, "items": None}
-    assert body["prompt_version"] == "blog-draft-v2"
+    assert body["prompt_version"] == "blog-draft-v3"
     sent = json.loads(claude.requests[0].prompt)
     assert "title_candidates" not in sent["plan"]
     assert sent["tone"] == "친근한 말투"

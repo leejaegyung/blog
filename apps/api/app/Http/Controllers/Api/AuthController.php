@@ -48,8 +48,8 @@ class AuthController extends Controller
         return (new UserResource($request->user()))->additional([
             'meta' => [
                 'auto_login' => (bool) config('auth.auto_login.enabled'),
-                // 6단계 "네이버 글쓰기 열기"가 쓰는 내 블로그 아이디
-                'naver_blog_id' => NaverSettingsController::blogId(),
+                // 6단계 글쓰기 열기(네이버 아이디·티스토리 주소)와 티스토리 상위 글 찾기(카카오 키 유무)
+                ...BlogSettingsController::summary(),
             ],
         ]);
     }

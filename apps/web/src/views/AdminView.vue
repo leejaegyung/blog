@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { naverWriteUrl } from '@/lib/naver'
+import TistorySettingsCard from '@/components/TistorySettingsCard.vue'
 import { validationErrors } from '@/lib/http'
 import { adminApi, settingsApi, type FailedJob, type Usage } from '@/lib/api'
 import LlmSettingsPanel from '@/components/LlmSettingsPanel.vue'
@@ -86,11 +87,14 @@ onMounted(load)
       <div class="flex flex-col gap-2">
         <span class="text-[13px] font-bold text-accent">관리</span>
         <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal lg:text-[40px]">AI 연결과 사용량</h1>
-        <p class="m-0 text-[15px] text-body lg:text-base">구독 연결 상태를 확인하고, 글쓰기에 쓸 모델과 순서를 골라요.</p>
+        <p class="m-0 text-[15px] text-body lg:text-base">블로그 연결, 구독 AI 연결 상태, 글쓰기에 쓸 모델과 순서를 관리해요.</p>
       </div>
 
       <form class="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-line bg-white p-5" @submit.prevent="saveBlog">
-        <h2 class="m-0 text-[17px] font-bold">내 네이버 블로그</h2>
+        <h2 class="m-0 flex items-center gap-2 text-[17px] font-bold">
+          <span class="flex size-5 items-center justify-center rounded-[5px] bg-[#03c75a] text-[11px] font-extrabold text-white" aria-hidden="true">N</span>
+          내 네이버 블로그
+        </h2>
         <p class="m-0 text-[13px] text-sub">6단계 “네이버에 올리기”에서 이 블로그의 글쓰기 편집기를 바로 열어요. 아이디나 블로그 주소를 넣으세요.</p>
         <div class="flex flex-wrap gap-2">
           <input
@@ -107,6 +111,8 @@ onMounted(load)
         </div>
         <span v-if="blogMessage" :role="blogMessage.ok ? 'status' : 'alert'" :class="blogMessage.ok ? 'text-sub' : 'text-red-600'" class="text-[13px]">{{ blogMessage.text }}</span>
       </form>
+
+      <TistorySettingsCard />
 
       <LlmSettingsPanel />
 

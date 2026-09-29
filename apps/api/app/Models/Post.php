@@ -15,7 +15,7 @@ class Post extends Model
     use HasFactory;
 
     protected $fillable = [
-        'keyword_project_id', 'title', 'tone', 'target_length',
+        'keyword_project_id', 'platform', 'title', 'tone', 'target_length',
         'content_json', 'content_html', 'content_text',
     ];
 
@@ -31,6 +31,7 @@ class Post extends Model
             'quality_json' => 'array',
             'quality_checked_at' => 'datetime',
             'published_at' => 'datetime',
+            'tistory_published_at' => 'datetime',
         ];
     }
 

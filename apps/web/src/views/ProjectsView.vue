@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { projectApi, type Project } from '@/lib/api'
+import { ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { projectApi, type Platform, type Project } from '@/lib/api'
+import PlatformTabs from '@/components/PlatformTabs.vue'
 import { validationErrors } from '@/lib/http'
 import ProjectStatusBadge from '@/components/ProjectStatusBadge.vue'
 import { useUiStore } from '@/stores/ui'
 import SendButtonCard from '@/components/SendButtonCard.vue'
 
 const router = useRouter()
+const route = useRoute()
 const ui = useUiStore()
 ui.crumb = '카테고리별 학습'
 ui.saveState = null
 
+// 네이버용·티스토리용 카테고리는 따로 학습한다(주소 ?platform=tistory 로 탭 유지)
+const platform = ref<Platform>(route.query.platform === 'tistory' ? 'tistory' : 'naver')
 const projects = ref<Project[]>([])
 const loading = ref(true)
 const loadError = ref(false)
@@ -24,7 +28,7 @@ async function load() {
   loading.value = true
   loadError.value = false
   try {
-    projects.value = await projectApi.list('category')
+    projects.value = await projectApi.list('category', platform.value)
   } catch {
     loadError.value = true
   } finally {
@@ -54,7 +58,7 @@ async function create() {
   creating.value = true
   createError.value = null
   try {
-    const project = await projectApi.create({ keyword: keyword.value, kind: 'category' })
+    const project = await projectApi.create({ keyword: keyword.value, kind: 'category', platform: platform.value })
     await router.push({ name: 'project', params: { id: project.id } })
   } catch (e) {
     const errors = validationErrors(e)
@@ -66,7 +70,15 @@ async function create() {
   }
 }
 
-onMounted(load)
+watch(
+  platform,
+  (value) => {
+    router.replace({ query: value === 'tistory' ? { platform: value } : {} })
+    confirmId.value = null
+    load()
+  },
+)
+load()
 </script>
 
 <template>
@@ -76,11 +88,17 @@ onMounted(load)
       @submit.prevent="create"
     >
       <span class="text-[13px] font-bold">카테고리별 학습</span>
+      <PlatformTabs v-model="platform" label="올릴 곳" />
       <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal lg:text-[44px] lg:leading-[1.05]">
         어떤 카테고리를<br />학습시킬까요?
       </h1>
       <p class="m-0 max-w-[420px] text-sm leading-normal lg:text-base">
-        카테고리를 만들고 잘 쓴 글 URL을 넣어 학습시키면, 글쓰기에서 그 카테고리를 골랐을 때 글 구성·사진 배치·해시태그에 반영해요.
+        <template v-if="platform === 'naver'">
+          네이버용 카테고리를 만들고 잘 쓴 네이버 글을 보내 학습시키면, 네이버 글을 쓸 때 그 카테고리를 골라 글 구성·사진 배치·해시태그에 반영해요.
+        </template>
+        <template v-else>
+          티스토리용 카테고리를 만들면 다음 검색 상위 티스토리 글을 자동으로 찾아 학습해요. 티스토리 글을 쓸 때 골라 쓰세요.
+        </template>
       </p>
       <div class="flex flex-col gap-2 rounded-[20px] border-2 border-ink bg-white p-2 sm:flex-row sm:items-center sm:pl-5">
         <input
@@ -104,14 +122,14 @@ onMounted(load)
 
     <div class="flex flex-col gap-1">
       <SendButtonCard class="mb-5" />
-      <h2 class="m-0 pb-1.5 text-[13px] font-bold lg:pb-2.5 lg:text-sm">학습 카테고리</h2>
+      <h2 class="m-0 pb-1.5 text-[13px] font-bold lg:pb-2.5 lg:text-sm">{{ platform === 'naver' ? '네이버' : '티스토리' }} 학습 카테고리</h2>
       <p v-if="loading" class="text-sub">불러오는 중…</p>
       <p v-else-if="loadError" class="text-red-600">
         목록을 불러오지 못했어요.
         <button type="button" class="font-bold underline" @click="load">다시 시도</button>
       </p>
       <p v-else-if="projects.length === 0" class="rounded-[18px] border-[1.5px] border-line bg-white p-5 text-sub">
-        아직 카테고리가 없어요. 왼쪽에서 카테고리를 만들어 시작하세요.
+        아직 {{ platform === 'naver' ? '네이버' : '티스토리' }} 카테고리가 없어요. 왼쪽에서 카테고리를 만들어 시작하세요.
       </p>
       <div
         v-for="project in projects"

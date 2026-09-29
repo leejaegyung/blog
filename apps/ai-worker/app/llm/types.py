@@ -4,6 +4,9 @@ from typing import Literal, Protocol
 from pydantic import BaseModel
 
 # claude_code·codex: 호스트의 Claude Code·Codex CLI(구독 로그인)를 claude-bridge로 부른다(API 크레딧 불필요)
+# 올릴 곳: 네이버 블로그 또는 티스토리(프롬프트·노출 가이드가 달라진다)
+Platform = Literal["naver", "tistory"]
+
 Provider = Literal["anthropic", "openai", "claude_code", "codex"]
 
 

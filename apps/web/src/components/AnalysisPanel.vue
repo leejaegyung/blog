@@ -67,6 +67,8 @@ async function load() {
   if (result.status === 'analyzing') timer = setTimeout(load, POLL_MS)
 }
 
+defineExpose({ load })
+
 async function analyze() {
   error.value = null
   try {

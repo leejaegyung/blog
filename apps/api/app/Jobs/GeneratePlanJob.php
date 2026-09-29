@@ -50,6 +50,7 @@ class GeneratePlanJob implements ShouldQueue
         $result = $worker->planPost([
             'keyword' => $post->project?->keyword ?? '',
             'category' => $post->project?->category,
+            'platform' => $post->platform,
             'tone' => $post->tone?->value ?? 'natural',
             'target_length' => $post->target_length ?? 2500,
             'facts' => $post->facts->map->only(['fact_key', 'fact_value'])->values()->all(),

@@ -525,6 +525,33 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
   (대기 중이면 서버가 새로 넣지 않음) → 7개 보내도 학습 1번
 - 테스트: api 145개, worker 155개(+1 건너뜀), web 67개
 
+## 2026-09-29 추가: 네이버·티스토리 분리 + 티스토리 올리기 + 카카오로 상위 글 학습
+
+- **올릴 곳(platform: naver | tistory)**을 `keyword_projects`·`posts`에 둔다(기존 데이터는 모두 naver). 같은 이름의 카테고리·키워드도
+  플랫폼별로 따로(unique: user_id, kind, platform, keyword). 분석 캐시 키(`sourceHash`)에도 플랫폼이 들어간다
+- 워커: 프롬프트 v3(keyword-analysis·writing-plan·blog-draft)에 `platform` 입력. 티스토리는 다음·구글 검색 기준
+  (첫 한두 문장 요약, 소제목 구조, 태그는 본문 대신 태그 칸). `build_guide(..., platform)`이 `TISTORY_PRINCIPLES`를 쓴다
+- 화면: 카테고리별 학습에 네이버 | 티스토리 탭(`?platform=tistory`), 글쓰기 1단계 "올릴 곳"(그 플랫폼 카테고리만 보임, 마지막 선택 기억),
+  6단계 네이버 | 티스토리 탭(같은 글을 두 곳에 올릴 수 있음. 게시 주소는 `published_url` / `tistory_url` 따로 기록),
+  글 받기(북마크)는 보낸 글 주소의 플랫폼 카테고리만 보여 준다. 북마클릿이 티스토리 본문·태그·제목도 읽는다
+- 티스토리 올리기: 공식 글쓰기 API가 끝나 네이버처럼 붙여넣기. 관리 › 내 티스토리 블로그에 주소를 넣으면
+  `https://{주소}/manage/newpost`가 열린다. 본문에는 해시태그를 넣지 않고 "태그 복사"가 `a,b,c`로 복사한다
+  (내보내기 `POST /posts/{id}/export`에 `platform`을 주면 그 기준으로 만든다. 글에는 저장하지 않음)
+- **티스토리 상위 글 자동 학습**: 카카오(다음) 블로그 검색 API(`App\Services\KakaoSearch`, 정확도순 2페이지까지)로
+  `*.tistory.com` 글 주소만 추려(관리·검색·태그·카테고리 주소 제외) 참고 글로 넣고(`source_type=kakao_search`), 워커가
+  robots.txt를 지키며 한 편씩 읽어 특징만 남긴다. 60초 뒤 학습 예약. `POST /projects/{id}/discover {query,size≤20}`(분당 10회),
+  티스토리 카테고리만. 네이버는 여전히 서버가 가져오지 않는다
+- 카카오 REST API 키: 관리 화면에서 넣으면 `app_settings.kakao.rest_api_key`에 암호화 저장(`.env`의 `KAKAO_REST_API_KEY`는 대체값).
+  화면·API는 넣었는지(`kakao_ready`)만 알려 준다. "연결 확인" = `POST /settings/blogs/kakao-test`
+- 설정 API: `GET/PUT /api/settings/blogs`(tistory_host, kakao_key), `/api/user` meta에 `tistory_host`, `kakao_ready`
+- 테스트: api `TistoryTest`(8개), web 티스토리 6단계, worker 플랫폼 가이드·프롬프트. 실제 카카오 키로는 아직 확인 전
+
+## 다음 작업
+
+- 사용자: 카카오 REST API 키 발급 → 관리 › 내 티스토리 블로그에 입력 → "연결 확인" → 티스토리 카테고리에서 "가져와 학습하기"
+- 사용자: 네이버·티스토리 편집기에 본문(사진 data URI 포함) 한 번에 붙여넣기가 되는지 확인(안 되면 "사진 받기"로 대체)
+- 가져온 티스토리 글 중 robots·본문 추출 실패가 많으면 워커 추출기에 티스토리 본문 선택자 보강
+
 ## 2026-09-28 추가: 내 네이버 블로그 글쓰기 주소
 
 - 관리 › "내 네이버 블로그"에 아이디(또는 블로그 주소 통째로)를 넣으면 6단계 글쓰기가 `https://blog.naver.com/{아이디}?Redirect=Write&`로 열린다

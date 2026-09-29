@@ -32,6 +32,17 @@ PRINCIPLES = [
     "협찬·광고를 받았다면 글 첫머리에 분명히 밝히세요.",
 ]
 
+# 티스토리는 다음·구글 검색으로 들어온다: 공개된 검색 가이드(구글 검색 센터 등)의 기본을 할 일로 옮긴 것
+TISTORY_PRINCIPLES = [
+    "직접 경험하고 찍은 사진으로 쓰세요. 구글·다음 모두 경험과 전문성이 드러나는 글을 우대한다고 밝혀 왔어요.",
+    "첫 한두 문장에 이 글이 무엇을 다루는지 분명히 쓰세요. 검색 결과의 요약으로 쓰일 수 있어요.",
+    "소제목(제목 2·3)으로 내용을 나누세요. 검색 엔진과 독자 모두 구조를 읽어요.",
+    "사진에는 무엇인지 알 수 있는 설명(대체 텍스트)을 넣어 두세요.",
+    "키워드를 억지로 반복하지 말고, 다른 글을 베끼지 마세요. 스팸 정책에 걸릴 수 있어요.",
+    "태그는 글과 관련된 것만 태그 칸에 다세요.",
+    "협찬·광고를 받았다면 글 첫머리에 분명히 밝히세요.",
+]
+
 TAG_CHARS = re.compile(r"[^0-9A-Za-z가-힣_]")
 
 
@@ -120,11 +131,16 @@ def recommend_hashtags(
 
 
 def build_guide(
-    keyword: str, category: str | None, stats: KeywordStats | None, ai_tags: list[str] | None = None
+    keyword: str,
+    category: str | None,
+    stats: KeywordStats | None,
+    ai_tags: list[str] | None = None,
+    platform: str = "naver",
 ) -> ExposureGuide:
     hashtags = recommend_hashtags(keyword, category, stats, ai_tags)
+    principles = TISTORY_PRINCIPLES if platform == "tistory" else PRINCIPLES
     if not stats:
-        return _default_guide(hashtags)
+        return _default_guide(hashtags).model_copy(update={"principles": principles})
 
     n = stats.reference_count
     basis = f"참고 글 {n}개"
@@ -205,7 +221,7 @@ def build_guide(
     return ExposureGuide(
         reference_count=n,
         targets=targets,
-        principles=PRINCIPLES,
+        principles=principles,
         hashtags=hashtags,
         checks=GuideChecks(
             title_keyword_start=title_start,

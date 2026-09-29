@@ -6,10 +6,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.llm.router import LLMRouter, RouteOutcome
-from app.llm.types import LLMRequest, Target
+from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "writing-plan-v2"
+PROMPT_VERSION = "writing-plan-v3"
 
 # 참고자료의 이 비율 이상이 다루는 정보를 사용자가 주지 않았으면 단정 금지로 추가한다
 EXPECTED_SLOT_SHARE = 0.5
@@ -48,6 +48,7 @@ class ImageInput(BaseModel):
 
 
 class PlanInput(BaseModel):
+    platform: Platform = "naver"
     keyword: str
     category: str | None = None
     tone: Tone = "natural"
@@ -89,6 +90,7 @@ class CheckedPlan(WritingPlan):
 
 def build_request(data: PlanInput) -> LLMRequest:
     payload = {
+        "platform": data.platform,
         "keyword": data.keyword,
         "category": data.category,
         "tone": TONE_LABELS[data.tone],

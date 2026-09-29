@@ -7,6 +7,8 @@ import ProjectStatusBadge from '@/components/ProjectStatusBadge.vue'
 import ReferencesPanel from '@/components/ReferencesPanel.vue'
 import SendButtonCard from '@/components/SendButtonCard.vue'
 import AnalysisPanel from '@/components/AnalysisPanel.vue'
+import DiscoverCard from '@/components/DiscoverCard.vue'
+import { PLATFORM_LABEL } from '@/lib/tistory'
 import { relativeDate } from '@/lib/flow'
 import { useUiStore } from '@/stores/ui'
 
@@ -36,6 +38,15 @@ onMounted(async () => {
 })
 
 const isCategory = computed(() => project.value?.kind === 'category')
+const isTistory = computed(() => project.value?.platform === 'tistory')
+const referencesPanel = ref<InstanceType<typeof ReferencesPanel> | null>(null)
+const analysisPanel = ref<InstanceType<typeof AnalysisPanel> | null>(null)
+
+// 상위 글을 넣었으면 목록(읽는 중 표시)과 학습 진행을 새로 읽는다
+function onDiscovered() {
+  referencesPanel.value?.load()
+  analysisPanel.value?.load()
+}
 
 // 학습(분석)이 끝나면 오른쪽 패널의 "마지막 학습" 등을 새로 읽는다
 async function onStatus(status: Project['status']) {
@@ -48,7 +59,7 @@ async function onStatus(status: Project['status']) {
 async function newPost() {
   if (isCategory.value) {
     // 글쓰기 1단계에서 이 카테고리가 골라진 채로 시작한다
-    await router.push({ name: 'write-start', query: { category: String(props.id) } })
+    await router.push({ name: 'write-start', query: { category: String(props.id), platform: project.value?.platform ?? 'naver' } })
     return
   }
   creatingPost.value = true
@@ -96,10 +107,16 @@ async function remove() {
   <div v-else class="grid lg:min-h-[calc(100dvh-64px)] lg:grid-cols-[minmax(0,1fr)_320px]">
     <section class="flex min-w-0 flex-col gap-6 px-5 pt-6 pb-10 lg:px-12 lg:pt-10">
       <div class="flex flex-col gap-2">
-        <RouterLink :to="{ name: 'projects' }" class="text-[13px] font-bold text-accent no-underline">← {{ isCategory ? '카테고리별 학습' : '키워드' }}</RouterLink>
+        <RouterLink :to="{ name: 'projects', query: isTistory ? { platform: 'tistory' } : {} }" class="text-[13px] font-bold text-accent no-underline">← {{ isCategory ? '카테고리별 학습' : '키워드' }}</RouterLink>
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="m-0 font-display text-[32px] leading-[1.1] font-normal lg:text-[40px]">{{ project.keyword }}</h1>
           <ProjectStatusBadge :status="project.status" :learning="isCategory" />
+          <span
+            :class="isTistory ? 'bg-[#ff5a4a]' : 'bg-[#03c75a]'"
+            class="rounded-full px-2.5 py-1 text-xs font-bold text-white"
+          >
+            {{ PLATFORM_LABEL[project.platform ?? 'naver'] }}용
+          </span>
         </div>
         <p class="m-0 text-[15px] text-body lg:text-base">
           <template v-if="isCategory">잘 쓴 글 URL을 넣고 “학습하기”를 누르면 글 구성·사진 배치·해시태그를 학습해요. 글쓰기 1단계에서 이 카테고리를 고르면 반영돼요.</template>
@@ -107,10 +124,12 @@ async function remove() {
         </p>
       </div>
 
+      <DiscoverCard v-if="isCategory && isTistory" :project-id="project.id" :default-query="project.keyword" @added="onDiscovered" />
       <SendButtonCard v-if="isCategory" />
-      <ReferencesPanel :project-id="project.id" :learning="isCategory" @changed="(count) => project && (project.reference_count = count)" />
+      <ReferencesPanel ref="referencesPanel" :project-id="project.id" :learning="isCategory" @changed="(count) => project && (project.reference_count = count)" />
 
       <AnalysisPanel
+        ref="analysisPanel"
         :project-id="project.id"
         :reference-count="project.reference_count ?? 0"
         :custom-hashtags="project.hashtags"

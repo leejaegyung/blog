@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\KeywordProject;
+use App\Support\Platform;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,6 +26,7 @@ class ProjectRequest extends FormRequest
     {
         $project = $this->route('project');
         $kind = $project?->kind ?? $this->input('kind', KeywordProject::KIND_KEYWORD);
+        $platform = $project?->platform ?? $this->input('platform', Platform::NAVER);
 
         return [
             'kind' => [$project ? 'prohibited' : 'sometimes', Rule::in([KeywordProject::KIND_KEYWORD, KeywordProject::KIND_CATEGORY])],
@@ -35,9 +37,12 @@ class ProjectRequest extends FormRequest
                 Rule::unique('keyword_projects')
                     ->where('user_id', $this->user()->id)
                     ->where('kind', $kind)
+                    ->where('platform', $platform)
                     ->ignore($project),
             ],
             'category' => ['nullable', 'string', 'max:50'],
+            // 만들 때만 정한다(바꾸면 모아 둔 학습이 다른 플랫폼 기준이 된다)
+            'platform' => [$project ? 'prohibited' : 'sometimes', Rule::in(Platform::ALL)],
         ];
     }
 

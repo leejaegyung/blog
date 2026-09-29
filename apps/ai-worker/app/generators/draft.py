@@ -9,10 +9,10 @@ from pydantic import BaseModel
 from app.analyzers.exposure import merge_tags
 from app.generators.writing_plan import TONE_LABELS, FactInput, Tone
 from app.llm.router import LLMRouter, RouteOutcome
-from app.llm.types import LLMRequest, Target
+from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "blog-draft-v2"
+PROMPT_VERSION = "blog-draft-v3"
 LENGTH_TOLERANCE = (0.7, 1.4)
 
 # 입력 사실에 없으면 지어낸 것으로 의심하는 구체 정보
@@ -45,6 +45,7 @@ class Draft(BaseModel):
 
 
 class DraftInput(BaseModel):
+    platform: Platform = "naver"
     keyword: str
     tone: Tone = "natural"
     target_length: int = 2500
@@ -85,6 +86,7 @@ class CheckedDraft(BaseModel):
 
 def build_request(data: DraftInput) -> LLMRequest:
     payload = {
+        "platform": data.platform,
         "keyword": data.keyword,
         "tone": TONE_LABELS[data.tone],
         "target_length": data.target_length,

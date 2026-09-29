@@ -10,7 +10,7 @@ from app.api.llm import GenerationMeta, generation_meta
 from app.generators.keyword_insight import PROMPT_VERSION, KeywordInsight, generate_insight
 from app.llm.factory import get_router
 from app.llm.router import AllTargetsFailed, LLMRouter
-from app.llm.types import Target
+from app.llm.types import Platform, Target
 
 router = APIRouter(prefix="/keywords")
 
@@ -20,6 +20,7 @@ class AnalyzeRequest(BaseModel):
     category: str | None = None
     features: list[DocumentFeatures]
     targets: list[str] | None = None
+    platform: Platform = "naver"
 
 
 class AnalyzeResponse(BaseModel):
@@ -44,14 +45,14 @@ async def analyze(body: AnalyzeRequest, llm: Annotated[LLMRouter, Depends(get_ro
     stats = aggregate(body.features, keyword)
 
     try:
-        outcome = await generate_insight(llm, keyword, body.category, stats, route)
+        outcome = await generate_insight(llm, keyword, body.category, stats, route, body.platform)
     except AllTargetsFailed as failed:
         kinds = sorted({a.error.kind for a in failed.outcome.attempts if a.error})
         return AnalyzeResponse(
             stats=stats,
             insight=None,
             insight_error="AI 해석을 만들지 못했습니다: " + ", ".join(kinds),
-            guide=build_guide(keyword, body.category, stats),
+            guide=build_guide(keyword, body.category, stats, platform=body.platform),
             prompt_version=PROMPT_VERSION,
             generations=generation_meta(failed.outcome),
         )
@@ -61,7 +62,7 @@ async def analyze(body: AnalyzeRequest, llm: Annotated[LLMRouter, Depends(get_ro
         stats=stats,
         insight=insight,
         insight_error=None,
-        guide=build_guide(keyword, body.category, stats, insight.hashtags),
+        guide=build_guide(keyword, body.category, stats, insight.hashtags, platform=body.platform),
         prompt_version=PROMPT_VERSION,
         generations=generation_meta(outcome),
     )

@@ -19,6 +19,7 @@ const project: Project = {
   keyword: '수원 인계동 파스타',
   category: '맛집',
   kind: 'category',
+      platform: 'naver',
   status: 'draft',
   last_analyzed_at: null,
   analysis_version: null,
@@ -53,7 +54,7 @@ describe('ProjectsView', () => {
 
     expect(wrapper.text()).toContain('수원 인계동 파스타')
     expect(wrapper.text()).toContain('학습한 글 2 · 쓴 글 1')
-    expect(projectApi.list).toHaveBeenCalledWith('category')
+    expect(projectApi.list).toHaveBeenCalledWith('category', 'naver')
   })
 
   it('카테고리를 지우기 전에 카드 안에서 한 번 더 묻고, 지우면 목록에서 뺀다', async () => {
@@ -83,7 +84,7 @@ describe('ProjectsView', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(projectApi.create).toHaveBeenCalledWith({ keyword: '맛집', kind: 'category' })
+    expect(projectApi.create).toHaveBeenCalledWith({ keyword: '맛집', kind: 'category', platform: 'naver' })
     expect(router.currentRoute.value.fullPath).toBe('/projects/7')
   })
 

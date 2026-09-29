@@ -16,7 +16,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\Platform;
 
 /** 단계별 마법사: 키워드로 글을 시작하고, '글 만들기' 한 번으로 나머지 작업을 이어서 돌린다. */
 class WizardController extends Controller
@@ -29,14 +31,18 @@ class WizardController extends Controller
             'category' => ['nullable', 'string', 'max:50'],
             // 관리 › 카테고리별 학습에서 만든 카테고리. 고르면 그 카테고리의 참고 글이 키워드 분석에 함께 쓰인다
             'learning_category_id' => ['nullable', 'integer'],
+            // 올릴 곳. 같은 키워드라도 네이버용·티스토리용 분석이 따로 있다
+            'platform' => ['sometimes', Rule::in(Platform::ALL)],
         ]);
+        $platform = $data['platform'] ?? Platform::NAVER;
         $learning = null;
         if (! empty($data['learning_category_id'])) {
             $learning = $request->user()->keywordProjects()
                 ->where('kind', KeywordProject::KIND_CATEGORY)
+                ->where('platform', $platform)
                 ->find($data['learning_category_id']);
             if (! $learning) {
-                throw ValidationException::withMessages(['learning_category_id' => '학습 카테고리를 찾을 수 없어요.']);
+                throw ValidationException::withMessages(['learning_category_id' => '학습 카테고리를 찾을 수 없어요('.Platform::label($platform).'용 카테고리만 고를 수 있어요).']);
             }
         }
         $keyword = preg_replace('/\s+/u', ' ', trim($data['keyword']));
@@ -46,7 +52,7 @@ class WizardController extends Controller
 
         $category = $learning?->keyword ?? ($data['category'] ?? null);
         $project = $request->user()->keywordProjects()->firstOrCreate(
-            ['kind' => KeywordProject::KIND_KEYWORD, 'keyword' => $keyword],
+            ['kind' => KeywordProject::KIND_KEYWORD, 'platform' => $platform, 'keyword' => $keyword],
             ['category' => $category],
         );
         if ($learning) {
@@ -65,7 +71,7 @@ class WizardController extends Controller
             ->doesntHave('facts')
             ->latest('id')
             ->first();
-        $post = $empty ?? $request->user()->posts()->create(['keyword_project_id' => $project->id, 'tone' => 'natural', 'target_length' => 2500]);
+        $post = $empty ?? $request->user()->posts()->create(['keyword_project_id' => $project->id, 'platform' => $platform, 'tone' => 'natural', 'target_length' => 2500]);
 
         return (new PostResource($post->refresh()->load(['project.latestAnalysis', 'project.learningCategory:id,keyword', 'facts', 'images'])))->response()->setStatusCode($empty ? 200 : 201);
     }

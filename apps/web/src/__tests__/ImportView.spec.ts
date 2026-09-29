@@ -45,7 +45,10 @@ describe('북마크 버튼 도우미', () => {
 describe('ImportView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.mocked(projectApi.list).mockResolvedValue([{ id: 5, keyword: '맛집', kind: 'category' }] as Project[])
+    vi.mocked(projectApi.list).mockResolvedValue([
+      { id: 4, keyword: '여행', kind: 'category', platform: 'tistory' },
+      { id: 5, keyword: '맛집', kind: 'category', platform: 'naver' },
+    ] as Project[])
     vi.mocked(referenceApi.send).mockReset().mockResolvedValue({ data: [{ id: 9 } as Reference], skipped: [] })
     vi.mocked(referenceApi.list).mockReset().mockResolvedValue([{ id: 9, parse_status: 'parsed' } as Reference])
     vi.mocked(analysisApi.analyze).mockReset().mockResolvedValue({ status: 'analyzing', cached: false })
@@ -64,6 +67,8 @@ describe('ImportView', () => {
     await wrapper.findAll('button').find((b) => b.text() === '맛집에 추가하고 학습')!.trigger('click')
     await flushPromises()
 
+    // 네이버 글이라 티스토리용 카테고리(여행)는 보이지 않는다
+    expect(wrapper.text()).not.toContain('여행')
     expect(referenceApi.send).toHaveBeenCalledWith(5, { text: TEXT, title: '인계동 파스타 후기', sourceUrl: 'https://blog.naver.com/me/1' })
     expect(analysisApi.analyze).toHaveBeenCalledWith(5, true, 45)
     expect(wrapper.text()).toContain('맛집에 추가했어요 · 곧 학습해요')

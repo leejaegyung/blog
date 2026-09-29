@@ -3,6 +3,7 @@
 namespace App\Publishing;
 
 use App\Models\Post;
+use App\Support\Platform;
 use App\Models\PostImage;
 
 /** content_json → 붙여넣기용 HTML·텍스트. 사진은 본문에 나오는 순서대로 1번부터 번호를 붙인다. */
@@ -36,7 +37,8 @@ class PostExporter
             };
         }
 
-        $tags = $this->tags();
+        // 티스토리는 태그를 본문이 아니라 태그 칸에 넣는다
+        $tags = $this->bodyTags();
         if ($tags !== '') {
             $html[] = '<p>'.$this->escape($tags).'</p>';
         }
@@ -54,7 +56,7 @@ class PostExporter
                 default => $block['text'] ?? '',
             };
         }
-        $parts[] = $this->tags();
+        $parts[] = $this->bodyTags();
 
         return implode("\n\n", array_filter($parts, fn ($part) => $part !== ''));
     }
@@ -104,6 +106,11 @@ class PostExporter
     private function marker(int $imageId): string
     {
         return '[사진 '.($this->numbers[$imageId] ?? '?').']';
+    }
+
+    private function bodyTags(): string
+    {
+        return $this->post->platform === Platform::TISTORY ? '' : $this->tags();
     }
 
     private function tags(): string

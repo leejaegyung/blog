@@ -20,9 +20,9 @@ class KeywordProject extends Model
     // 사용자가 만들고 참고 글 URL로 학습시키는 카테고리(이름은 keyword 칸에 둔다)
     public const KIND_CATEGORY = 'category';
 
-    protected $fillable = ['keyword', 'category', 'kind', 'learning_category_id'];
+    protected $fillable = ['keyword', 'category', 'kind', 'platform', 'learning_category_id'];
 
-    protected $attributes = ['kind' => self::KIND_KEYWORD];
+    protected $attributes = ['kind' => self::KIND_KEYWORD, 'platform' => 'naver'];
 
     protected function casts(): array
     {

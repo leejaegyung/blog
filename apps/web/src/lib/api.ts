@@ -6,11 +6,14 @@ export type ProjectStatus = 'draft' | 'analyzing' | 'analyzed' | 'failed'
 
 // keyword: 글마다 생기는 키워드 / category: 관리 › 카테고리별 학습에서 만든 학습 카테고리(이름은 keyword)
 export type ProjectKind = 'keyword' | 'category'
+// 올릴 곳. 학습 카테고리·키워드 분석·글이 네이버용·티스토리용으로 따로다
+export type Platform = 'naver' | 'tistory'
 export type Project = {
   id: number
   keyword: string
   category: string | null
   kind: ProjectKind
+  platform: Platform
   learning_category_id?: number | null
   learning_category?: { id: number; keyword: string } | null
   status: ProjectStatus
@@ -24,7 +27,7 @@ export type Project = {
   updated_at: string
 }
 
-export type ProjectInput = { keyword: string; category?: string | null; kind?: ProjectKind }
+export type ProjectInput = { keyword: string; category?: string | null; kind?: ProjectKind; platform?: Platform }
 
 export type ParseStatus = 'pending' | 'needs_text' | 'parsed' | 'duplicate' | 'failed'
 
@@ -213,8 +216,12 @@ export type Post = {
   tone: Tone | null
   target_length: number | null
   status: PostStatus
+  platform: Platform
+  // 네이버에 올린 주소 / 티스토리에 올린 주소(같은 글을 두 곳에 올리면 둘 다 남는다)
   published_url: string | null
   published_at: string | null
+  tistory_url?: string | null
+  tistory_published_at?: string | null
   plan: WritingPlan | null
   plan_error: string | null
   plan_stale: boolean | null
@@ -262,22 +269,41 @@ export const authApi = {
     await http.post('/logout')
   },
   async me() {
-    const { data } = await http.get<Wrapped<User> & { meta?: { auto_login?: boolean; naver_blog_id?: string | null } }>('/user')
-    return { user: data.data, autoLogin: data.meta?.auto_login ?? false, naverBlogId: data.meta?.naver_blog_id ?? null }
+    const { data } = await http.get<Wrapped<User> & { meta?: { auto_login?: boolean } & Partial<BlogSettings> }>('/user')
+    return {
+      user: data.data,
+      autoLogin: data.meta?.auto_login ?? false,
+      naverBlogId: data.meta?.naver_blog_id ?? null,
+      tistoryHost: data.meta?.tistory_host ?? null,
+      kakaoReady: data.meta?.kakao_ready ?? false,
+    }
   },
 }
 
 /** 내 네이버 블로그 아이디(6단계에서 내 블로그 글쓰기를 바로 연다). 주소를 통째로 넣어도 서버가 아이디만 뽑는다 */
+export type BlogSettings = { naver_blog_id: string | null; tistory_host: string | null; kakao_ready: boolean }
+
 export const settingsApi = {
   async saveNaverBlogId(blogId: string) {
     const { data } = await http.put<{ data: { blog_id: string | null } }>('/settings/naver', { blog_id: blogId })
     return data.data.blog_id
   },
+  /** 티스토리 주소·카카오 REST API 키. 보낸 항목만 바뀌고, 빈 값은 지운다. 키는 돌려받지 않는다(넣었는지만) */
+  async saveBlogs(input: { tistory_host?: string; kakao_key?: string }) {
+    const { data } = await http.put<Wrapped<BlogSettings>>('/settings/blogs', input)
+    return data.data
+  },
+  async testKakao() {
+    const { data } = await http.post<Wrapped<{ ok: boolean; error: string | null; found: number }>>('/settings/blogs/kakao-test')
+    return data.data
+  },
 }
 
 export const projectApi = {
-  async list(kind: ProjectKind = 'keyword') {
-    const { data } = await http.get<Wrapped<Project[]>>('/projects', { params: kind === 'category' ? { kind } : {} })
+  async list(kind: ProjectKind = 'keyword', platform?: Platform) {
+    const { data } = await http.get<Wrapped<Project[]>>('/projects', {
+      params: { ...(kind === 'category' ? { kind } : {}), ...(platform ? { platform } : {}) },
+    })
     return data.data
   },
   async get(id: number) {
@@ -321,9 +347,10 @@ export const postApi = {
     await http.delete(`/posts/${id}`)
   },
   /** learningCategoryId: 관리 › 카테고리별 학습에서 학습시킨 카테고리(고르면 그 참고 글이 키워드 분석에 쓰인다) */
-  async start(keyword: string, category?: string | null, learningCategoryId?: number | null) {
+  async start(keyword: string, category?: string | null, learningCategoryId?: number | null, platform: Platform = 'naver') {
     const { data } = await http.post<Wrapped<Post>>('/posts/start', {
       keyword,
+      platform,
       category: category || null,
       learning_category_id: learningCategoryId || null,
     })
@@ -360,16 +387,17 @@ export const postApi = {
     return data
   },
   /** record=false: 미리 준비만 하고 올리기 기록은 남기지 않는다 */
-  async exportPost(id: number, record = true) {
-    const { data } = await http.post<Wrapped<ExportResult>>(`/posts/${id}/export`, { record })
+  async exportPost(id: number, record = true, platform?: Platform) {
+    const { data } = await http.post<Wrapped<ExportResult>>(`/posts/${id}/export`, { record, platform })
     return data.data
   },
   photosZipUrl(id: number) {
     return `/api/posts/${id}/export/photos.zip`
   },
-  async publish(id: number, publishedUrl: string) {
+  async publish(id: number, publishedUrl: string, platform?: Platform) {
     const { data } = await http.post<Wrapped<Post>>(`/posts/${id}/publish`, {
       published_url: publishedUrl,
+      platform,
     })
     return data.data
   },
@@ -443,6 +471,14 @@ export const referenceApi = {
     const { data } = await http.post<{ data: Reference[]; skipped: { url: string; reason: string }[] }>(
       `/projects/${projectId}/references`,
       { text: input.text, title: input.title || null, source_url: input.sourceUrl || null },
+    )
+    return data
+  },
+  /** 티스토리 카테고리: 카카오(다음) 검색 상위 티스토리 글을 찾아 넣고 학습을 예약한다 */
+  async discover(projectId: number, query: string, size = 10) {
+    const { data } = await http.post<{ data: Reference[]; skipped: { url: string; reason: string }[]; found: number; learning: boolean }>(
+      `/projects/${projectId}/discover`,
+      { query, size },
     )
     return data
   },

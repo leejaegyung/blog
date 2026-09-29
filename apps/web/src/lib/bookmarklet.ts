@@ -35,11 +35,11 @@ if(!c.firstElementChild){add(c.innerText);continue;}
 walk(c);
 if(/ se-component /.test(k))gap();
 }}
-var root=doc.querySelector('.se-main-container')||doc.querySelector('#postViewArea')||doc.querySelector('.post_ct')||doc.querySelector('article')||doc.querySelector('main')||doc.body;
+var root=doc.querySelector('.se-main-container')||doc.querySelector('#postViewArea')||doc.querySelector('.post_ct')||doc.querySelector('.tt_article_useless_p_margin')||doc.querySelector('.article-view')||doc.querySelector('.entry-content')||doc.querySelector('#article-view')||doc.querySelector('article')||doc.querySelector('main')||doc.body;
 walk(root);
-var tags=[].map.call(doc.querySelectorAll('.wrap_tag a,.post_tag a,.tag_area a,.se-hash-tag'),function(a){return (a.innerText||'').trim();}).filter(function(x){return /^#/.test(x);});
+var tags=[].map.call(doc.querySelectorAll('.wrap_tag a,.post_tag a,.tag_area a,.se-hash-tag,.tags a,.tag_label a,.article-tag a,a[rel=tag]'),function(a){var x=(a.innerText||'').trim();return x&&x.charAt(0)!=='#'&&!/s/.test(x)&&a.getAttribute('href')&&//tag//.test(a.getAttribute('href'))?'#'+x:x;}).filter(function(x){return /^#/.test(x);});
 if(tags.length){gap();add(tags.join(' '));}
-var tn=doc.querySelector('.se-title-text,.pcol1,.se_title,.tit_h3');
+var tn=doc.querySelector('.se-title-text,.pcol1,.se_title,.tit_h3,.hgroup h1,.title-article,.tit_post,.entry-title');
 var data={type:'blog-ai-import',title:((tn&&tn.innerText)||doc.title||document.title).trim(),text:out.join('\\n').replace(/\\n{3,}/g,'\\n\\n').trim(),url:src};
 if(data.text.length<20){alert('Blog AI: 이 화면에서 본문을 찾지 못했어요.');return;}
 var w=window.open(APP+'/import','blog-ai-import');

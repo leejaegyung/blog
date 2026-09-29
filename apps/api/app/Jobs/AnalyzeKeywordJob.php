@@ -51,7 +51,7 @@ class AnalyzeKeywordJob implements ShouldQueue
             ->pluck('content_hash')
             ->all();
 
-        return hash('sha256', implode('|', [$project->keyword, $project->category, ...$hashes]));
+        return hash('sha256', implode('|', [$project->keyword, $project->category, $project->platform, ...$hashes]));
     }
 
     /** 시간 초과·시간당 한도로 멈춘 AI 호출은 다시 시도하지 않는다(토큰 누수 방지) */
@@ -81,6 +81,7 @@ class AnalyzeKeywordJob implements ShouldQueue
         $result = $worker->analyzeKeyword([
             'keyword' => $project->keyword,
             'category' => $project->category,
+            'platform' => $project->platform,
             'features' => $features,
         ]);
 

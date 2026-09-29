@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { postApi, projectApi, referenceApi, type Post, type Project, type Reference } from '@/lib/api'
+import { postApi, projectApi, referenceApi, type Platform, type Post, type Project, type Reference } from '@/lib/api'
+import PlatformTabs from '@/components/PlatformTabs.vue'
+import { PLATFORM_LABEL } from '@/lib/tistory'
 import { validationErrors } from '@/lib/http'
 import StepLayout from '@/components/flow/StepLayout.vue'
 import NextButton from '@/components/flow/NextButton.vue'
@@ -13,6 +15,18 @@ const route = useRoute()
 const router = useRouter()
 
 const keyword = ref(props.post?.keyword ?? (typeof route.query.keyword === 'string' ? route.query.keyword : ''))
+// 올릴 곳을 먼저 고른다. 학습 카테고리·분석·6단계 올리기가 이 플랫폼 기준이다
+const LAST_PLATFORM = 'blog-ai.write.platform'
+function lastPlatform(): Platform {
+  try {
+    return localStorage.getItem(LAST_PLATFORM) === 'tistory' ? 'tistory' : 'naver'
+  } catch {
+    return 'naver'
+  }
+}
+const platform = ref<Platform>(
+  props.post?.platform ?? (route.query.platform === 'tistory' || route.query.platform === 'naver' ? route.query.platform : lastPlatform()),
+)
 // 관리 › 카테고리별 학습에서 학습시킨 카테고리 중 하나를 고른다(그 카테고리의 참고 글이 키워드 분석에 쓰인다)
 const categories = ref<Project[]>([])
 const categoryId = ref<number | null>(null)
@@ -22,8 +36,8 @@ const chosen = computed(() => categories.value.find((c) => c.id === categoryId.v
 
 async function loadCategories() {
   if (props.post) return
-  categories.value = await projectApi.list('category').catch(() => [])
-  const wanted = Number(route.query.category)
+  categories.value = await projectApi.list('category', platform.value).catch(() => [])
+  const wanted = categoriesLoaded.value ? categoryId.value : Number(route.query.category)
   categoryId.value = categories.value.some((c) => c.id === wanted) ? wanted : (categories.value[0]?.id ?? null)
   categoriesLoaded.value = true
 }
@@ -85,7 +99,12 @@ async function next() {
   busy.value = true
   error.value = null
   try {
-    const created = await postApi.start(keyword.value, chosen.value?.keyword ?? null, categoryId.value)
+    try {
+      localStorage.setItem(LAST_PLATFORM, platform.value)
+    } catch {
+      // 저장 못 해도 다음에 다시 고르면 된다
+    }
+    const created = await postApi.start(keyword.value, chosen.value?.keyword ?? null, categoryId.value, platform.value)
     if (pending.value.length && created.keyword_project_id) {
       await referenceApi.addUrls(created.keyword_project_id, pending.value).catch(() => {})
     }
@@ -99,6 +118,8 @@ async function next() {
 }
 
 onMounted(() => Promise.all([loadReferences(), loadCategories()]))
+// 올릴 곳을 바꾸면 그 플랫폼의 카테고리만 보인다
+watch(platform, loadCategories)
 </script>
 
 <template>
@@ -116,7 +137,13 @@ onMounted(() => Promise.all([loadReferences(), loadCategories()]))
     <p v-if="post" class="-mt-3 text-[13px] text-sub">키워드를 바꾸려면 새 글을 시작해 주세요.</p>
 
     <div v-if="!post" class="flex flex-col gap-2.5">
-      <span class="text-[13px] font-bold lg:text-sm">학습 카테고리 <span class="font-medium text-sub">(고르면 그 카테고리에서 학습한 글 구성·해시태그를 써요)</span></span>
+      <span class="text-[13px] font-bold lg:text-sm">올릴 곳</span>
+      <PlatformTabs v-model="platform" label="올릴 곳" />
+    </div>
+    <p v-else class="-mt-2 m-0 text-[13px] text-sub">올릴 곳: <b class="text-ink">{{ PLATFORM_LABEL[post.platform ?? 'naver'] }}</b></p>
+
+    <div v-if="!post" class="flex flex-col gap-2.5">
+      <span class="text-[13px] font-bold lg:text-sm">{{ PLATFORM_LABEL[platform] }} 학습 카테고리 <span class="font-medium text-sub">(고르면 그 카테고리에서 학습한 글 구성·해시태그를 써요)</span></span>
       <div class="flex flex-wrap gap-1.5 lg:gap-2" role="radiogroup" aria-label="학습 카테고리">
         <button
           v-for="option in categories"
@@ -142,7 +169,7 @@ onMounted(() => Promise.all([loadReferences(), loadCategories()]))
           선택 안 함
         </button>
         <RouterLink
-          :to="{ name: 'projects' }"
+          :to="{ name: 'projects', query: platform === 'tistory' ? { platform } : {} }"
           class="rounded-full border-[1.5px] border-dashed border-ink bg-white px-3.5 py-2 text-sm font-semibold text-ink no-underline hover:text-ink lg:px-4 lg:py-2.5 lg:text-[15px]"
         >
           + 카테고리 학습시키기
@@ -152,7 +179,8 @@ onMounted(() => Promise.all([loadReferences(), loadCategories()]))
         {{ chosen.keyword }} · 학습한 글 {{ chosen.reference_count ?? 0 }}개 · {{ STATUS_LABELS[chosen.status] ?? chosen.status }}
       </p>
       <p v-else-if="categoriesLoaded && !categories.length" class="m-0 text-[13px] text-sub">
-        아직 학습한 카테고리가 없어요. 관리 › 카테고리별 학습에서 잘 쓴 글 URL로 카테고리를 학습시켜 보세요.
+        아직 {{ PLATFORM_LABEL[platform] }}용으로 학습한 카테고리가 없어요.
+        {{ platform === 'tistory' ? '관리 › 카테고리별 학습 › 티스토리에서 카테고리를 만들면 상위 글을 자동으로 가져와 학습해요.' : '관리 › 카테고리별 학습에서 잘 쓴 글로 카테고리를 학습시켜 보세요.' }}
       </p>
     </div>
     <p v-else-if="post.learning_category" class="-mt-2 m-0 text-[13px] text-sub">학습 카테고리: <b class="text-ink">{{ post.learning_category.keyword }}</b></p>

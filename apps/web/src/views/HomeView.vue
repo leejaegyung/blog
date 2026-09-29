@@ -17,7 +17,7 @@ const keyword = ref('')
 type Row = { post: Post; label: string; pct: number; done: boolean; step: number }
 
 function row(post: Post): Row {
-  const done = post.status === 'published' || !!post.published_url
+  const done = post.status === 'published' || !!post.published_url || !!post.tistory_url
   const step = resumeStep(post)
   return {
     post,
@@ -63,7 +63,7 @@ onMounted(async () => {
         오늘은 어떤<br />글을 쓸까요?
       </h1>
       <p class="m-0 max-w-[420px] text-sm leading-normal lg:text-[17px]">
-        키워드, 사진, 알려줄 내용만 있으면 6단계로 네이버 블로그 초안을 만들어 드려요.
+        키워드, 사진, 알려줄 내용만 있으면 6단계로 네이버·티스토리 블로그 초안을 만들어 드려요.
       </p>
       <!-- "시작하기"와 같은 모양의 바로가기: 관리 › 카테고리별 학습 -->
       <RouterLink
@@ -132,7 +132,10 @@ onMounted(async () => {
             class="flex min-w-0 flex-1 items-center gap-3 py-3.5 text-ink no-underline hover:text-ink lg:gap-4 lg:py-[18px] lg:pl-5"
           >
             <div class="flex min-w-0 flex-1 flex-col gap-2">
-              <span class="truncate text-[15px] font-bold lg:text-[17px]">{{ r.post.keyword || r.post.title || '제목 없음' }}</span>
+              <span class="flex min-w-0 items-center gap-2">
+                <span class="truncate text-[15px] font-bold lg:text-[17px]">{{ r.post.keyword || r.post.title || '제목 없음' }}</span>
+                <span v-if="r.post.platform === 'tistory'" class="shrink-0 rounded-full bg-[#ff5a4a] px-2 py-0.5 text-[11px] font-bold text-white">티스토리</span>
+              </span>
               <div class="flex items-center gap-2.5">
                 <div class="h-[5px] w-[84px] shrink-0 overflow-hidden rounded-[3px] bg-track lg:h-1.5 lg:w-[140px]" aria-hidden="true">
                   <div class="h-full bg-ink" :style="{ width: `${r.pct}%` }" />

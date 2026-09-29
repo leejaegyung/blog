@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { analysisApi, projectApi, referenceApi, type Project } from '@/lib/api'
 import { parseImportMessage, summarize, type ImportedPost } from '@/lib/bookmarklet'
+import { PLATFORM_LABEL, platformOf } from '@/lib/tistory'
 import { validationErrors } from '@/lib/http'
 import { useUiStore } from '@/stores/ui'
 
@@ -26,7 +27,10 @@ let waitTimer: ReturnType<typeof setTimeout> | undefined
 
 const summary = computed(() => (post.value ? summarize(post.value.text) : null))
 const preview = computed(() => post.value?.text.split('\n').filter(Boolean).slice(0, 8) ?? [])
-const chosen = computed(() => categories.value.find((c) => c.id === categoryId.value) ?? null)
+// 보낸 글이 네이버 글이면 네이버용, 티스토리 글이면 티스토리용 카테고리만 보인다(모르는 곳이면 모두)
+const postPlatform = computed(() => platformOf(post.value?.url))
+const shown = computed(() => (postPlatform.value ? categories.value.filter((c) => c.platform === postPlatform.value) : categories.value))
+const chosen = computed(() => shown.value.find((c) => c.id === categoryId.value) ?? null)
 
 function onMessage(event: MessageEvent) {
   const received = parseImportMessage(event.data)
@@ -35,6 +39,8 @@ function onMessage(event: MessageEvent) {
   ;(event.source as Window | null)?.postMessage({ type: 'blog-ai-received' }, { targetOrigin: event.origin })
   if (post.value && state.value !== 'idle') return
   post.value = received
+  // 이전에 고른 카테고리가 이 글의 플랫폼용이 아니면 그 플랫폼의 첫 카테고리로
+  if (!shown.value.some((c) => c.id === categoryId.value)) categoryId.value = shown.value[0]?.id ?? null
   state.value = 'idle'
   error.value = null
   clearTimeout(waitTimer)
@@ -86,7 +92,7 @@ onMounted(async () => {
   waitTimer = setTimeout(() => (waitingTooLong.value = !post.value), 5000)
   categories.value = await projectApi.list('category').catch(() => [])
   const last = readLast()
-  categoryId.value = categories.value.some((c) => c.id === last) ? last : (categories.value[0]?.id ?? null)
+  categoryId.value = shown.value.some((c) => c.id === last) ? last : (shown.value[0]?.id ?? null)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('message', onMessage)
@@ -130,10 +136,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="flex flex-col gap-2.5">
-        <span class="text-sm font-bold">학습 카테고리</span>
+        <span class="text-sm font-bold">{{ postPlatform ? `${PLATFORM_LABEL[postPlatform]} ` : '' }}학습 카테고리</span>
         <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="학습 카테고리">
           <button
-            v-for="option in categories"
+            v-for="option in shown"
             :key="option.id"
             type="button"
             role="radio"
@@ -145,7 +151,7 @@ onBeforeUnmount(() => {
             {{ option.keyword }}
           </button>
           <RouterLink
-            :to="{ name: 'projects' }"
+            :to="{ name: 'projects', query: postPlatform === 'tistory' ? { platform: 'tistory' } : {} }"
             class="rounded-full border-[1.5px] border-dashed border-ink bg-white px-3.5 py-2 text-sm font-semibold text-ink no-underline hover:text-ink"
           >
             + 카테고리 만들기

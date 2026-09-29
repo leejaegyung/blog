@@ -46,6 +46,11 @@ return [
         'route' => env('LLM_ROUTE', 'claude_code:opus,codex:gpt-6-astra'),
     ],
 
+    // 티스토리 상위 글 찾기(카카오 다음 블로그 검색). 관리 › 블로그 연결에서 넣은 키가 우선한다
+    'kakao' => [
+        'rest_api_key' => env('KAKAO_REST_API_KEY'),
+    ],
+
     'ai_worker' => [
         'url' => env('AI_WORKER_URL', 'http://ai-worker:8000'),
     ],

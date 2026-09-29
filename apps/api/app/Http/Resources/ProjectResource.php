@@ -16,6 +16,8 @@ class ProjectResource extends JsonResource
             'category' => $this->category,
             // keyword: 글마다 생기는 키워드, category: 관리 › 카테고리별 학습에서 만든 학습 카테고리
             'kind' => $this->kind,
+            // 올릴 곳: naver | tistory (가이드·해시태그·학습 카테고리가 따로다)
+            'platform' => $this->platform,
             'learning_category_id' => $this->learning_category_id,
             'learning_category' => $this->whenLoaded('learningCategory', fn () => $this->learningCategory?->only(['id', 'keyword'])),
             'status' => $this->status,

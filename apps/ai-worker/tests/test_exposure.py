@@ -48,3 +48,12 @@ def test_single_reference_shows_one_value_instead_of_a_range() -> None:
 
     assert "~" not in targets["length"] and targets["length"].endswith("자")
     assert "~" not in targets["photos"]
+
+
+def test_tistory_guide_uses_search_engine_principles() -> None:
+    naver = build_guide("인계동 파스타", None, aggregate(DOCS, "인계동 파스타"))
+    tistory = build_guide("인계동 파스타", None, aggregate(DOCS, "인계동 파스타"), platform="tistory")
+
+    assert naver.principles != tistory.principles
+    assert any("구글" in p for p in tistory.principles)
+    assert any("구글" in p for p in build_guide("x", None, None, platform="tistory").principles)

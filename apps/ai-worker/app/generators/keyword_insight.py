@@ -4,10 +4,10 @@ from pydantic import BaseModel, Field
 
 from app.analyzers.aggregate import KeywordStats
 from app.llm.router import LLMRouter, RouteOutcome
-from app.llm.types import LLMRequest, Target
+from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "keyword-analysis-v2"
+PROMPT_VERSION = "keyword-analysis-v3"
 
 
 class IntentShare(BaseModel):
@@ -32,8 +32,9 @@ class KeywordInsight(BaseModel):
     hashtags: list[str] = Field(description="검색하는 사람이 찾아볼 만한 해시태그(# 없이, 띄어쓰기 없이)")
 
 
-def build_request(keyword: str, category: str | None, stats: KeywordStats | None) -> LLMRequest:
+def build_request(keyword: str, category: str | None, stats: KeywordStats | None, platform: Platform = "naver") -> LLMRequest:
     payload = {
+        "platform": platform,
         "keyword": keyword,
         "category": category,
         "reference_statistics": stats.model_dump() if stats else None,
@@ -46,6 +47,11 @@ def build_request(keyword: str, category: str | None, stats: KeywordStats | None
 
 
 async def generate_insight(
-    router: LLMRouter, keyword: str, category: str | None, stats: KeywordStats | None, route: list[Target] | None = None
+    router: LLMRouter,
+    keyword: str,
+    category: str | None,
+    stats: KeywordStats | None,
+    route: list[Target] | None = None,
+    platform: Platform = "naver",
 ) -> RouteOutcome:
-    return await router.generate(build_request(keyword, category, stats), route)
+    return await router.generate(build_request(keyword, category, stats, platform), route)

@@ -10,6 +10,10 @@ use App\Jobs\ParseReferenceJob;
 use App\Models\KeywordProject;
 use App\Models\ReferenceDocument;
 use App\Support\ReferenceUrl;
+use App\Support\Platform;
+use App\Services\KakaoSearch;
+use App\Jobs\AnalyzeKeywordJob;
+use App\Enums\ProjectStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -78,6 +82,55 @@ class ReferenceController extends Controller
 
         return new ReferenceResource($reference->load('features'));
     }
+
+    /**
+     * 티스토리 카테고리: 카카오(다음) 검색 상위 티스토리 글을 찾아 참고 글로 넣고 학습을 예약한다.
+     * 글 본문은 워커가 robots.txt를 지키며 한 편씩 읽고 특징만 남긴다(원문은 저장하지 않는다).
+     */
+    public function discover(Request $request, KeywordProject $project, KakaoSearch $kakao): JsonResponse
+    {
+        Gate::authorize('update', $project);
+        if ($project->platform !== Platform::TISTORY) {
+            throw ValidationException::withMessages(['project' => '상위 글 자동 찾기는 티스토리 카테고리에서만 써요(네이버는 서버가 가져오지 않아요).']);
+        }
+        $data = $request->validate([
+            'query' => ['required', 'string', 'min:2', 'max:100'],
+            'size' => ['sometimes', 'integer', 'min:1', 'max:'.self::DISCOVER_MAX],
+            'learn' => ['sometimes', 'boolean'],
+        ], ['query.required' => '검색어를 넣어 주세요.']);
+
+        $found = $kakao->tistoryPosts(trim($data['query']), $data['size'] ?? 10);
+        if ($found['error'] !== null && $found['posts'] === []) {
+            throw ValidationException::withMessages(['query' => $found['error']]);
+        }
+        if ($found['posts'] === []) {
+            throw ValidationException::withMessages(['query' => '이 검색어로 찾은 티스토리 글이 없어요. 검색어를 바꿔 보세요.']);
+        }
+
+        [$created, $skipped] = $this->storeUrls($project, array_column($found['posts'], 'url'));
+        $titles = array_column($found['posts'], 'title', 'url');
+        foreach ($created as $reference) {
+            $reference->update(['source_type' => 'kakao_search', 'title' => $reference->title ?: ($titles[$reference->source_url] ?? null)]);
+        }
+
+        // 글 읽기 작업이 먼저 돌도록 잠시 뒤에 학습한다(이미 학습 대기 중이면 건너뛴다)
+        $learning = $created !== [] && $request->boolean('learn', true) && $project->status !== ProjectStatus::Analyzing;
+        if ($learning) {
+            $project->markAnalysisQueued();
+            AnalyzeKeywordJob::dispatch($project)->delay(now()->addSeconds(self::DISCOVER_LEARN_DELAY));
+        }
+
+        return response()->json([
+            'data' => ReferenceResource::collection(collect($created)->each->load('features')),
+            'skipped' => $skipped,
+            'found' => count($found['posts']),
+            'learning' => $learning,
+        ], 201);
+    }
+
+    public const DISCOVER_MAX = 20;
+
+    public const DISCOVER_LEARN_DELAY = 60;
 
     public function destroy(ReferenceDocument $reference): Response
     {

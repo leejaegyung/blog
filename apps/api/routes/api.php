@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminLlmController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\NaverSettingsController;
+use App\Http\Controllers\Api\BlogSettingsController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\PostDraftController;
 use App\Http\Controllers\Api\PostImageController;
@@ -44,6 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/settings/naver', [NaverSettingsController::class, 'show']);
     Route::put('/settings/naver', [NaverSettingsController::class, 'update']);
+    Route::get('/settings/blogs', [BlogSettingsController::class, 'show']);
+    Route::put('/settings/blogs', [BlogSettingsController::class, 'update']);
+    Route::post('/settings/blogs/kakao-test', [BlogSettingsController::class, 'testKakao'])->middleware('throttle:10,1');
 
     Route::apiResource('projects', ProjectController::class);
     Route::get('/projects/{project}/analysis', [ProjectAnalysisController::class, 'show']);
@@ -53,6 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::controller(ReferenceController::class)->group(function () {
         Route::get('/projects/{project}/references', 'index');
         Route::post('/projects/{project}/references', 'store');
+        // 카카오 검색 API를 부르므로 과하게 누르지 않게 제한한다
+        Route::post('/projects/{project}/discover', 'discover')->middleware('throttle:10,1');
         Route::post('/references/{reference}/text', 'text');
         Route::post('/references/{reference}/parse', 'reparse');
         Route::delete('/references/{reference}', 'destroy');

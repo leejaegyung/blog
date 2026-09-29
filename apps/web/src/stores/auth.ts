@@ -10,6 +10,9 @@ export const useAuthStore = defineStore('auth', () => {
   const autoLogin = ref(false)
   // 내 네이버 블로그 아이디(관리 화면에서 바꾼다). 6단계 "네이버 글쓰기 열기"에 쓴다
   const naverBlogId = ref<string | null>(null)
+  // 내 티스토리 블로그 주소(예: myblog.tistory.com)와 카카오 키를 넣었는지(티스토리 상위 글 찾기)
+  const tistoryHost = ref<string | null>(null)
+  const kakaoReady = ref(false)
 
   async function fetchUser() {
     try {
@@ -17,6 +20,8 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = result.user
       autoLogin.value = result.autoLogin
       naverBlogId.value = result.naverBlogId
+      tistoryHost.value = result.tistoryHost
+      kakaoReady.value = result.kakaoReady
     } catch (error) {
       if (!(error instanceof AxiosError && error.response?.status === 401)) throw error
       user.value = null
@@ -39,5 +44,5 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
   }
 
-  return { user, loaded, autoLogin, naverBlogId, fetchUser, login, logout, clear }
+  return { user, loaded, autoLogin, naverBlogId, tistoryHost, kakaoReady, fetchUser, login, logout, clear }
 })

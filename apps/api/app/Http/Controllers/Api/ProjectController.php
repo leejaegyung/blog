@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProjectRequest;
 use App\Http\Resources\ProjectResource;
 use App\Models\KeywordProject;
+use App\Support\Platform;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -19,6 +20,7 @@ class ProjectController extends Controller
         $kind = $request->query('kind') === KeywordProject::KIND_CATEGORY ? KeywordProject::KIND_CATEGORY : KeywordProject::KIND_KEYWORD;
         $projects = $request->user()->keywordProjects()
             ->where('kind', $kind)
+            ->when(in_array($request->query('platform'), Platform::ALL, true), fn ($q) => $q->where('platform', $request->query('platform')))
             ->withCount(['references', 'posts', 'categoryPosts'])
             ->with('learningCategory:id,keyword')
             ->latest()
