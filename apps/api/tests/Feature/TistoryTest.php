@@ -119,6 +119,10 @@ class TistoryTest extends TestCase
         $this->assertSame(['https://a.tistory.com/12', 'https://c.tistory.com/entry/파스타'], array_column($result['posts'], 'url'));
         $this->assertSame('파스타 후기 & 추천', $result['posts'][0]['title']);
         Http::assertSent(fn ($r) => $r->hasHeader('Authorization', 'KakaoAK k') && $r['sort'] === 'accuracy');
+        // 검색어 그대로 찾은 뒤 모자라면 "티스토리"를 붙여 채운다
+        Http::assertSent(fn ($r) => $r['query'] === '파스타 티스토리');
+        $this->assertCount(2, (new KakaoSearch)->tistoryPosts('파스타 티스토리', 10)['posts']);
+        Http::assertSentCount(3);
     }
 
     public function test_discover_adds_top_tistory_posts_and_schedules_learning(): void

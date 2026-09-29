@@ -28,40 +28,45 @@ class KakaoSearch
         }
 
         $posts = [];
-        // 상위(정확도순) 2페이지까지만 본다. 그 밖은 "상위 글"이 아니다
-        for ($page = 1; $page <= 2 && count($posts) < $limit; $page++) {
-            try {
-                $response = Http::withHeaders(['Authorization' => "KakaoAK {$key}"])
-                    ->acceptJson()
-                    ->timeout(10)
-                    ->get(self::ENDPOINT, ['query' => $query, 'sort' => 'accuracy', 'size' => self::PAGE_SIZE, 'page' => $page]);
-            } catch (ConnectionException) {
-                return ['posts' => $posts, 'error' => '카카오 검색에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.'];
-            }
-            if ($response->status() === 401 || $response->status() === 403) {
-                return ['posts' => [], 'error' => '카카오 REST API 키를 확인해 주세요(앱의 REST API 키인지, 다음 검색이 켜져 있는지).'];
-            }
-            if ($response->failed()) {
-                return ['posts' => $posts, 'error' => "카카오 검색이 실패했어요 ({$response->status()})."];
-            }
-
-            foreach ($response->json('documents') ?? [] as $doc) {
-                $url = self::canonical((string) ($doc['url'] ?? ''));
-                if ($url === null || isset($posts[$url])) {
-                    continue;
+        // 다음 블로그 검색 상위는 대부분 네이버 글이라(예: "수원 맛집" 상위 100개 중 티스토리 1개),
+        // 먼저 검색어 그대로의 상위 티스토리 글을 담고, 모자라면 "검색어 티스토리"로 찾은 상위 글로 채운다
+        $queries = preg_match('/티스토리|tistory/iu', $query) ? [$query] : [$query, "{$query} 티스토리"];
+        foreach ($queries as $q) {
+            // 검색어마다 상위(정확도순) 2페이지까지만 본다. 그 밖은 "상위 글"이 아니다
+            for ($page = 1; $page <= 2 && count($posts) < $limit; $page++) {
+                try {
+                    $response = Http::withHeaders(['Authorization' => "KakaoAK {$key}"])
+                        ->acceptJson()
+                        ->timeout(10)
+                        ->get(self::ENDPOINT, ['query' => $q, 'sort' => 'accuracy', 'size' => self::PAGE_SIZE, 'page' => $page]);
+                } catch (ConnectionException) {
+                    return ['posts' => $posts, 'error' => '카카오 검색에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.'];
                 }
-                $posts[$url] = [
-                    'url' => $url,
-                    'title' => self::plain((string) ($doc['title'] ?? '')),
-                    'blogname' => self::plain((string) ($doc['blogname'] ?? '')),
-                    'datetime' => $doc['datetime'] ?? null,
-                ];
-                if (count($posts) >= $limit) {
+                if ($response->status() === 401 || $response->status() === 403) {
+                    return ['posts' => [], 'error' => '카카오 REST API 키를 확인해 주세요(앱의 REST API 키인지, 다음 검색이 켜져 있는지).'];
+                }
+                if ($response->failed()) {
+                    return ['posts' => $posts, 'error' => "카카오 검색이 실패했어요 ({$response->status()})."];
+                }
+
+                foreach ($response->json('documents') ?? [] as $doc) {
+                    $url = self::canonical((string) ($doc['url'] ?? ''));
+                    if ($url === null || isset($posts[$url])) {
+                        continue;
+                    }
+                    $posts[$url] = [
+                        'url' => $url,
+                        'title' => self::plain((string) ($doc['title'] ?? '')),
+                        'blogname' => self::plain((string) ($doc['blogname'] ?? '')),
+                        'datetime' => $doc['datetime'] ?? null,
+                    ];
+                    if (count($posts) >= $limit) {
+                        break;
+                    }
+                }
+                if ($response->json('meta.is_end')) {
                     break;
                 }
-            }
-            if ($response->json('meta.is_end')) {
-                break;
             }
         }
 

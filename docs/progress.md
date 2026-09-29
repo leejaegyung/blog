@@ -545,6 +545,8 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
   화면·API는 넣었는지(`kakao_ready`)만 알려 준다. "연결 확인" = `POST /settings/blogs/kakao-test`
 - 설정 API: `GET/PUT /api/settings/blogs`(tistory_host, kakao_key), `/api/user` meta에 `tistory_host`, `kakao_ready`
 - 테스트: api `TistoryTest`(8개), web 티스토리 6단계, worker 플랫폼 가이드·프롬프트. 실제 카카오 키로는 아직 확인 전
+- 실제 키로 확인(2026-09-29): 다음 블로그 검색 "수원 맛집" 상위 100개 중 티스토리는 1개(대부분 네이버). "수원 맛집 티스토리"는 60개.
+  그래서 검색어 그대로의 상위 티스토리 글을 먼저 담고, 모자라면 "검색어 티스토리"로 찾은 상위 글로 채운다(각 2페이지까지)
 
 ## 2026-09-29 추가: 동시에 올리기(짝 글)와 홈 글 목록 분리
 
