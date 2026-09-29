@@ -239,7 +239,7 @@ onBeforeUnmount(() => clearTimeout(timer))
           {{ tab === 'preview' ? '편집' : '미리보기' }}
         </button>
         <NextButton v-if="pending.length" class="flex-1 lg:hidden" @click="nextIssue">다음 확인 →</NextButton>
-        <NextButton :class="pending.length ? 'hidden lg:block' : 'flex-1 lg:flex-none'" @click="flow.go(6)">다음 · 네이버에 올리기 →</NextButton>
+        <NextButton :class="pending.length ? 'hidden lg:block' : 'flex-1 lg:flex-none'" @click="flow.go(6)">다음 · 블로그에 올리기 →</NextButton>
       </div>
     </template>
   </StepLayout>

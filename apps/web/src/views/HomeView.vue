@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { postApi, type Post } from '@/lib/api'
+import { postApi, type Platform, type Post } from '@/lib/api'
+import PlatformTabs from '@/components/PlatformTabs.vue'
 import { STEP_NAMES, relativeDate, resumeStep } from '@/lib/flow'
 import { useUiStore } from '@/stores/ui'
 
@@ -11,6 +12,24 @@ ui.crumb = null
 ui.saveState = null
 
 const posts = ref<Post[]>([])
+// 쓰던 글을 네이버 | 티스토리로 나눠 본다(동시에 올리는 글은 양쪽에 하나씩 있다)
+const HOME_TAB = 'blog-ai.home.platform'
+function savedTab(): Platform {
+  try {
+    return localStorage.getItem(HOME_TAB) === 'tistory' ? 'tistory' : 'naver'
+  } catch {
+    return 'naver'
+  }
+}
+const tab = ref<Platform>(savedTab())
+watch(tab, (value) => {
+  try {
+    localStorage.setItem(HOME_TAB, value)
+  } catch {
+    // 기억 못 해도 괜찮다
+  }
+})
+const shown = computed(() => posts.value.filter((p) => (p.platform ?? 'naver') === tab.value))
 const loading = ref(true)
 const keyword = ref('')
 
@@ -106,13 +125,16 @@ onMounted(async () => {
     </div>
 
     <div class="flex flex-col gap-1">
-      <h2 class="m-0 pb-1.5 text-[13px] font-bold lg:pb-2.5 lg:text-sm">쓰던 글</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 lg:pb-2.5">
+        <h2 class="m-0 text-[13px] font-bold lg:text-sm">쓰던 글</h2>
+        <PlatformTabs v-model="tab" label="쓰던 글 플랫폼" />
+      </div>
       <p v-if="loading" class="text-sub">불러오는 중…</p>
-      <p v-else-if="!posts.length" class="rounded-[18px] border-[1.5px] border-line bg-white p-5 text-sub">
-        아직 쓴 글이 없어요. 왼쪽에서 첫 글을 시작해 보세요.
+      <p v-else-if="!shown.length" class="rounded-[18px] border-[1.5px] border-line bg-white p-5 text-sub">
+        아직 {{ tab === 'naver' ? '네이버' : '티스토리' }}에 쓴 글이 없어요. 왼쪽에서 글을 시작해 보세요.
       </p>
       <div
-        v-for="r in posts.map(row)"
+        v-for="r in shown.map(row)"
         :key="r.post.id"
         class="flex items-center gap-2 border-b border-[#eadbee] lg:mb-1.5 lg:rounded-[18px] lg:border-[1.5px] lg:border-line lg:bg-white lg:pr-3 lg:hover:border-ink"
       >
@@ -134,7 +156,9 @@ onMounted(async () => {
             <div class="flex min-w-0 flex-1 flex-col gap-2">
               <span class="flex min-w-0 items-center gap-2">
                 <span class="truncate text-[15px] font-bold lg:text-[17px]">{{ r.post.keyword || r.post.title || '제목 없음' }}</span>
-                <span v-if="r.post.platform === 'tistory'" class="shrink-0 rounded-full bg-[#ff5a4a] px-2 py-0.5 text-[11px] font-bold text-white">티스토리</span>
+                <span v-if="r.post.twin_post_id || r.post.twin_of_post_id" class="shrink-0 rounded-full bg-lilac-soft px-2 py-0.5 text-[11px] font-bold">
+                  {{ r.post.platform === 'tistory' ? '네이버' : '티스토리' }}에도
+                </span>
               </span>
               <div class="flex items-center gap-2.5">
                 <div class="h-[5px] w-[84px] shrink-0 overflow-hidden rounded-[3px] bg-track lg:h-1.5 lg:w-[140px]" aria-hidden="true">

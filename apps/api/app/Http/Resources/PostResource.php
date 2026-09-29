@@ -31,6 +31,9 @@ class PostResource extends JsonResource
             'platform' => $this->platform,
             'published_url' => $this->published_url,
             'tistory_url' => $this->tistory_url,
+            // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
+            'twin_of_post_id' => $this->twin_of_post_id,
+            'twin_post_id' => $this->twin_of_post_id ? null : $this->twin?->id,
             'tistory_published_at' => $this->tistory_published_at,
             'published_at' => $this->published_at,
             'plan' => $this->plan_json,

@@ -125,7 +125,7 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     body = call(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), payload)
 
     assert body["draft"]["blocks"][0] == {"type": "image", "text": None, "image_id": 1, "items": None}
-    assert body["prompt_version"] == "blog-draft-v3"
+    assert body["prompt_version"] == "blog-draft-v4"
     sent = json.loads(claude.requests[0].prompt)
     assert "title_candidates" not in sent["plan"]
     assert sent["tone"] == "친근한 말투"
@@ -135,6 +135,17 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
         {"id": 3, "order": 3},
     ]
     assert claude.requests[0].max_tokens == 16000
+    # 기본은 한 곳에만 올리는 글
+    assert sent["twin"] is False and sent["platform"] == "naver"
+
+
+def test_twin_flag_is_sent_and_prompt_asks_for_a_distinct_version() -> None:
+    claude = Recorder()
+    call(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), {**INPUT.model_dump(), "platform": "tistory", "twin": True})
+
+    sent = json.loads(claude.requests[0].prompt)
+    assert sent["twin"] is True and sent["platform"] == "tistory"
+    assert "near-copies" in claude.requests[0].system
 
 
 def test_draft_endpoint_failure_and_missing_plan() -> None:

@@ -95,7 +95,7 @@ onMounted(load)
           <span class="flex size-5 items-center justify-center rounded-[5px] bg-[#03c75a] text-[11px] font-extrabold text-white" aria-hidden="true">N</span>
           내 네이버 블로그
         </h2>
-        <p class="m-0 text-[13px] text-sub">6단계 “네이버에 올리기”에서 이 블로그의 글쓰기 편집기를 바로 열어요. 아이디나 블로그 주소를 넣으세요.</p>
+        <p class="m-0 text-[13px] text-sub">6단계 “블로그에 올리기”의 네이버 탭에서 이 블로그의 글쓰기 편집기를 바로 열어요. 아이디나 블로그 주소를 넣으세요.</p>
         <div class="flex flex-wrap gap-2">
           <input
             v-model="blogInput"

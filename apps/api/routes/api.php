@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\NaverSettingsController;
 use App\Http\Controllers\Api\BlogSettingsController;
+use App\Http\Controllers\Api\PostTwinController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\PostDraftController;
 use App\Http\Controllers\Api\PostImageController;
@@ -66,6 +67,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/posts/start', [WizardController::class, 'start']);
     Route::post('/posts/{post}/autopilot', [WizardController::class, 'autopilot']);
+    Route::get('/posts/{post}/twin', [PostTwinController::class, 'show']);
+    Route::post('/posts/{post}/twin', [PostTwinController::class, 'store']);
     Route::apiResource('posts', PostController::class);
     Route::post('/posts/{post}/plan', [PostPlanController::class, 'store']);
     Route::put('/posts/{post}/plan', [PostPlanController::class, 'update']);

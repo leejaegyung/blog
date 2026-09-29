@@ -54,6 +54,8 @@ class GenerateDraftJob implements ShouldQueue
         $result = $worker->draftPost([
             'keyword' => $post->project?->keyword ?? '',
             'platform' => $post->platform,
+            // 같은 경험을 다른 플랫폼에도 따로 올린다 → 서로 다르게 쓴다
+            'twin' => $post->twin_of_post_id !== null || $post->twin()->exists(),
             'tone' => $post->tone?->value ?? 'natural',
             'target_length' => $post->target_length ?? 2500,
             'title' => $post->title ?: ($plan['title_candidates'][0] ?? ''),

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\Platform;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PostRequest;
 use App\Http\Resources\PostResource;
@@ -27,8 +28,10 @@ class PostController extends Controller
             ->when($request->filled('learning_category_id'), fn ($q) => $q->whereHas(
                 'project', fn ($p) => $p->where('learning_category_id', $request->integer('learning_category_id'))
             ))
+            // 홈의 네이버 | 티스토리 탭
+            ->when(in_array($request->query('platform'), Platform::ALL, true), fn ($q) => $q->where('platform', $request->query('platform')))
             ->withCount(['images', 'facts'])
-            ->with('project:id,keyword')
+            ->with(['project:id,keyword', 'twin:id,twin_of_post_id'])
             ->latest()
             ->get();
 

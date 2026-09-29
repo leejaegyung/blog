@@ -1,6 +1,6 @@
 import type { Post, Tone } from '@/lib/api'
 
-export const STEP_NAMES = ['키워드', '사진', '알려줄 내용', '글 계획', '초안 다듬기', '네이버에 올리기'] as const
+export const STEP_NAMES = ['키워드', '사진', '알려줄 내용', '글 계획', '초안 다듬기', '블로그에 올리기'] as const
 export type StepNo = 1 | 2 | 3 | 4 | 5 | 6
 
 export const TONE_LABELS: Record<Tone, string> = {

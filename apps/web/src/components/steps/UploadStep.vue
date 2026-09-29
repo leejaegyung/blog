@@ -12,6 +12,7 @@ import StepLayout from '@/components/flow/StepLayout.vue'
 import NextButton from '@/components/flow/NextButton.vue'
 import PanelCard from '@/components/flow/PanelCard.vue'
 import { useFlow } from './useFlow'
+import { RouterLink } from 'vue-router'
 
 const props = defineProps<{ post: Post }>()
 const flow = useFlow()
@@ -24,7 +25,48 @@ const auth = useAuthStore()
 const target = ref<Platform>(props.post.platform ?? 'naver')
 const label = computed(() => PLATFORM_LABEL[target.value])
 const writeUrl = computed(() => (target.value === 'tistory' ? tistoryWriteUrl(auth.tistoryHost) : naverWriteUrl(auth.naverBlogId)))
-const publishedUrl = computed(() => (target.value === 'tistory' ? (props.post.tistory_url ?? null) : props.post.published_url))
+
+// 동시에 올리기: 다른 플랫폼 탭은 짝 글(같은 경험을 그 플랫폼용으로 따로 쓴 글)을 올린다.
+// 같은 글을 그대로 두 곳에 올리면 검색엔진이 중복 문서로 보고 둘 다 밀어낼 수 있다
+const partner = ref<Post | null>(null)
+const overlap = ref<number | null>(null)
+const writingTwin = ref(false)
+const twinError = ref<string | null>(null)
+let twinTimer: ReturnType<typeof setTimeout> | undefined
+const otherTab = computed(() => target.value !== (props.post.platform ?? 'naver'))
+const active = computed<Post>(() => (otherTab.value && partner.value ? partner.value : props.post))
+const sameCopy = computed(() => otherTab.value && !partner.value)
+const partnerBusy = computed(() => otherTab.value && partner.value?.pipeline_status === 'running')
+const partnerFailed = computed(() => otherTab.value && partner.value?.pipeline_status === 'failed' && !partner.value.content)
+const publishedUrl = computed(() => (target.value === 'tistory' ? (active.value.tistory_url ?? null) : active.value.published_url))
+
+async function loadPartner() {
+  clearTimeout(twinTimer)
+  if (!props.post.twin_post_id && !props.post.twin_of_post_id && !partner.value) return
+  try {
+    const result = await postApi.twin(props.post.id)
+    partner.value = result.data
+    overlap.value = result.overlap
+  } catch {
+    // 다음에 다시 읽는다
+  }
+  if (partner.value?.pipeline_status === 'running') twinTimer = setTimeout(loadPartner, 3000)
+}
+
+/** 다른 플랫폼용 짝 글 쓰기(있으면 다시 쓰기): 사실·사진은 이 글에서 가져간다 */
+async function writeTwin() {
+  writingTwin.value = true
+  twinError.value = null
+  try {
+    partner.value = await postApi.writeTwin(props.post.twin_of_post_id ?? props.post.id)
+    partner.value = { ...partner.value, pipeline_status: 'running' }
+    twinTimer = setTimeout(loadPartner, 3000)
+  } catch (e) {
+    twinError.value = Object.values(validationErrors(e) ?? {})[0]?.[0] ?? '짝 글을 시작하지 못했어요.'
+  } finally {
+    writingTwin.value = false
+  }
+}
 
 type Prepared = { html: string; text: string; embedded: number; result: ExportResult; signature: string }
 const prepared = ref<Prepared | null>(null)
@@ -37,12 +79,12 @@ const urlError = ref<string | null>(null)
 const recording = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
-const signature = computed(() => `${props.post.updated_at}|${props.post.title}|${target.value}`)
+const signature = computed(() => `${active.value.id}|${active.value.updated_at}|${active.value.title}|${target.value}`)
 const ready = computed(() => prepared.value?.signature === signature.value)
-const quality = computed(() => props.post.quality)
+const quality = computed(() => active.value.quality)
 const blocking = computed(() => quality.value?.issues.filter((i) => i.severity === 'error').length ?? 0)
 const warningCount = computed(() => quality.value?.issues.filter((i) => i.severity === 'warning').length ?? 0)
-const thumbs = computed(() => new Map((props.post.images ?? []).map((i) => [i.id, i.thumb_url])))
+const thumbs = computed(() => new Map((active.value.images ?? []).map((i) => [i.id, i.thumb_url])))
 const photoCount = computed(() => prepared.value?.result.photos.length ?? 0)
 const scoreTitle = computed(() => (blocking.value ? `꼭 고치기 ${blocking.value}개 남음` : '게시 전 검사 통과'))
 const scoreSub = computed(() =>
@@ -53,8 +95,10 @@ const scoreSub = computed(() =>
 async function prepare() {
   const wanted = signature.value
   prepareError.value = null
+  // 짝 글을 쓰는 중이면 끝난 뒤 준비한다
+  if (partnerBusy.value || partnerFailed.value) return
   try {
-    const result = await postApi.exportPost(props.post.id, false, target.value)
+    const result = await postApi.exportPost(active.value.id, false, target.value)
     const { html, embedded } = await buildPasteHtml(result)
     if (wanted === signature.value) prepared.value = { html, text: result.text, embedded, result, signature: wanted }
   } catch (e) {
@@ -70,7 +114,7 @@ function openEditor() {
 
 /** 1. 제목 복사 — 처음 누르면 네이버 글쓰기도 연다(새 창은 누른 순간에만 열 수 있다) */
 async function copyTitle() {
-  await copyText(props.post.title ?? '')
+  await copyText(active.value.title ?? '')
   const first = !opened.value
   openEditor()
   status.value = first
@@ -89,7 +133,7 @@ async function copyBody() {
   }
   openEditor()
   status.value = `본문과 사진 ${prepared.value.embedded}장을 복사했어요. ${label.value} 본문 칸에 붙여넣으세요.`
-  void postApi.exportPost(props.post.id, true, target.value).catch(() => {})
+  void postApi.exportPost(active.value.id, true, target.value).catch(() => {})
 }
 
 /** 4. 게시한 글 주소 붙여넣기 — 클립보드를 읽을 수 없으면 입력 칸으로 보낸다 */
@@ -109,7 +153,7 @@ async function pasteUrl() {
 }
 
 function downloadPhotos() {
-  window.location.href = postApi.photosZipUrl(props.post.id)
+  window.location.href = postApi.photosZipUrl(active.value.id)
 }
 
 async function copyPlain() {
@@ -122,7 +166,9 @@ async function record() {
   urlError.value = null
   recording.value = true
   try {
-    flow.update(await postApi.publish(props.post.id, url.value.trim(), platformOf(url.value.trim()) ?? target.value))
+    const saved = await postApi.publish(active.value.id, url.value.trim(), platformOf(url.value.trim()) ?? target.value)
+    if (saved.id === props.post.id) flow.update(saved)
+    else partner.value = saved
     status.value = '게시 완료로 기록했어요. 내 글 목록에 "게시 완료"로 보여요.'
   } catch (e) {
     urlError.value = validationErrors(e)?.published_url?.[0] ?? '기록하지 못했어요.'
@@ -141,10 +187,16 @@ watch(signature, () => {
   clearTimeout(timer)
   timer = setTimeout(prepare, 1200)
 })
-onMounted(prepare)
-onBeforeUnmount(() => clearTimeout(timer))
+onMounted(() => {
+  void prepare()
+  void loadPartner()
+})
+onBeforeUnmount(() => {
+  clearTimeout(timer)
+  clearTimeout(twinTimer)
+})
 
-const tagList = computed(() => prepared.value?.result.tags ?? props.post.content?.tags ?? [])
+const tagList = computed(() => prepared.value?.result.tags ?? active.value.content?.tags ?? [])
 
 async function copyTags() {
   if (target.value === 'tistory') {
@@ -193,6 +245,46 @@ const steps = computed(() => {
   <StepLayout :step="6" :title="`${label}에\n올릴 차례예요`">
     <PlatformTabs v-model="target" label="올릴 곳" />
 
+    <!-- 동시에 올리기: 다른 플랫폼 탭은 그 플랫폼용으로 따로 쓴 짝 글을 올린다 -->
+    <div v-if="sameCopy" class="flex flex-col gap-2.5 rounded-[18px] border-2 border-ink bg-lemon p-4 text-sm leading-normal" role="note">
+      <b>{{ label }}에도 올린다면 {{ label }}용으로 따로 쓰는 걸 권해요.</b>
+      <span>같은 글을 두 곳에 그대로 올리면 검색엔진이 중복 문서로 보고 두 글 모두 노출이 떨어질 수 있어요. 사실·사진은 그대로 가져가고 제목·도입·문장만 {{ label }}에 맞게 새로 써요(AI를 한 번 더 써요).</span>
+      <button type="button" :disabled="writingTwin" class="self-start rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-cream disabled:opacity-50" @click="writeTwin">
+        {{ writingTwin ? '시작하는 중…' : `${label}용으로 따로 쓰기` }}
+      </button>
+      <span class="text-xs text-sub">그냥 같은 글을 올리려면 아래 순서대로 하면 돼요.</span>
+    </div>
+    <div v-else-if="otherTab && partner" class="flex flex-col gap-2 rounded-[18px] border-[1.5px] border-line bg-white p-4 text-sm" role="status">
+      <template v-if="partnerBusy">
+        <b>{{ label }}용 글을 쓰고 있어요…</b>
+        <span class="text-sub">보통 1~3분 걸려요. 이 화면을 닫아도 계속 써요.</span>
+      </template>
+      <template v-else-if="partnerFailed">
+        <b>{{ label }}용 글을 쓰지 못했어요.</b>
+        <span class="text-sub">{{ partner.pipeline_error }}</span>
+      </template>
+      <template v-else>
+        <span>
+          <b>{{ label }}용으로 따로 쓴 글</b>을 올려요.
+          <template v-if="overlap !== null">
+            두 글 문장 겹침 <b :class="overlap >= 0.3 ? 'text-red-700' : ''">{{ Math.round(overlap * 100) }}%</b>
+            {{ overlap >= 0.3 ? '— 겹치는 문장이 많아요. 다듬거나 다시 쓰세요.' : '— 서로 다른 글로 보여요.' }}
+          </template>
+        </span>
+        <RouterLink :to="{ name: 'flow', params: { id: partner.id, step: 5 } }" class="self-start text-[13px] font-bold">{{ label }} 글 다듬기 →</RouterLink>
+      </template>
+      <button
+        v-if="!post.twin_of_post_id && !partnerBusy"
+        type="button"
+        :disabled="writingTwin"
+        class="self-start text-[13px] text-sub underline disabled:opacity-50"
+        @click="writeTwin"
+      >
+        {{ writingTwin ? '시작하는 중…' : '처음부터 다시 쓰기' }}
+      </button>
+    </div>
+    <p v-if="twinError" role="alert" class="text-sm text-red-600">{{ twinError }}</p>
+
     <!-- 모바일은 제목 아래에 검사 점수(디자인 M6) -->
     <div class="flex items-center gap-4 rounded-[20px] border-2 border-ink bg-lilac px-[18px] py-3.5 lg:hidden">
       <span class="font-display text-5xl leading-none">{{ quality ? Math.round(quality.score) : '–' }}</span>
@@ -202,7 +294,7 @@ const steps = computed(() => {
       </div>
     </div>
 
-    <div class="flex flex-col gap-2 lg:gap-2.5">
+    <div v-if="!partnerBusy && !partnerFailed" class="flex flex-col gap-2 lg:gap-2.5">
       <div
         v-for="s in steps"
         :key="s.n"

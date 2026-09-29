@@ -51,6 +51,8 @@ class GeneratePlanJob implements ShouldQueue
             'keyword' => $post->project?->keyword ?? '',
             'category' => $post->project?->category,
             'platform' => $post->platform,
+            // 같은 경험을 다른 플랫폼에도 따로 올린다 → 서로 다르게 쓴다
+            'twin' => $post->twin_of_post_id !== null || $post->twin()->exists(),
             'tone' => $post->tone?->value ?? 'natural',
             'target_length' => $post->target_length ?? 2500,
             'facts' => $post->facts->map->only(['fact_key', 'fact_value'])->values()->all(),

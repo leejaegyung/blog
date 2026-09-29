@@ -17,7 +17,7 @@ import { naverWriteUrl } from '@/lib/naver'
 vi.mock('@/lib/api', () => ({
   postApi: {
     get: vi.fn<(id: number) => Promise<Post>>(),
-    start: vi.fn<(keyword: string, category?: string, learningCategoryId?: number | null, platform?: string) => Promise<Post>>(),
+    start: vi.fn<(keyword: string, category?: string, learningCategoryId?: number | null, platform?: string, twinLearningCategoryId?: number | null) => Promise<Post>>(),
     update: vi.fn<(id: number, input: object) => Promise<Post>>(),
     autopilot: vi.fn<(id: number, until?: string) => Promise<Post>>(),
     savePlan: vi.fn<(id: number, input: object) => Promise<Post>>(),
@@ -25,6 +25,8 @@ vi.mock('@/lib/api', () => ({
     qualityCheck: vi.fn<(id: number) => Promise<Post>>(),
     exportPost: vi.fn<(id: number, record?: boolean, platform?: string) => Promise<ExportResult>>(),
     publish: vi.fn<(id: number, url: string, platform?: string) => Promise<Post>>(),
+    twin: vi.fn<(id: number) => Promise<{ data: Post | null; overlap: number | null }>>(),
+    writeTwin: vi.fn<(id: number, learningCategoryId?: number | null) => Promise<Post>>(),
     photosZipUrl: (id: number) => `/zip/${id}`,
   },
   imageApi: {
@@ -57,7 +59,7 @@ const post = (extra: Partial<Post> = {}) => ({ ...base, ...extra }) as Post
 
 function mountStep(component: DefineComponent, props: Record<string, unknown>) {
   const flow = { update: vi.fn<(p: Post) => void>(), go: vi.fn<(step: number, id?: number) => void>() }
-  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/projects', name: 'projects', component: { render: () => null } }, { path: '/:p(.*)*', component: { render: () => null } }] })
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/projects', name: 'projects', component: { render: () => null } }, { path: '/posts/:id/step/:step', name: 'flow', component: { render: () => null } }, { path: '/:p(.*)*', component: { render: () => null } }] })
   const wrapper = mount(component, { props, global: { plugins: [router], provide: { flow } }, attachTo: document.body })
   return { wrapper, flow }
 }
@@ -89,7 +91,7 @@ describe('1 키워드', () => {
     const { wrapper, flow } = mountStep(KeywordStep as unknown as DefineComponent, { post: null })
 
     await flushPromises()
-    expect(projectApi.list).toHaveBeenCalledWith('category', 'naver')
+    expect(projectApi.list).toHaveBeenCalledWith('category')
     expect(wrapper.text()).toContain('맛집 · 학습한 글 4개 · 학습 완료')  // 처음엔 가장 최근 카테고리
     await wrapper.get('input[aria-label="키워드"]').setValue('인계동 파스타')
     await button(wrapper, '카페').trigger('click')
@@ -100,9 +102,31 @@ describe('1 키워드', () => {
     await button(wrapper, '다음 · 사진 올리기').trigger('click')
     await flushPromises()
 
-    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페', 6, 'naver')
+    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '카페', 6, 'naver', null)
     expect(referenceApi.addUrls).toHaveBeenCalledWith(3, ['https://ex.com/a'])
     expect(flow.go).toHaveBeenCalledWith(2, 7)
+  })
+
+  it('둘 다를 고르면 네이버·티스토리 카테고리를 하나씩 골라 동시에 올릴 글을 시작한다', async () => {
+    vi.mocked(projectApi.list).mockResolvedValue([
+      { id: 5, keyword: '맛집', kind: 'category', platform: 'naver', status: 'analyzed', reference_count: 4 },
+      { id: 8, keyword: '맛집T', kind: 'category', platform: 'tistory', status: 'analyzed', reference_count: 10 },
+    ] as Project[])
+    vi.mocked(postApi.start).mockReset().mockResolvedValue(post())
+    const { wrapper } = mountStep(KeywordStep as unknown as DefineComponent, { post: null })
+    await flushPromises()
+
+    // 네이버만 고른 상태에서는 티스토리 카테고리가 보이지 않는다
+    expect(wrapper.text()).not.toContain('맛집T')
+    await wrapper.findAll('[role=tab]').find((t) => t.text().includes('둘 다'))!.trigger('click')
+    expect(wrapper.text()).toContain('티스토리용 글을 따로 써서')
+    expect(wrapper.text()).toContain('맛집T · 학습한 글 10개')
+    await wrapper.get('input[aria-label="키워드"]').setValue('인계동 파스타')
+    await button(wrapper, '다음 · 사진 올리기').trigger('click')
+    await flushPromises()
+
+    expect(postApi.start).toHaveBeenCalledWith('인계동 파스타', '맛집', 5, 'both', 8)
+    localStorage.clear()
   })
 })
 
@@ -318,6 +342,29 @@ describe('6 네이버에 올리기', () => {
     const rows = wrapper.findAll('span').filter((el) => el.text() === '게시한 글 주소 붙여넣기')
     expect(rows[0]!.element.previousElementSibling!.textContent).toBe('4')
   })
+
+  it('다른 플랫폼 탭은 따로 쓴 짝 글을 올리고, 없으면 따로 쓰기를 권한다', async () => {
+    vi.mocked(postApi.exportPost).mockReset().mockResolvedValue({ html: '<p>본문</p>', text: '본문', tags: [], warnings: [], photos: [] })
+    vi.mocked(postApi.writeTwin).mockResolvedValue(post({ id: 9, platform: 'tistory', twin_of_post_id: 7 }))
+    vi.mocked(postApi.twin).mockResolvedValue({ data: post({ id: 9, platform: 'tistory', title: '티스토리 제목', pipeline_status: 'done', twin_of_post_id: 7 }), overlap: 0.08 })
+    const { wrapper } = mountStep(UploadStep as unknown as DefineComponent, { post: post({ content: { blocks: [], tags: [] } }) })
+    await flushPromises()
+
+    await wrapper.findAll('[role=tab]').find((t) => t.text().includes('티스토리'))!.trigger('click')
+    expect(wrapper.text()).toContain('중복 문서')
+    await button(wrapper, '티스토리용으로 따로 쓰기').trigger('click')
+    await flushPromises()
+    expect(postApi.writeTwin).toHaveBeenCalledWith(7)
+    expect(wrapper.text()).toContain('티스토리용 글을 쓰고 있어요')
+    expect(wrapper.text()).not.toContain('제목 복사')
+
+    await new Promise((r) => setTimeout(r, 3100))
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 1300))
+    await flushPromises()
+    expect(wrapper.text()).toContain('문장 겹침 8%')
+    expect(postApi.exportPost).toHaveBeenLastCalledWith(9, false, 'tistory')
+  }, 10000)
 
   it('티스토리 탭은 내 티스토리 글쓰기를 열고, 태그는 쉼표로 복사하고, 티스토리 주소로 기록한다', async () => {
     useAuthStore().tistoryHost = 'myblog.tistory.com'

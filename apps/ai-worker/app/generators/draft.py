@@ -12,7 +12,7 @@ from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "blog-draft-v3"
+PROMPT_VERSION = "blog-draft-v4"
 LENGTH_TOLERANCE = (0.7, 1.4)
 
 # 입력 사실에 없으면 지어낸 것으로 의심하는 구체 정보
@@ -46,6 +46,8 @@ class Draft(BaseModel):
 
 class DraftInput(BaseModel):
     platform: Platform = "naver"
+    # 같은 경험을 다른 플랫폼에도 따로 올린다(중복 문서로 보이지 않게 다르게 쓴다)
+    twin: bool = False
     keyword: str
     tone: Tone = "natural"
     target_length: int = 2500
@@ -87,6 +89,7 @@ class CheckedDraft(BaseModel):
 def build_request(data: DraftInput) -> LLMRequest:
     payload = {
         "platform": data.platform,
+        "twin": data.twin,
         "keyword": data.keyword,
         "tone": TONE_LABELS[data.tone],
         "target_length": data.target_length,

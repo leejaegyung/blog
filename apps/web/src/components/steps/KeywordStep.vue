@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { postApi, projectApi, referenceApi, type Platform, type Post, type Project, type Reference } from '@/lib/api'
 import PlatformTabs from '@/components/PlatformTabs.vue'
@@ -16,29 +16,36 @@ const router = useRouter()
 
 const keyword = ref(props.post?.keyword ?? (typeof route.query.keyword === 'string' ? route.query.keyword : ''))
 // 올릴 곳을 먼저 고른다. 학습 카테고리·분석·6단계 올리기가 이 플랫폼 기준이다
+// both: 네이버·티스토리에 동시에 올린다(네이버 글 + 티스토리용으로 따로 쓴 짝 글)
+type Choice = Platform | 'both'
 const LAST_PLATFORM = 'blog-ai.write.platform'
-function lastPlatform(): Platform {
+function lastChoice(): Choice {
   try {
-    return localStorage.getItem(LAST_PLATFORM) === 'tistory' ? 'tistory' : 'naver'
+    const saved = localStorage.getItem(LAST_PLATFORM)
+    return saved === 'tistory' || saved === 'both' ? saved : 'naver'
   } catch {
     return 'naver'
   }
 }
-const platform = ref<Platform>(
-  props.post?.platform ?? (route.query.platform === 'tistory' || route.query.platform === 'naver' ? route.query.platform : lastPlatform()),
-)
-// 관리 › 카테고리별 학습에서 학습시킨 카테고리 중 하나를 고른다(그 카테고리의 참고 글이 키워드 분석에 쓰인다)
+const queryChoice = ['naver', 'tistory', 'both'].includes(String(route.query.platform)) ? (route.query.platform as Choice) : null
+const platform = ref<Choice>(props.post?.platform ?? queryChoice ?? lastChoice())
+const rows = computed<Platform[]>(() => (platform.value === 'both' ? ['naver', 'tistory'] : [platform.value]))
+// 관리 › 카테고리별 학습에서 학습시킨 카테고리 중 하나를 플랫폼마다 고른다(그 카테고리의 참고 글이 키워드 분석에 쓰인다)
 const categories = ref<Project[]>([])
-const categoryId = ref<number | null>(null)
+const categoryIds = ref<Record<Platform, number | null>>({ naver: null, tistory: null })
 const categoriesLoaded = ref(false)
 const STATUS_LABELS: Record<string, string> = { draft: '학습 전', analyzing: '학습 중', analyzed: '학습 완료', failed: '학습 실패' }
-const chosen = computed(() => categories.value.find((c) => c.id === categoryId.value) ?? null)
+const listFor = (p: Platform) => categories.value.filter((c) => (c.platform ?? 'naver') === p)
+const chosenFor = (p: Platform) => listFor(p).find((c) => c.id === categoryIds.value[p]) ?? null
 
 async function loadCategories() {
   if (props.post) return
-  categories.value = await projectApi.list('category', platform.value).catch(() => [])
-  const wanted = categoriesLoaded.value ? categoryId.value : Number(route.query.category)
-  categoryId.value = categories.value.some((c) => c.id === wanted) ? wanted : (categories.value[0]?.id ?? null)
+  categories.value = await projectApi.list('category').catch(() => [])
+  const wanted = Number(route.query.category)
+  for (const p of ['naver', 'tistory'] as const) {
+    const list = listFor(p)
+    categoryIds.value[p] = list.some((c) => c.id === wanted) ? wanted : (list[0]?.id ?? null)
+  }
   categoriesLoaded.value = true
 }
 const urls = ref('')
@@ -104,7 +111,14 @@ async function next() {
     } catch {
       // 저장 못 해도 다음에 다시 고르면 된다
     }
-    const created = await postApi.start(keyword.value, chosen.value?.keyword ?? null, categoryId.value, platform.value)
+    const main: Platform = platform.value === 'tistory' ? 'tistory' : 'naver'
+    const created = await postApi.start(
+      keyword.value,
+      chosenFor(main)?.keyword ?? null,
+      categoryIds.value[main],
+      platform.value,
+      platform.value === 'both' ? categoryIds.value.tistory : null,
+    )
     if (pending.value.length && created.keyword_project_id) {
       await referenceApi.addUrls(created.keyword_project_id, pending.value).catch(() => {})
     }
@@ -118,8 +132,6 @@ async function next() {
 }
 
 onMounted(() => Promise.all([loadReferences(), loadCategories()]))
-// 올릴 곳을 바꾸면 그 플랫폼의 카테고리만 보인다
-watch(platform, loadCategories)
 </script>
 
 <template>
@@ -138,52 +150,61 @@ watch(platform, loadCategories)
 
     <div v-if="!post" class="flex flex-col gap-2.5">
       <span class="text-[13px] font-bold lg:text-sm">올릴 곳</span>
-      <PlatformTabs v-model="platform" label="올릴 곳" />
+      <PlatformTabs v-model="platform" label="올릴 곳" both />
+      <p v-if="platform === 'both'" class="m-0 text-[13px] leading-normal text-sub">
+        사진과 알려줄 내용은 한 번만 넣으면 돼요. 네이버 글과 별도로 티스토리용 글을 따로 써서(제목·도입·문장이 다르게) 중복 문서로 보이지 않게 해요.
+      </p>
     </div>
-    <p v-else class="-mt-2 m-0 text-[13px] text-sub">올릴 곳: <b class="text-ink">{{ PLATFORM_LABEL[post.platform ?? 'naver'] }}</b></p>
+    <p v-else class="-mt-2 m-0 text-[13px] text-sub">
+      올릴 곳: <b class="text-ink">{{ PLATFORM_LABEL[post.platform ?? 'naver'] }}</b>
+      <template v-if="post.twin_post_id || post.twin_of_post_id">
+        · {{ PLATFORM_LABEL[post.platform === 'tistory' ? 'naver' : 'tistory'] }}용 글을
+        <RouterLink :to="{ name: 'flow', params: { id: post.twin_post_id ?? post.twin_of_post_id, step: 5 } }" class="font-bold">따로 써요</RouterLink>
+      </template>
+    </p>
 
-    <div v-if="!post" class="flex flex-col gap-2.5">
-      <span class="text-[13px] font-bold lg:text-sm">{{ PLATFORM_LABEL[platform] }} 학습 카테고리 <span class="font-medium text-sub">(고르면 그 카테고리에서 학습한 글 구성·해시태그를 써요)</span></span>
-      <div class="flex flex-wrap gap-1.5 lg:gap-2" role="radiogroup" aria-label="학습 카테고리">
+    <div v-for="row in post ? [] : rows" :key="row" class="flex flex-col gap-2.5">
+      <span class="text-[13px] font-bold lg:text-sm">{{ PLATFORM_LABEL[row] }} 학습 카테고리 <span class="font-medium text-sub">(고르면 그 카테고리에서 학습한 글 구성·해시태그를 써요)</span></span>
+      <div class="flex flex-wrap gap-1.5 lg:gap-2" role="radiogroup" :aria-label="`${PLATFORM_LABEL[row]} 학습 카테고리`">
         <button
-          v-for="option in categories"
+          v-for="option in listFor(row)"
           :key="option.id"
           type="button"
           role="radio"
-          :aria-checked="categoryId === option.id"
-          :class="categoryId === option.id ? 'bg-lilac' : 'bg-white'"
+          :aria-checked="categoryIds[row] === option.id"
+          :class="categoryIds[row] === option.id ? 'bg-lilac' : 'bg-white'"
           class="rounded-full border-[1.5px] border-ink px-3.5 py-2 text-sm font-semibold lg:px-4 lg:py-2.5 lg:text-[15px]"
-          @click="categoryId = option.id"
+          @click="categoryIds[row] = option.id"
         >
           {{ option.keyword }}
         </button>
         <button
-          v-if="categories.length"
+          v-if="listFor(row).length"
           type="button"
           role="radio"
-          :aria-checked="categoryId === null"
-          :class="categoryId === null ? 'bg-lilac' : 'bg-white'"
+          :aria-checked="categoryIds[row] === null"
+          :class="categoryIds[row] === null ? 'bg-lilac' : 'bg-white'"
           class="rounded-full border-[1.5px] border-ink px-3.5 py-2 text-sm font-semibold lg:px-4 lg:py-2.5 lg:text-[15px]"
-          @click="categoryId = null"
+          @click="categoryIds[row] = null"
         >
           선택 안 함
         </button>
         <RouterLink
-          :to="{ name: 'projects', query: platform === 'tistory' ? { platform } : {} }"
+          :to="{ name: 'projects', query: row === 'tistory' ? { platform: row } : {} }"
           class="rounded-full border-[1.5px] border-dashed border-ink bg-white px-3.5 py-2 text-sm font-semibold text-ink no-underline hover:text-ink lg:px-4 lg:py-2.5 lg:text-[15px]"
         >
           + 카테고리 학습시키기
         </RouterLink>
       </div>
-      <p v-if="chosen" class="m-0 text-[13px] text-sub">
-        {{ chosen.keyword }} · 학습한 글 {{ chosen.reference_count ?? 0 }}개 · {{ STATUS_LABELS[chosen.status] ?? chosen.status }}
+      <p v-if="chosenFor(row)" class="m-0 text-[13px] text-sub">
+        {{ chosenFor(row)!.keyword }} · 학습한 글 {{ chosenFor(row)!.reference_count ?? 0 }}개 · {{ STATUS_LABELS[chosenFor(row)!.status] ?? chosenFor(row)!.status }}
       </p>
-      <p v-else-if="categoriesLoaded && !categories.length" class="m-0 text-[13px] text-sub">
-        아직 {{ PLATFORM_LABEL[platform] }}용으로 학습한 카테고리가 없어요.
-        {{ platform === 'tistory' ? '관리 › 카테고리별 학습 › 티스토리에서 카테고리를 만들면 상위 글을 자동으로 가져와 학습해요.' : '관리 › 카테고리별 학습에서 잘 쓴 글로 카테고리를 학습시켜 보세요.' }}
+      <p v-else-if="categoriesLoaded && !listFor(row).length" class="m-0 text-[13px] text-sub">
+        아직 {{ PLATFORM_LABEL[row] }}용으로 학습한 카테고리가 없어요.
+        {{ row === 'tistory' ? '관리 › 카테고리별 학습 › 티스토리에서 카테고리를 만들면 상위 글을 자동으로 가져와 학습해요.' : '관리 › 카테고리별 학습에서 잘 쓴 글로 카테고리를 학습시켜 보세요.' }}
       </p>
     </div>
-    <p v-else-if="post.learning_category" class="-mt-2 m-0 text-[13px] text-sub">학습 카테고리: <b class="text-ink">{{ post.learning_category.keyword }}</b></p>
+    <p v-if="post?.learning_category" class="-mt-2 m-0 text-[13px] text-sub">학습 카테고리: <b class="text-ink">{{ post.learning_category.keyword }}</b></p>
     <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
 
     <!-- 모바일 디자인: 접힌 점선 카드를 누르면 참고 글 입력이 열린다 -->

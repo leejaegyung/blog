@@ -222,6 +222,9 @@ export type Post = {
   published_at: string | null
   tistory_url?: string | null
   tistory_published_at?: string | null
+  // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
+  twin_post_id?: number | null
+  twin_of_post_id?: number | null
   plan: WritingPlan | null
   plan_error: string | null
   plan_stale: boolean | null
@@ -347,10 +350,18 @@ export const postApi = {
     await http.delete(`/posts/${id}`)
   },
   /** learningCategoryId: 관리 › 카테고리별 학습에서 학습시킨 카테고리(고르면 그 참고 글이 키워드 분석에 쓰인다) */
-  async start(keyword: string, category?: string | null, learningCategoryId?: number | null, platform: Platform = 'naver') {
+  /** platform='both': 네이버 글을 쓰고 티스토리용 짝 글(twinLearningCategoryId 학습 카테고리)을 따로 쓴다 */
+  async start(
+    keyword: string,
+    category?: string | null,
+    learningCategoryId?: number | null,
+    platform: Platform | 'both' = 'naver',
+    twinLearningCategoryId?: number | null,
+  ) {
     const { data } = await http.post<Wrapped<Post>>('/posts/start', {
       keyword,
       platform,
+      ...(platform === 'both' ? { twin_learning_category_id: twinLearningCategoryId || null } : {}),
       category: category || null,
       learning_category_id: learningCategoryId || null,
     })
@@ -399,6 +410,16 @@ export const postApi = {
       published_url: publishedUrl,
       platform,
     })
+    return data.data
+  },
+  /** 짝 글(없으면 null)과 두 글의 문장 겹침(0~1) */
+  async twin(id: number) {
+    const { data } = await http.get<{ data: Post | null; overlap: number | null }>(`/posts/${id}/twin`)
+    return data
+  },
+  /** 다른 플랫폼용 짝 글을 만들고(있으면 다시) 사실·사진을 가져와 초안까지 쓴다 */
+  async writeTwin(id: number, learningCategoryId?: number | null) {
+    const { data } = await http.post<Wrapped<Post>>(`/posts/${id}/twin`, { learning_category_id: learningCategoryId || null })
     return data.data
   },
   async qualityCheck(id: number) {
