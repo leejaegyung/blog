@@ -3,6 +3,7 @@ import re
 import trafilatura
 from lxml import etree
 
+from app.references import tistory
 from app.references.document import Block, ParsedDocument
 
 
@@ -15,6 +16,10 @@ MIN_HTML_CHARS = 50
 
 
 def from_html(html: bytes | str, url: str) -> ParsedDocument:
+    # 티스토리는 사진 블록까지 글 순서대로 읽는 전용 추출기를 먼저 쓴다(개인 도메인이어도 본문 상자로 알아본다)
+    if (tistory_doc := tistory.parse(html, url)) and sum(len(b.text) for b in tistory_doc.blocks) >= MIN_HTML_CHARS:
+        return tistory_doc
+
     xml = trafilatura.extract(
         html,
         url=url,
