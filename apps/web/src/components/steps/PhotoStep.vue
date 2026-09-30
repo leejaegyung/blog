@@ -155,6 +155,27 @@ function moveLeft(index: number) {
   void reorder(ids)
 }
 
+// 사진에 적힌 찍은 시각(EXIF, 현지 시각). 시간대 변환 없이 벽시계 시각만 보여 준다
+function shotKey(image: PostImage): string | null {
+  const match = image.taken_at?.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/)
+  return match ? `${match[1]} ${match[2]}` : null
+}
+const shotLabel = (image: PostImage) => shotKey(image)?.slice(11) ?? null
+const timedCount = computed(() => images.value.filter((i) => shotKey(i)).length)
+// 찍은 시간순(시각이 없는 사진은 뒤에, 서로의 순서는 그대로)
+const shotOrderIds = computed(() =>
+  images.value
+    .map((image, index) => ({ image, index, key: shotKey(image) }))
+    .sort((a, b) => (a.key && b.key ? a.key.localeCompare(b.key) || a.index - b.index : a.key ? -1 : b.key ? 1 : a.index - b.index))
+    .map((x) => x.image.id),
+)
+const inShotOrder = computed(() => shotOrderIds.value.every((id, i) => images.value[i]?.id === id))
+
+/** 선택: 올린 순서를 찍은 시간순으로 바꾼다(안 눌러도 AI가 찍은 시간·올린 순서·사진 내용을 함께 보고 배치한다) */
+function sortByShotTime() {
+  void reorder(shotOrderIds.value)
+}
+
 async function remove(image: PostImage) {
   const previous = images.value
   images.value = previous.filter((i) => i.id !== image.id)
@@ -169,7 +190,7 @@ async function remove(image: PostImage) {
 </script>
 
 <template>
-  <StepLayout :step="2" :title="'찍은 사진을\n올려주세요'" lead="올린 순서대로 글에 배치돼요. 끌어서 순서를 바꿀 수 있어요.">
+  <StepLayout :step="2" :title="'찍은 사진을\n올려주세요'" lead="올린 순서·찍은 시간·사진 내용을 함께 보고 AI가 글에 배치해요. 끌어서 순서를 바꿀 수 있어요.">
     <ol
       class="grid grid-cols-3 gap-2 lg:grid-cols-5 lg:gap-2.5"
       @dragover.prevent="dropActive = dragging === null"
@@ -188,6 +209,7 @@ async function remove(image: PostImage) {
       >
         <img :src="image.thumb_url" :alt="`사진 ${index + 1}`" class="size-full object-cover" draggable="false" />
         <span class="absolute top-2 left-2 rounded-md bg-ink px-[7px] py-0.5 text-[11px] font-bold text-cream">{{ index + 1 }}</span>
+        <span v-if="shotLabel(image)" class="absolute right-2 bottom-2 rounded-md bg-ink/70 px-1.5 text-[11px] font-bold text-cream tabular-nums" :title="`찍은 시각 ${shotKey(image)}`">{{ shotLabel(image) }}</span>
         <span v-if="image.vision?.privacy_flags.length" class="absolute bottom-2 left-2 rounded-md border border-ink bg-lemon px-1.5 text-[11px] font-bold">확인</span>
         <div class="absolute top-1.5 right-1.5 flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
           <button type="button" :disabled="index === 0" :aria-label="`${index + 1}번 사진 앞으로`" class="rounded-md bg-ink/70 px-1.5 text-xs text-cream disabled:hidden" @click="moveLeft(index)">←</button>
@@ -207,6 +229,18 @@ async function remove(image: PostImage) {
         <input ref="input" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" class="sr-only" aria-label="사진 파일 선택" @change="onPick" />
       </li>
     </ol>
+
+    <div v-if="timedCount >= 2" class="flex flex-wrap items-center gap-2 text-[13px] text-sub">
+      <span>사진에 찍은 시각이 있어요({{ timedCount }}/{{ images.length }}장). 글 계획에서 찍은 순서를 이야기 흐름으로 써요.</span>
+      <button
+        v-if="!inShotOrder"
+        type="button"
+        class="rounded-[10px] border-[1.5px] border-ink bg-white px-3 py-1.5 font-bold text-ink"
+        @click="sortByShotTime"
+      >
+        찍은 시간순으로 정렬
+      </button>
+    </div>
 
     <ul v-if="uploads.length" class="flex flex-col gap-1 text-sm">
       <li v-for="item in uploads" :key="item.key" class="flex items-center gap-3">

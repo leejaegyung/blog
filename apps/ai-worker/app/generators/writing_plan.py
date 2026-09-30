@@ -1,6 +1,7 @@
 """Writing Plan (기획서 6.1 STEP 1). LLM 결과를 코드로 다시 검증해 사실·사진 근거를 강제한다."""
 
 import json
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "writing-plan-v4"
+PROMPT_VERSION = "writing-plan-v5"
 
 # 참고자료의 이 비율 이상이 다루는 정보를 사용자가 주지 않았으면 단정 금지로 추가한다
 EXPECTED_SLOT_SHARE = 0.5
@@ -90,6 +91,38 @@ class CheckedPlan(WritingPlan):
     corrections: list[str]
 
 
+def _shot_time(image: ImageInput) -> datetime | None:
+    """카메라가 적은 찍은 시각(현지 시각). 저장·전달 중 붙은 시간대는 떼고 벽시계 시각만 쓴다"""
+    if not image.taken_at:
+        return None
+    try:
+        return datetime.fromisoformat(image.taken_at).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def photo_payload(images: list[ImageInput]) -> list[dict]:
+    """사진 순서 판단 재료: 올린 순서(기본 나열 순서) + 찍은 시간 순서 + 사진 분석 결과. 최종 배치는 AI가 셋을 함께 보고 정한다"""
+    by_upload = sorted(images, key=lambda i: i.sort_order)
+    times = {i.id: t for i in by_upload if (t := _shot_time(i))}
+    # 찍은 시각이 같으면 올린 순서를 따른다
+    shot_rank = {image_id: rank for rank, image_id in enumerate(sorted(times, key=lambda k: (times[k], [i.id for i in by_upload].index(k))), start=1)}
+    first = min(times.values()) if times else None
+    photos = []
+    for upload_order, image in enumerate(by_upload, start=1):
+        photo: dict = {"id": image.id, "upload_order": upload_order}
+        if (shot := times.get(image.id)) and first:
+            photo |= {
+                "taken_at": shot.strftime("%Y-%m-%d %H:%M"),
+                "shot_order": shot_rank[image.id],
+                "minutes_after_first_shot": round((shot - first).total_seconds() / 60),
+            }
+        if image.vision:
+            photo["vision"] = image.vision.model_dump()
+        photos.append(photo)
+    return photos
+
+
 def build_request(data: PlanInput) -> LLMRequest:
     payload = {
         "platform": data.platform,
@@ -99,7 +132,7 @@ def build_request(data: PlanInput) -> LLMRequest:
         "tone": TONE_LABELS[data.tone],
         "target_length": data.target_length,
         "facts": [f.model_dump() for f in data.facts],
-        "photos": [i.model_dump() for i in sorted(data.images, key=lambda i: i.sort_order)],
+        "photos": photo_payload(data.images),
         "analysis": data.analysis,
     }
     return LLMRequest(

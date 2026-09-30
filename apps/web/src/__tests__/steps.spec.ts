@@ -33,7 +33,7 @@ vi.mock('@/lib/api', () => ({
     analyze: vi.fn<(id: number) => Promise<{ data: PostImage[]; queued: number }>>(),
     upload: vi.fn<() => Promise<PostImage>>(),
     remove: vi.fn<() => Promise<void>>(),
-    reorder: vi.fn<() => Promise<PostImage[]>>(),
+    reorder: vi.fn<(postId: number, ids: number[]) => Promise<PostImage[]>>(),
   },
   projectApi: { list: vi.fn<(kind?: string, platform?: string) => Promise<Project[]>>() },
   analysisApi: { get: vi.fn<(id: number) => Promise<{ data: null; status: string }>>() },
@@ -148,6 +148,24 @@ describe('2 사진', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('✓ 2장 모두 분석됨')
     vi.useRealTimers()
+  })
+
+  it('찍은 시각을 보여 주고, 원하면 찍은 시간순으로 정렬한다(올린 순서는 그대로 두는 게 기본)', async () => {
+    const img = (id: number, taken: string | null) =>
+      ({ id, sort_order: id, thumb_url: `/t/${id}`, url: `/u/${id}`, vision: null, vision_status: 'done', taken_at: taken }) as PostImage
+    const images = [img(1, '2026-09-28T12:40:00.000000Z'), img(2, null), img(3, '2026-09-28T12:02:00.000000Z')]
+    vi.mocked(imageApi.analyze).mockResolvedValue({ data: images, queued: 0 })
+    vi.mocked(imageApi.reorder).mockImplementation(async (_post, ids) => ids.map((id) => images.find((i) => i.id === id)!))
+    const { wrapper } = mountStep(PhotoStep as unknown as DefineComponent, { post: post({ images }) })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('12:40')
+    expect(wrapper.text()).toContain('찍은 시각이 있어요(2/3장)')
+    expect(imageApi.reorder).not.toHaveBeenCalled()
+    await button(wrapper, '찍은 시간순으로 정렬').trigger('click')
+    await flushPromises()
+    expect(imageApi.reorder).toHaveBeenCalledWith(7, [3, 1, 2])
+    expect(wrapper.text()).not.toContain('찍은 시간순으로 정렬')
   })
 })
 

@@ -99,12 +99,13 @@ def test_plan_endpoint_returns_checked_plan() -> None:
     body = post(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), INPUT.model_dump())
 
     assert body["plan"]["unplaced_image_ids"] == [13]
-    assert body["prompt_version"] == "writing-plan-v4"
+    assert body["prompt_version"] == "writing-plan-v5"
     sent = json.loads(claude.requests[0].prompt)
     assert sent["tone"] == "자연스러운 후기"
     assert [p["id"] for p in sent["photos"]] == [11, 12, 13]
     assert sent["photos"][0]["vision"]["type"] == "exterior"
-    assert sent["photos"][1]["vision"] is None
+    assert "vision" not in sent["photos"][1]
+    assert sent["photos"][0]["upload_order"] == 1
     assert claude.requests[0].output_model is WritingPlan
 
 
@@ -120,3 +121,29 @@ def test_plan_requires_facts() -> None:
     body = post(LLMRouter({}, []), {**INPUT.model_dump(), "facts": []})
 
     assert body["status"] == 422
+
+
+def test_photo_payload_keeps_upload_order_and_adds_shot_order() -> None:
+    from app.generators.writing_plan import ImageInput, photo_payload
+
+    photos = photo_payload([
+        # 올린 순서: 음식(12:40) → 외관(12:02) → 시각 없음 → 메뉴판(12:05) → 디저트(13:55, 시간대가 붙어 와도 벽시계 시각)
+        ImageInput(id=1, sort_order=0, taken_at="2026-09-28T12:40:00+00:00"),
+        ImageInput(id=2, sort_order=1, taken_at="2026-09-28T12:02:00+00:00"),
+        ImageInput(id=3, sort_order=2),
+        ImageInput(id=4, sort_order=3, taken_at="2026-09-28T12:05:00"),
+        ImageInput(id=5, sort_order=4, taken_at="2026-09-28T13:55:00+09:00"),
+    ])
+
+    assert [p["id"] for p in photos] == [1, 2, 3, 4, 5]
+    assert [p["upload_order"] for p in photos] == [1, 2, 3, 4, 5]
+    assert [p.get("shot_order") for p in photos] == [3, 1, None, 2, 4]
+    assert photos[1]["taken_at"] == "2026-09-28 12:02"
+    assert [p.get("minutes_after_first_shot") for p in photos] == [38, 0, None, 3, 113]
+
+
+def test_plan_prompt_explains_how_to_weigh_photo_order() -> None:
+    from app.prompts import load_prompt
+
+    prompt = load_prompt("writing-plan-v5")
+    assert "Shot time is the backbone" in prompt and "Upload order is the blogger's own choice" in prompt
