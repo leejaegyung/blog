@@ -441,6 +441,22 @@ describe('6 네이버에 올리기', () => {
     expect(postApi.exportPost).toHaveBeenLastCalledWith(9, false, 'tistory')
   }, 10000)
 
+  it('티스토리도 사진이 있으면 한 번에 붙여넣지 않고 한 조각씩 붙여넣는다(사진 든 본문을 붙이면 편집기가 멈춤)', async () => {
+    useAuthStore().tistoryHost = 'myblog.tistory.com'
+    vi.stubGlobal('open', vi.fn<(...args: unknown[]) => void>())
+    vi.mocked(postApi.exportPost).mockReset().mockResolvedValue({
+      html: '<p>본문</p>\n<p data-photo="1"><strong>[사진 1]</strong></p>', text: '본문\n\n[사진 1]', tags: [], warnings: [],
+      photos: [{ number: 1, image_id: 5, filename: '01.jpg', url: '/p/5' }],
+    })
+    const { wrapper } = mountStep(UploadStep as unknown as DefineComponent, { post: post({ platform: 'tistory', content: { blocks: [], tags: [] } }) })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('본문 복사')
+    await button(wrapper, '조각 붙여넣기').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('티스토리 편집기는 사진이 든 글을 한 번에 받지 못해서')
+  })
+
   it('티스토리 탭은 내 티스토리 글쓰기를 열고, 태그는 쉼표로 복사하고, 티스토리 주소로 기록한다', async () => {
     useAuthStore().tistoryHost = 'myblog.tistory.com'
     const open = vi.fn<(...args: unknown[]) => void>()

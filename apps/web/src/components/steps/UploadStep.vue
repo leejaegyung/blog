@@ -133,11 +133,11 @@ const bodyText = computed(() => {
 // 본문을 복사한 뒤 "제목 칸 말고 본문 칸" 안내를 크게 보여 준다
 const bodyCopied = ref(false)
 
-// 네이버 편집기는 붙여넣은 글 속 사진(data URI)을 버린다(2026-10-02 사용자 확인).
-// 그래서 네이버는 글 묶음·사진을 한 조각씩 붙여넣는 도우미를 기본으로 쓴다. 티스토리는 한 번에 붙여넣기가 기본
+// 네이버 편집기는 붙여넣은 글 속 사진(data URI)을 버리고, 티스토리 편집기는 사진이 든 본문을 붙이면 멈춘다(2026-10-02 사용자 확인).
+// 그래서 사진이 있으면 두 곳 모두 글 묶음·사진을 한 조각씩 붙여넣는 도우미를 쓴다. 사진이 없으면 한 번에 붙여넣기
 const pieces = computed(() => (prepared.value && ready.value ? splitPieces(prepared.value.result) : []))
 const pieceImageIds = computed(() => new Map((prepared.value?.result.photos ?? []).map((p) => [p.number, p.image_id])))
-const usePieces = computed(() => photoCount.value > 0 && (target.value === 'naver' || showPieces.value))
+const usePieces = computed(() => photoCount.value > 0)
 const showPieces = ref(false)
 const helper = ref<HTMLElement | null>(null)
 function openPieces() {
@@ -352,14 +352,6 @@ const steps = computed(() => {
     <div v-if="usePieces && showPieces && pieces.length && !partnerBusy && !partnerFailed" ref="helper">
       <PieceHelper :pieces="pieces" :thumbs="thumbs" :image-ids="pieceImageIds" :editor-label="`${label} 편집기`" />
     </div>
-    <button
-      v-if="!usePieces && photoCount && bodyCopied"
-      type="button"
-      class="self-start text-[13px] underline"
-      @click="openPieces"
-    >
-      붙여넣었는데 사진이 빠졌나요? 한 조각씩 붙여넣기
-    </button>
     <p v-if="status" role="status" class="text-sm font-semibold">{{ status }}</p>
     <div v-if="bodyCopied" class="flex flex-col gap-1 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px] leading-normal" role="note">
       <b class="text-sm">⚠️ 제목 칸이 아니라 본문 칸에 붙여넣으세요</b>

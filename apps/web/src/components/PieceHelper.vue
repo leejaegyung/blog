@@ -81,7 +81,7 @@ onBeforeUnmount(() => {
       <span class="text-xs text-sub tabular-nums">{{ Math.min(index, total) }} / {{ total }}</span>
     </div>
     <p class="m-0 text-[13px] leading-normal text-sub">
-      {{ editorLabel }}는 글 속에 붙인 사진을 받지 않아서, 글과 사진을 한 조각씩 순서대로 붙여넣어요.
+      {{ editorLabel }}는 사진이 든 글을 한 번에 받지 못해서(사진이 빠지거나 멈춰요), 글과 사진을 한 조각씩 순서대로 붙여넣어요.
       <b class="text-ink">본문 칸 맨 끝을 클릭해 둔 뒤</b> ⌘V → 이 창으로 돌아오기 → ⌘V를 반복하세요.
     </p>
 
