@@ -15,3 +15,8 @@ export async function copyRich(html: string, text: string) {
 export async function copyText(text: string) {
   await navigator.clipboard.writeText(text)
 }
+
+/** 사진 한 장을 이미지로 복사한다. Promise를 넘겨 누른 순간에 복사를 시작하고(브라우저가 막지 않게) 사진은 이어서 만든다 */
+export async function copyImage(png: Promise<Blob> | Blob) {
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+}

@@ -5,7 +5,8 @@ import { PLATFORM_LABEL, platformOf, tistoryWriteUrl } from '@/lib/tistory'
 import PlatformTabs from '@/components/PlatformTabs.vue'
 import { validationErrors } from '@/lib/http'
 import { copyRich, copyText } from '@/lib/clipboard'
-import { buildPasteHtml } from '@/lib/naverExport'
+import { buildPasteHtml, splitPieces } from '@/lib/naverExport'
+import PieceHelper from '@/components/PieceHelper.vue'
 import { naverWriteUrl } from '@/lib/naver'
 import { useAuthStore } from '@/stores/auth'
 import StepLayout from '@/components/flow/StepLayout.vue'
@@ -132,6 +133,21 @@ const bodyText = computed(() => {
 // 본문을 복사한 뒤 "제목 칸 말고 본문 칸" 안내를 크게 보여 준다
 const bodyCopied = ref(false)
 
+// 네이버 편집기는 붙여넣은 글 속 사진(data URI)을 버린다(2026-10-02 사용자 확인).
+// 그래서 네이버는 글 묶음·사진을 한 조각씩 붙여넣는 도우미를 기본으로 쓴다. 티스토리는 한 번에 붙여넣기가 기본
+const pieces = computed(() => (prepared.value && ready.value ? splitPieces(prepared.value.result) : []))
+const pieceImageIds = computed(() => new Map((prepared.value?.result.photos ?? []).map((p) => [p.number, p.image_id])))
+const usePieces = computed(() => photoCount.value > 0 && (target.value === 'naver' || showPieces.value))
+const showPieces = ref(false)
+const helper = ref<HTMLElement | null>(null)
+function openPieces() {
+  showPieces.value = true
+  bodyCopied.value = false
+  status.value = `${label.value} 글쓰기에서 제목 아래 본문 칸을 클릭해 두고, 아래 도우미로 한 조각씩 붙여넣으세요.`
+  openEditor()
+  void Promise.resolve().then(() => helper.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
+}
+
 /** 2. 본문 복사 — 사진까지 본문 안에 넣어 한 번에 붙여넣어진다 */
 async function copyBody() {
   if (!prepared.value) return
@@ -192,6 +208,7 @@ async function record() {
 watch(target, () => {
   opened.value = false
   bodyCopied.value = false
+  showPieces.value = false
   status.value = null
   url.value = publishedUrl.value ?? ''
 })
@@ -225,15 +242,22 @@ type UploadAction = { text: string; action: string; disabled: boolean; run: () =
 const steps = computed(() => {
   const list: UploadAction[] = [
     { text: `제목을 복사해 ${label.value} 글쓰기 제목 칸에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
-    {
-      text:
-        (photoCount.value
-          ? `제목 아래 본문 칸을 클릭하고 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
-          : '제목 아래 본문 칸을 클릭하고 붙여넣기') + (active.value.place ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
-      action: ready.value ? '본문 복사' : '준비 중…',
-      disabled: !ready.value,
-      run: copyBody,
-    },
+    usePieces.value
+      ? {
+          text: `제목 아래 본문 칸을 클릭하고, 글과 사진 ${photoCount.value}장을 한 조각씩 붙여넣기` + (active.value.place ? ' · 끝에 📍 위치 포함' : ''),
+          action: ready.value ? '조각 붙여넣기' : '준비 중…',
+          disabled: !ready.value,
+          run: openPieces,
+        }
+      : {
+          text:
+            (photoCount.value
+              ? `제목 아래 본문 칸을 클릭하고 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
+              : '제목 아래 본문 칸을 클릭하고 붙여넣기') + (active.value.place ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
+          action: ready.value ? '본문 복사' : '준비 중…',
+          disabled: !ready.value,
+          run: copyBody,
+        },
   ]
   if (tagList.value.length) {
     list.push({
@@ -325,6 +349,17 @@ const steps = computed(() => {
         </button>
       </div>
     </div>
+    <div v-if="usePieces && showPieces && pieces.length && !partnerBusy && !partnerFailed" ref="helper">
+      <PieceHelper :pieces="pieces" :thumbs="thumbs" :image-ids="pieceImageIds" :editor-label="`${label} 편집기`" />
+    </div>
+    <button
+      v-if="!usePieces && photoCount && bodyCopied"
+      type="button"
+      class="self-start text-[13px] underline"
+      @click="openPieces"
+    >
+      붙여넣었는데 사진이 빠졌나요? 한 조각씩 붙여넣기
+    </button>
     <p v-if="status" role="status" class="text-sm font-semibold">{{ status }}</p>
     <div v-if="bodyCopied" class="flex flex-col gap-1 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px] leading-normal" role="note">
       <b class="text-sm">⚠️ 제목 칸이 아니라 본문 칸에 붙여넣으세요</b>

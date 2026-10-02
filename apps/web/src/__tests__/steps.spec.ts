@@ -10,7 +10,8 @@ import UploadStep from '@/components/steps/UploadStep.vue'
 import KeywordStep from '@/components/steps/KeywordStep.vue'
 import PhotoStep from '@/components/steps/PhotoStep.vue'
 import { analysisApi, imageApi, placeApi, postApi, projectApi, referenceApi, type ExportResult, type ParsedMapInput, type Place, type Post, type PostImage, type Project } from '@/lib/api'
-import { copyRich, copyText } from '@/lib/clipboard'
+import { copyImage, copyRich, copyText } from '@/lib/clipboard'
+import { photoPngBlob } from '@/lib/naverExport'
 import { useAuthStore } from '@/stores/auth'
 import { naverWriteUrl } from '@/lib/naver'
 
@@ -45,10 +46,13 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 vi.mock('@/lib/clipboard', () => ({
+  copyImage: vi.fn<(png: Promise<Blob> | Blob) => Promise<void>>(),
   copyRich: vi.fn<(html: string, text: string) => Promise<void>>(),
   copyText: vi.fn<(text: string) => Promise<void>>(),
 }))
-vi.mock('@/lib/naverExport', () => ({
+vi.mock('@/lib/naverExport', async (importOriginal) => ({
+  splitPieces: (await importOriginal<typeof import('@/lib/naverExport')>()).splitPieces,
+  photoPngBlob: vi.fn<(url: string) => Promise<Blob>>(async (url) => new Blob([url], { type: 'image/png' })),
   buildPasteHtml: async (r: ExportResult) => ({ html: r.html + '<img>', embedded: r.photos.length }),
 }))
 
@@ -346,14 +350,14 @@ describe('5 초안 다듬기', () => {
 })
 
 describe('6 네이버에 올리기', () => {
-  it('제목 복사로 네이버 글쓰기를 열고, 본문을 사진과 함께 한 번에 복사한 뒤, 게시 주소를 기록한다', async () => {
+  it('제목 복사로 네이버 글쓰기를 열고, 글·사진을 한 조각씩 복사해 붙여넣게 한 뒤, 게시 주소를 기록한다', async () => {
     useAuthStore().naverBlogId = 'leejk4791'  // 관리 화면에서 넣은 내 블로그 → 내 블로그 편집기를 연다
     const open = vi.fn<(...args: unknown[]) => void>()
     vi.stubGlobal('open', open)
-    vi.mocked(copyRich).mockResolvedValue()
+    vi.mocked(copyRich).mockReset().mockResolvedValue()
+    vi.mocked(copyImage).mockReset().mockResolvedValue()
     vi.mocked(postApi.exportPost).mockResolvedValue({
-      // 내보내기 평문은 제목으로 시작하지만, 본문 복사에는 제목을 빼고 넣는다(제목 칸에 잘못 붙여도 제목이 겹치지 않게)
-      html: '<p>본문</p>', text: '제목 A\n\n본문', tags: [], warnings: [],
+      html: '<p>본문</p>\n<p data-photo="1"><strong>[사진 1]</strong></p>\n<p>끝</p>', text: '제목 A\n\n본문\n\n[사진 1]\n\n끝', tags: [], warnings: [],
       photos: [{ number: 1, image_id: 5, filename: '01.jpg', url: '/p/5' }],
     })
     vi.mocked(postApi.publish).mockResolvedValue(post({ status: 'published', published_url: 'https://blog.naver.com/me/1' }))
@@ -362,7 +366,8 @@ describe('6 네이버에 올리기', () => {
 
     expect(postApi.exportPost).toHaveBeenCalledWith(7, false, 'naver')
     const steps = wrapper.text()
-    expect(steps.indexOf('제목 복사')).toBeLessThan(steps.indexOf('본문 복사'))
+    // 네이버는 붙여넣은 글 속 사진을 버려서 한 조각씩 붙여넣기가 기본
+    expect(steps.indexOf('제목 복사')).toBeLessThan(steps.indexOf('조각 붙여넣기'))
     expect(steps).toContain('사진 1장 받기')
 
     await button(wrapper, '제목 복사').trigger('click')
@@ -370,13 +375,28 @@ describe('6 네이버에 올리기', () => {
     expect(open).toHaveBeenCalledWith('https://blog.naver.com/leejk4791?Redirect=Write&', '_blank', 'noopener')
     expect(wrapper.text()).toContain('네이버 글쓰기를 열었어요')
 
-    await button(wrapper, '본문 복사').trigger('click')
+    await button(wrapper, '조각 붙여넣기').trigger('click')
     await flushPromises()
-    expect(copyRich).toHaveBeenCalledWith('<p>본문</p><img>', '본문')
-    expect(open).toHaveBeenCalledTimes(1)
-    expect(postApi.exportPost).toHaveBeenLastCalledWith(7, true, 'naver')
-    expect(wrapper.text()).toContain('본문과 사진 1장을 복사했어요')
-    expect(wrapper.text()).toContain('제목 칸이 아니라 본문 칸에 붙여넣으세요')
+    expect(wrapper.text()).toContain('글 2묶음 + 사진 1장')
+    await button(wrapper, '1번째 조각 복사').trigger('click')
+    await flushPromises()
+    expect(copyRich).toHaveBeenCalledWith('<p>본문</p>', '본문')
+    expect(wrapper.text()).toContain('1번째 조각(글)을 복사했어요')
+
+    // 네이버 창에 다녀오면 다음 조각(사진)을 자동으로 복사한다
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1000)
+    window.dispatchEvent(new Event('blur'))
+    now.mockReturnValue(3000)
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+    expect(copyImage).toHaveBeenCalledTimes(1)
+    expect(photoPngBlob).toHaveBeenCalledWith('/p/5')
+    now.mockRestore()
+
+    await button(wrapper, '3번째 조각 복사').trigger('click')
+    await flushPromises()
+    expect(copyRich).toHaveBeenLastCalledWith('<p>끝</p>', '끝')
+    expect(wrapper.text()).toContain('마지막 조각까지 복사했어요')
 
     await wrapper.get('#published-url').setValue('https://blog.naver.com/me/1')
     await button(wrapper, '게시 완료로 기록').trigger('click')
@@ -439,6 +459,13 @@ describe('6 네이버에 올리기', () => {
     await button(wrapper, '태그 복사').trigger('click')
     await flushPromises()
     expect(copyText).toHaveBeenLastCalledWith('파스타,수원')
+
+    // 티스토리는 한 번에 붙여넣기(평문에는 제목을 넣지 않는다)
+    vi.mocked(copyRich).mockReset().mockResolvedValue()
+    await button(wrapper, '본문 복사').trigger('click')
+    await flushPromises()
+    expect(copyRich).toHaveBeenCalledWith('<p>본문</p><img>', '본문')
+    expect(wrapper.text()).toContain('제목 칸이 아니라 본문 칸에 붙여넣으세요')
 
     await wrapper.get('#published-url').setValue('https://myblog.tistory.com/3')
     await button(wrapper, '게시 완료로 기록').trigger('click')

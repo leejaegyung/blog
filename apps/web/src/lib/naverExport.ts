@@ -45,3 +45,56 @@ export async function buildPasteHtml(
   )
   return { html, embedded: sources.size }
 }
+
+/** 한 조각씩 붙여넣기: 글 묶음(서식 HTML) 또는 사진 한 장 */
+export type PastePiece =
+  | { kind: 'text'; html: string; text: string; preview: string }
+  | { kind: 'photo'; number: number; url: string }
+
+/**
+ * 내보내기 HTML을 붙여넣을 순서대로 나눈다. 사진 사이의 글은 한 묶음, 사진은 한 장씩.
+ * 네이버 편집기는 붙여넣은 글 속 사진은 버리지만, 사진 한 장(이미지)을 붙여넣으면 직접 올린 것처럼 받는다.
+ */
+export function splitPieces(result: ExportResult): PastePiece[] {
+  const urls = new Map(result.photos.map((p) => [p.number, p.url]))
+  const doc = new DOMParser().parseFromString(`<body>${result.html}</body>`, 'text/html')
+  const pieces: PastePiece[] = []
+  let buffer: Element[] = []
+  const flush = () => {
+    if (!buffer.length) return
+    const text = buffer.map((el) => (el as HTMLElement).innerText ?? el.textContent ?? '').join('\n\n').trim()
+    pieces.push({
+      kind: 'text',
+      html: buffer.map((el) => el.outerHTML).join('\n'),
+      text: text || buffer.map((el) => el.textContent ?? '').join('\n\n'),
+      preview: (buffer.map((el) => el.textContent ?? '').join(' ').replace(/\s+/g, ' ').trim()).slice(0, 40),
+    })
+    buffer = []
+  }
+  for (const el of Array.from(doc.body.children)) {
+    const number = Number(el.getAttribute('data-photo'))
+    const url = urls.get(number)
+    if (number && url) {
+      flush()
+      pieces.push({ kind: 'photo', number, url })
+    } else {
+      buffer.push(el)
+    }
+  }
+  flush()
+  return pieces
+}
+
+/** 사진을 클립보드에 넣을 수 있는 PNG로(브라우저 클립보드는 이미지로 PNG만 받는다). 네이버 권장 폭으로 줄인다 */
+export async function photoPngBlob(url: string): Promise<Blob> {
+  const response = await fetch(url, { credentials: 'same-origin' })
+  if (!response.ok) throw new Error(`photo ${response.status}`)
+  const bitmap = await createImageBitmap(await response.blob())
+  const scale = Math.min(1, MAX_WIDTH / bitmap.width)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('png'))), 'image/png'))
+}
