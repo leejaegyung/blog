@@ -33,6 +33,8 @@ class PostResource extends JsonResource
             'tistory_url' => $this->tistory_url,
             // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
             'twin_of_post_id' => $this->twin_of_post_id,
+            // 3단계에서 연결한 장소(지도 링크 + 카카오 로컬로 확인한 정보)
+            'place' => $this->place_json,
             'twin_post_id' => $this->twin_of_post_id ? null : $this->twin?->id,
             'tistory_published_at' => $this->tistory_published_at,
             'published_at' => $this->published_at,

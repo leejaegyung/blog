@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\NaverSettingsController;
 use App\Http\Controllers\Api\BlogSettingsController;
 use App\Http\Controllers\Api\PostTwinController;
+use App\Http\Controllers\Api\PlaceController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\PostDraftController;
 use App\Http\Controllers\Api\PostImageController;
@@ -65,6 +66,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/references/{reference}', 'destroy');
     });
 
+    // 카카오 로컬 API를 부르므로 과하게 누르지 않게 제한한다
+    Route::post('/places/lookup', [PlaceController::class, 'lookup'])->middleware('throttle:30,1');
     Route::post('/posts/start', [WizardController::class, 'start']);
     Route::post('/posts/{post}/autopilot', [WizardController::class, 'autopilot']);
     Route::get('/posts/{post}/twin', [PostTwinController::class, 'show']);

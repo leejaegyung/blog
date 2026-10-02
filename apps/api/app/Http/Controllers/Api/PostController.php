@@ -62,7 +62,11 @@ class PostController extends Controller
         Gate::authorize('update', $post);
 
         DB::transaction(function () use ($request, $post) {
-            $post->update($request->safe()->except(['facts', 'content']));
+            $post->update($request->safe()->except(['facts', 'content', 'place']));
+            if ($request->has('place')) {
+                $place = $request->validated('place');
+                $post->forceFill(['place_json' => $place ? collect($place)->only(self::PLACE_FIELDS)->all() : null])->save();
+            }
             if ($request->has('facts')) {
                 $this->syncFacts($post, $request->validated('facts'));
             }
@@ -136,6 +140,8 @@ class PostController extends Controller
 
         return response()->noContent();
     }
+
+    public const PLACE_FIELDS = ['name', 'category', 'phone', 'address', 'road_address', 'lat', 'lng', 'kakao_id', 'kakao_url', 'map_url', 'source'];
 
     private function resource(Post $post): PostResource
     {

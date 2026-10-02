@@ -54,7 +54,7 @@ class TwinPosts
         $facts = $primary->facts()->orderBy('sort_order')->get(['fact_key', 'fact_value'])->map(fn ($f) => $f->fact_key.'='.$f->fact_value);
         $images = $primary->images()->pluck('id');
 
-        return hash('sha256', json_encode([$primary->tone, $primary->target_length, $facts, $images]));
+        return hash('sha256', json_encode([$primary->tone, $primary->target_length, $facts, $images, $primary->place_json]));
     }
 
     /**
@@ -106,7 +106,7 @@ class TwinPosts
                 $image->delete();
             }
 
-            $twin->forceFill(['tone' => $primary->tone, 'target_length' => $primary->target_length, 'twin_source_hash' => $signature])->save();
+            $twin->forceFill(['tone' => $primary->tone, 'target_length' => $primary->target_length, 'place_json' => $primary->place_json, 'twin_source_hash' => $signature])->save();
         });
         $disk->delete($removedFiles);
 

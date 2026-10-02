@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { analysisApi, postApi, type Fact, type KeywordAnalysis, type Post, type Tone } from '@/lib/api'
+import { analysisApi, postApi, type Fact, type KeywordAnalysis, type Place, type Post, type Tone } from '@/lib/api'
+import PlaceCard from '@/components/PlaceCard.vue'
 import { validationErrors } from '@/lib/http'
 import { TONE_LABELS } from '@/lib/flow'
 import StepLayout from '@/components/flow/StepLayout.vue'
@@ -38,6 +39,7 @@ const rows = ref<Row[]>(
     ? props.post.facts.map(({ fact_key, fact_value }) => ({ fact_key, fact_value }))
     : [{ fact_key: '장소명', fact_value: '' }, { fact_key: '좋았던 점', fact_value: '' }],
 )
+const place = ref<Place | null>(props.post.place ?? null)
 const tone = ref<Tone>(props.post.tone ?? 'natural')
 const length = ref(props.post.target_length ?? 2500)
 const analysis = ref<KeywordAnalysis | null>(null)
@@ -45,7 +47,7 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 const list = ref<HTMLElement | null>(null)
 
-const snapshot = () => JSON.stringify([rows.value.filter((r) => r.fact_key.trim() && r.fact_value.trim()), tone.value, length.value])
+const snapshot = () => JSON.stringify([rows.value.filter((r) => r.fact_key.trim() && r.fact_value.trim()), tone.value, length.value, place.value])
 const initial = snapshot()
 const dirty = computed(() => snapshot() !== initial)
 
@@ -74,6 +76,24 @@ function toggle(key: string) {
   }
 }
 
+/** 고른 장소로 알려줄 내용을 채운다(이미 적은 값은 바꾸고, 없는 항목은 더한다). 사용자가 보고 고칠 수 있다 */
+function fillFromPlace(chosen: Place) {
+  const values: [string, string | null][] = [
+    ['장소명', chosen.name],
+    ['주소', chosen.road_address ?? chosen.address],
+    ['연락처', chosen.phone],
+    ['업종', chosen.category],
+  ]
+  let next = rows.value.filter((r) => r.fact_key.trim() || r.fact_value.trim())
+  for (const [key, value] of values) {
+    if (!value) continue
+    const existing = next.find((r) => r.fact_key.trim() === key)
+    if (existing) existing.fact_value = value
+    else next = [...next, { fact_key: key, fact_value: value }]
+  }
+  rows.value = next
+}
+
 function addCustom() {
   rows.value = [...rows.value, { fact_key: '', fact_value: '', custom: true }]
   void nextTick(() => list.value?.querySelector<HTMLInputElement>('input[data-key]:last-of-type')?.focus())
@@ -91,7 +111,7 @@ async function next() {
   if (props.post.plan && !dirty.value) return flow.go(4)
   busy.value = true
   try {
-    flow.update(await postApi.update(props.post.id, { facts, tone: tone.value, target_length: length.value }))
+    flow.update(await postApi.update(props.post.id, { facts, tone: tone.value, target_length: length.value, place: place.value }))
     flow.update(await postApi.autopilot(props.post.id, 'plan'))
     flow.go(4)
   } catch (e) {
@@ -109,6 +129,8 @@ onMounted(async () => {
 
 <template>
   <StepLayout :step="3" :title="'꼭 알려줄\n내용이 있나요?'" lead="여기 적은 것만 사실로 씁니다. 가격·주소는 직접 적어주세요." lead-mobile-only>
+    <PlaceCard v-model="place" @chosen="fillFromPlace" />
+
     <div class="flex flex-wrap gap-1.5">
       <button
         v-for="chip in CHIPS"

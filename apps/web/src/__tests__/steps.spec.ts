@@ -9,12 +9,13 @@ import DraftStep from '@/components/steps/DraftStep.vue'
 import UploadStep from '@/components/steps/UploadStep.vue'
 import KeywordStep from '@/components/steps/KeywordStep.vue'
 import PhotoStep from '@/components/steps/PhotoStep.vue'
-import { analysisApi, imageApi, postApi, projectApi, referenceApi, type ExportResult, type Post, type PostImage, type Project } from '@/lib/api'
+import { analysisApi, imageApi, placeApi, postApi, projectApi, referenceApi, type ExportResult, type ParsedMapInput, type Place, type Post, type PostImage, type Project } from '@/lib/api'
 import { copyRich, copyText } from '@/lib/clipboard'
 import { useAuthStore } from '@/stores/auth'
 import { naverWriteUrl } from '@/lib/naver'
 
 vi.mock('@/lib/api', () => ({
+  placeApi: { lookup: vi.fn<(input: string) => Promise<{ data: Place[]; parsed: ParsedMapInput }>>() },
   postApi: {
     get: vi.fn<(id: number) => Promise<Post>>(),
     start: vi.fn<(keyword: string, category?: string, learningCategoryId?: number | null, platform?: string, twinLearningCategoryId?: number | null) => Promise<Post>>(),
@@ -186,9 +187,43 @@ describe('3 알려줄 내용', () => {
       facts: [{ fact_key: '장소명', fact_value: '파스타 인계' }, { fact_key: '가격', fact_value: '런치 19,000원' }],
       tone: 'friendly',
       target_length: 2500,
+      place: null,
     })
     expect(postApi.autopilot).toHaveBeenCalledWith(7, 'plan')
     expect(flow.go).toHaveBeenCalledWith(4)
+  })
+
+  it('지도 링크로 장소를 찾아 고르면 이름·주소·연락처·업종이 채워지고 장소도 함께 저장한다', async () => {
+    const found = {
+      kakao_id: '111', name: '파스타인계', category: '음식점 > 양식 > 이탈리안', phone: '031-000-0000',
+      address: '경기 수원시 팔달구 인계동 1', road_address: '경기 수원시 팔달구 인계로 1', lat: 37.26, lng: 127.03, distance_m: 120,
+    }
+    vi.mocked(placeApi.lookup).mockResolvedValue({
+      data: [found], parsed: { source: 'google', url: 'https://maps.google.com/x', name: '파스타인계', lat: 37.26, lng: 127.03, short: false },
+    })
+    vi.mocked(postApi.update).mockReset().mockResolvedValue(post())
+    vi.mocked(postApi.autopilot).mockResolvedValue(post({ pipeline_status: 'running' }))
+    const { wrapper } = mountStep(FactsStep as unknown as DefineComponent, { post: post() })
+
+    await wrapper.get('input[aria-label="지도 링크나 가게 이름"]').setValue('https://maps.google.com/x')
+    await button(wrapper, '장소 찾기').trigger('click')
+    await flushPromises()
+    expect(placeApi.lookup).toHaveBeenCalledWith('https://maps.google.com/x')
+    expect(wrapper.text()).toContain('링크에서 120m')
+    await button(wrapper, '파스타인계').trigger('click')
+    expect((wrapper.get('input[aria-label="주소 내용"]').element as HTMLInputElement).value).toBe('경기 수원시 팔달구 인계로 1')
+    expect(wrapper.text()).toContain('구글 지도 열기')
+
+    await button(wrapper, '다음 · 글 계획 만들기').trigger('click')
+    await flushPromises()
+    const saved = vi.mocked(postApi.update).mock.calls[0]![1]
+    expect(saved.facts).toEqual([
+      { fact_key: '장소명', fact_value: '파스타인계' },
+      { fact_key: '주소', fact_value: '경기 수원시 팔달구 인계로 1' },
+      { fact_key: '연락처', fact_value: '031-000-0000' },
+      { fact_key: '업종', fact_value: '음식점 > 양식 > 이탈리안' },
+    ])
+    expect(saved.place).toMatchObject({ name: '파스타인계', map_url: 'https://maps.google.com/x', source: 'google' })
   })
 
   it('비어 있으면 진행하지 않고, 계획이 있고 바뀐 게 없으면 다시 만들지 않는다', async () => {

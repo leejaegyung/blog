@@ -222,6 +222,7 @@ export type Post = {
   published_at: string | null
   tistory_url?: string | null
   tistory_published_at?: string | null
+  place?: Place | null
   // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
   twin_post_id?: number | null
   twin_of_post_id?: number | null
@@ -250,7 +251,34 @@ export type Post = {
   updated_at: string
 }
 
+/** 3단계 "장소 연결"에서 고른 장소(카카오 로컬로 확인한 정보 + 붙여넣은 지도 링크) */
+export type Place = {
+  kakao_id?: string | null
+  name: string | null
+  category: string | null
+  phone: string | null
+  address: string | null
+  road_address: string | null
+  lat: number | null
+  lng: number | null
+  kakao_url?: string | null
+  distance_m?: number | null
+  map_url?: string | null
+  source?: 'naver' | 'google' | 'kakao' | 'other' | 'text' | null
+}
+
+export type ParsedMapInput = { source: NonNullable<Place['source']>; url: string | null; name: string | null; lat: number | null; lng: number | null; short: boolean }
+
+export const placeApi = {
+  /** 지도 링크(네이버·구글·카카오)나 가게 이름으로 장소 후보를 찾는다. 링크는 열지 않고 글자에서 이름·좌표만 읽는다 */
+  async lookup(input: string) {
+    const { data } = await http.post<{ data: Place[]; parsed: ParsedMapInput }>('/places/lookup', { input })
+    return data
+  },
+}
+
 export type PostInput = {
+  place?: Place | null
   title?: string | null
   tone?: Tone | null
   target_length?: number | null

@@ -30,6 +30,7 @@ class Post extends Model
             'plan_json' => 'array',
             'draft_meta_json' => 'array',
             'quality_json' => 'array',
+            'place_json' => 'array',
             'quality_checked_at' => 'datetime',
             'published_at' => 'datetime',
             'tistory_published_at' => 'datetime',
