@@ -122,17 +122,28 @@ async function copyTitle() {
     : `제목을 복사했어요. ${label.value} 제목 칸에 붙여넣으세요.`
 }
 
+// 본문 복사의 평문에는 제목을 넣지 않는다. 편집기는 열리면 제목 칸에 커서가 있어서,
+// 거기 붙여넣으면 평문(제목+본문)이 한 줄로 제목 칸에 들어가고 사진은 빠진다
+const bodyText = computed(() => {
+  const text = prepared.value?.text ?? ''
+  const title = active.value.title ?? ''
+  return title && text.startsWith(title) ? text.slice(title.length).replace(/^\n+/, '') : text
+})
+// 본문을 복사한 뒤 "제목 칸 말고 본문 칸" 안내를 크게 보여 준다
+const bodyCopied = ref(false)
+
 /** 2. 본문 복사 — 사진까지 본문 안에 넣어 한 번에 붙여넣어진다 */
 async function copyBody() {
   if (!prepared.value) return
   try {
-    await copyRich(prepared.value.html, prepared.value.text)
+    await copyRich(prepared.value.html, bodyText.value)
   } catch {
     status.value = '클립보드에 복사하지 못했어요. 브라우저의 클립보드 권한을 확인해 주세요.'
     return
   }
   openEditor()
-  status.value = `본문과 사진 ${prepared.value.embedded}장을 복사했어요. ${label.value} 본문 칸에 붙여넣으세요.`
+  bodyCopied.value = true
+  status.value = `본문과 사진 ${prepared.value.embedded}장을 복사했어요. ${label.value} 글쓰기에서 제목 아래 본문 칸을 한 번 클릭한 뒤 붙여넣으세요.`
   void postApi.exportPost(active.value.id, true, target.value).catch(() => {})
 }
 
@@ -180,6 +191,7 @@ async function record() {
 // 탭을 바꾸면 그 플랫폼 기준으로 다시 준비하고, 글쓰기 창도 새로 연다
 watch(target, () => {
   opened.value = false
+  bodyCopied.value = false
   status.value = null
   url.value = publishedUrl.value ?? ''
 })
@@ -212,12 +224,12 @@ async function copyTags() {
 type UploadAction = { text: string; action: string; disabled: boolean; run: () => unknown }
 const steps = computed(() => {
   const list: UploadAction[] = [
-    { text: `제목을 복사해 ${label.value} 글쓰기에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
+    { text: `제목을 복사해 ${label.value} 글쓰기 제목 칸에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
     {
       text:
         (photoCount.value
-          ? `본문을 서식째 복사해 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
-          : '본문을 서식째 복사해 붙여넣기') + (active.value.place ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
+          ? `제목 아래 본문 칸을 클릭하고 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
+          : '제목 아래 본문 칸을 클릭하고 붙여넣기') + (active.value.place ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
       action: ready.value ? '본문 복사' : '준비 중…',
       disabled: !ready.value,
       run: copyBody,
@@ -314,6 +326,11 @@ const steps = computed(() => {
       </div>
     </div>
     <p v-if="status" role="status" class="text-sm font-semibold">{{ status }}</p>
+    <div v-if="bodyCopied" class="flex flex-col gap-1 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px] leading-normal" role="note">
+      <b class="text-sm">⚠️ 제목 칸이 아니라 본문 칸에 붙여넣으세요</b>
+      <span>글쓰기 화면은 처음에 제목 칸에 커서가 있어요. 제목 아래 “{{ target === 'naver' ? '글감과 함께 나의 일상을 기록해보세요!' : '내용을 입력하세요' }}” 같은 회색 글씨가 있는 본문 칸을 한 번 클릭한 뒤 ⌘V(윈도우는 Ctrl+V)를 누르세요.</span>
+      <span>제목 칸에 붙여넣으면 사진이 빠지고 글자만 한 줄로 들어가요. 그랬다면 제목 칸을 지우고(⌘Z) 본문 칸에 다시 붙여넣으세요.</span>
+    </div>
     <p v-if="prepareError" role="alert" class="text-sm text-red-600">{{ prepareError }}</p>
 
     <ol v-if="prepared?.result.photos.length" class="m-0 hidden list-none flex-wrap gap-2 p-0 lg:flex" aria-label="본문에 들어가는 사진 순서">

@@ -352,7 +352,8 @@ describe('6 네이버에 올리기', () => {
     vi.stubGlobal('open', open)
     vi.mocked(copyRich).mockResolvedValue()
     vi.mocked(postApi.exportPost).mockResolvedValue({
-      html: '<p>본문</p>', text: '본문', tags: [], warnings: [],
+      // 내보내기 평문은 제목으로 시작하지만, 본문 복사에는 제목을 빼고 넣는다(제목 칸에 잘못 붙여도 제목이 겹치지 않게)
+      html: '<p>본문</p>', text: '제목 A\n\n본문', tags: [], warnings: [],
       photos: [{ number: 1, image_id: 5, filename: '01.jpg', url: '/p/5' }],
     })
     vi.mocked(postApi.publish).mockResolvedValue(post({ status: 'published', published_url: 'https://blog.naver.com/me/1' }))
@@ -375,6 +376,7 @@ describe('6 네이버에 올리기', () => {
     expect(open).toHaveBeenCalledTimes(1)
     expect(postApi.exportPost).toHaveBeenLastCalledWith(7, true, 'naver')
     expect(wrapper.text()).toContain('본문과 사진 1장을 복사했어요')
+    expect(wrapper.text()).toContain('제목 칸이 아니라 본문 칸에 붙여넣으세요')
 
     await wrapper.get('#published-url').setValue('https://blog.naver.com/me/1')
     await button(wrapper, '게시 완료로 기록').trigger('click')
