@@ -214,9 +214,10 @@ const steps = computed(() => {
   const list: UploadAction[] = [
     { text: `제목을 복사해 ${label.value} 글쓰기에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
     {
-      text: photoCount.value
-        ? `본문을 서식째 복사해 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
-        : '본문을 서식째 복사해 붙여넣기',
+      text:
+        (photoCount.value
+          ? `본문을 서식째 복사해 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
+          : '본문을 서식째 복사해 붙여넣기') + (active.value.place ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
       action: ready.value ? '본문 복사' : '준비 중…',
       disabled: !ready.value,
       run: copyBody,

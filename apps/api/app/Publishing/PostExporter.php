@@ -37,6 +37,16 @@ class PostExporter
             };
         }
 
+        // 3단계에서 연결한 장소: 본문 끝(해시태그 앞)에 위치 안내
+        if ($place = $this->place()) {
+            $lines = ['<strong>📍 위치</strong>', ...array_map(fn ($line) => $this->escape($line), $place['lines'])];
+            if ($place['url']) {
+                $url = $this->escape($place['url']);
+                $lines[] = "지도: <a href=\"{$url}\">{$url}</a>";
+            }
+            $html[] = '<p>'.implode('<br>', $lines).'</p>';
+        }
+
         // 티스토리는 태그를 본문이 아니라 태그 칸에 넣는다
         $tags = $this->bodyTags();
         if ($tags !== '') {
@@ -55,6 +65,9 @@ class PostExporter
                 'image' => $this->marker($block['image_id']),
                 default => $block['text'] ?? '',
             };
+        }
+        if ($place = $this->place()) {
+            $parts[] = implode("\n", ['📍 위치', ...$place['lines'], ...($place['url'] ? ['지도: '.$place['url']] : [])]);
         }
         $parts[] = $this->bodyTags();
 
@@ -101,6 +114,31 @@ class PostExporter
     private function blocks(): array
     {
         return $this->post->content_json['blocks'] ?? [];
+    }
+
+    /**
+     * 연결한 장소의 안내 줄(이름·주소·전화)과 지도 링크. 지도 링크는 붙여넣은 링크, 없으면 카카오맵.
+     *
+     * @return array{lines: list<string>, url: ?string}|null
+     */
+    private function place(): ?array
+    {
+        $place = $this->post->place_json;
+        if (! $place) {
+            return null;
+        }
+        $lines = array_values(array_filter([
+            $place['name'] ?? null,
+            ($place['road_address'] ?? null) ?: ($place['address'] ?? null),
+            isset($place['phone']) && $place['phone'] ? '전화 '.$place['phone'] : null,
+        ]));
+        $url = collect([$place['map_url'] ?? null, $place['kakao_url'] ?? null])
+            ->first(fn ($u) => is_string($u) && preg_match('#^https?://#i', $u));
+        if ($lines === [] && ! $url) {
+            return null;
+        }
+
+        return ['lines' => $lines, 'url' => $url];
     }
 
     private function marker(int $imageId): string

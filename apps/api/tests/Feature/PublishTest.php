@@ -65,6 +65,27 @@ class PublishTest extends TestCase
         ]);
     }
 
+    public function test_connected_place_is_added_before_the_hashtags(): void
+    {
+        $this->post->forceFill(['place_json' => [
+            'name' => '파스타 <인계>', 'road_address' => '경기 수원시 팔달구 인계로 1', 'phone' => '031-000-0000',
+            'map_url' => 'https://naver.me/abc?x=1&y=2', 'kakao_url' => 'http://place.map.kakao.com/1',
+        ]])->save();
+
+        $data = $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->json('data');
+
+        $this->assertStringEndsWith(implode("\n", [
+            '<blockquote><p>또 갈래요</p></blockquote>',
+            '<p><strong>📍 위치</strong><br>파스타 &lt;인계&gt;<br>경기 수원시 팔달구 인계로 1<br>전화 031-000-0000<br>지도: <a href="https://naver.me/abc?x=1&amp;y=2">https://naver.me/abc?x=1&amp;y=2</a></p>',
+            '<p>#인계동파스타 #수원맛집</p>',
+        ]), $data['html']);
+        $this->assertStringEndsWith("또 갈래요\n\n📍 위치\n파스타 <인계>\n경기 수원시 팔달구 인계로 1\n전화 031-000-0000\n지도: https://naver.me/abc?x=1&y=2\n\n#인계동파스타 #수원맛집", $data['text']);
+
+        // 붙여넣은 링크가 없으면 카카오맵 링크
+        $this->post->forceFill(['place_json' => ['name' => '파스타', 'kakao_url' => 'http://place.map.kakao.com/1']])->save();
+        $this->assertStringContainsString('지도: http://place.map.kakao.com/1', $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->json('data.text'));
+    }
+
     public function test_background_preparation_does_not_record_an_upload(): void
     {
         $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->assertOk();
