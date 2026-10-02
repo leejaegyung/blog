@@ -48,6 +48,25 @@ class TitleStats(BaseModel):
     with_question_share: float
 
 
+class VoiceStats(BaseModel):
+    """참고 글들의 말투 분포. 초안이 이 범위 안에서 사람처럼 쓰게 한다"""
+
+    reference_count: int  # 말투를 잰 참고 글 수
+    main_ending: str  # 가장 많이 쓴 문장 끝: haeyo · hamnida · plain · eum · other
+    endings: dict[str, float]  # 문장 끝 비율(중앙값)
+    sentence_chars: Spread
+    sentence_chars_cv: Spread
+    exclaim_ratio: Spread
+    question_ratio: Spread
+    emoji_per_1000: Spread
+    laugh_per_1000: Spread
+    tilde_per_1000: Spread
+    ellipsis_per_1000: Spread
+    short_paragraph_share: Spread
+    first_person_per_1000: Spread
+    casual_words: list[TermFrequency]
+
+
 class KeywordStats(BaseModel):
     version: str = STATS_VERSION
     reference_count: int
@@ -69,6 +88,7 @@ class KeywordStats(BaseModel):
     # 참고 글에 달린 해시태그(나중에 더한 항목)
     hashtags: list[TermFrequency] = []
     hashtag_count: Spread | None = None  # 해시태그를 단 글들의 태그 수
+    voice: VoiceStats | None = None  # 말투(말투를 잰 참고 글이 있을 때만)
 
 
 LAYOUT_NAMES = {"H": "소제목", "P": "문단", "I": "사진", "L": "목록", "Q": "인용", "T": "표"}
@@ -117,6 +137,32 @@ def aggregate(features: list[DocumentFeatures], keyword: str) -> KeywordStats | 
         ending_engagement_share=_share(sum(f.ending.asks_engagement for f in features), n),
         hashtags=_document_frequency([f.hashtags for f in features], n, exclude=set(), limit=30),
         hashtag_count=_spread(counts) if (counts := [len(f.hashtags) for f in features if f.hashtags]) else None,
+        voice=_voice(features),
+    )
+
+
+def _voice(features: list[DocumentFeatures]) -> VoiceStats | None:
+    styles = [f.style for f in features if f.style]
+    if not styles:
+        return None
+    labels = ("haeyo", "hamnida", "plain", "eum", "other")
+    endings = {label: round(median([s.endings.get(label, 0.0) for s in styles]), 3) for label in labels}
+    spread = lambda attr: _spread([getattr(s, attr) for s in styles])  # noqa: E731
+    return VoiceStats(
+        reference_count=len(styles),
+        main_ending=max(endings, key=lambda label: endings[label]),
+        endings=endings,
+        sentence_chars=spread("sentence_chars"),
+        sentence_chars_cv=spread("sentence_chars_cv"),
+        exclaim_ratio=spread("exclaim_ratio"),
+        question_ratio=spread("question_ratio"),
+        emoji_per_1000=spread("emoji_per_1000"),
+        laugh_per_1000=spread("laugh_per_1000"),
+        tilde_per_1000=spread("tilde_per_1000"),
+        ellipsis_per_1000=spread("ellipsis_per_1000"),
+        short_paragraph_share=spread("short_paragraph_share"),
+        first_person_per_1000=spread("first_person_per_1000"),
+        casual_words=_document_frequency([s.casual_words for s in styles], len(styles), exclude=set(), limit=12),
     )
 
 

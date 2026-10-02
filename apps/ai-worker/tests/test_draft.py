@@ -125,7 +125,7 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     body = call(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), payload)
 
     assert body["draft"]["blocks"][0] == {"type": "image", "text": None, "image_id": 1, "items": None}
-    assert body["prompt_version"] == "blog-draft-v4"
+    assert body["prompt_version"] == "blog-draft-v5"
     sent = json.loads(claude.requests[0].prompt)
     assert "title_candidates" not in sent["plan"]
     assert sent["tone"] == "친근한 말투"
@@ -137,6 +137,9 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     assert claude.requests[0].max_tokens == 16000
     # 기본은 한 곳에만 올리는 글
     assert sent["twin"] is False and sent["platform"] == "naver"
+    assert sent["voice"] is None
+    # 사람처럼 쓰라는 지시와 피할 상투 표현이 프롬프트에 있다
+    assert "Sound like a real blogger, not an AI" in claude.requests[0].system and "선사합니다" in claude.requests[0].system
 
 
 def test_twin_flag_is_sent_and_prompt_asks_for_a_distinct_version() -> None:

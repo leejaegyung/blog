@@ -48,6 +48,14 @@ let timer: ReturnType<typeof setTimeout> | undefined
 const stats = computed(() => analysis.value?.stats ?? null)
 const analyzing = computed(() => status.value === 'analyzing')
 
+const ENDING_LABELS: Record<string, string> = {
+  haeyo: '~요 (해요체)', hamnida: '~니다 (합니다체)', plain: '~다·~네 (평서)', eum: '~음·~함 (음슴체)', other: '명사·감탄으로 끝',
+}
+// 1000자당 빈도를 말로
+function voiceFreq(per1000: number) {
+  return per1000 === 0 ? '안 씀' : per1000 < 1 ? '가끔' : per1000 < 4 ? '종종' : '자주'
+}
+
 function pct(share: number) {
   return `${Math.round(share * 100)}%`
 }
@@ -260,6 +268,30 @@ onBeforeUnmount(() => clearTimeout(timer))
               :label="pattern.label"
               :share="pattern.share"
             />
+          </div>
+          <div v-if="stats.voice" class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
+            <h3 class="font-medium">말투 <span class="text-xs font-normal text-sub">(글 {{ stats.voice.reference_count }}개 기준 · 초안이 이 리듬으로 써요)</span></h3>
+            <ShareBar
+              v-for="[label, share] in Object.entries(stats.voice.endings).filter(([, s]) => s > 0).sort((a, b) => b[1] - a[1])"
+              :key="label"
+              :label="ENDING_LABELS[label] ?? label"
+              :share="share"
+            />
+            <ul class="space-y-1 text-sm text-ink">
+              <li>문장 길이 평균 {{ num(stats.voice.sentence_chars.median) }}자 · {{ stats.voice.sentence_chars_cv.median >= 0.5 ? '길고 짧은 문장이 섞임' : '비슷한 길이' }}</li>
+              <li>
+                느낌표 {{ pct(stats.voice.exclaim_ratio.median) }}
+                · ㅋㅋ/ㅎㅎ {{ voiceFreq(stats.voice.laugh_per_1000.median) }}
+                · 이모지 {{ voiceFreq(stats.voice.emoji_per_1000.median) }}
+                · ~ {{ voiceFreq(stats.voice.tilde_per_1000.median) }}
+              </li>
+              <li>한두 마디로 끊는 짧은 문단 {{ pct(stats.voice.short_paragraph_share.median) }}</li>
+            </ul>
+            <div v-if="stats.voice.casual_words.length" class="flex flex-wrap gap-1.5">
+              <span v-for="word in stats.voice.casual_words" :key="word.term" class="rounded-full bg-lilac-soft px-2.5 py-1 text-xs">
+                {{ word.term }} <span class="text-sub">{{ word.documents }}/{{ stats.voice.reference_count }}</span>
+              </span>
+            </div>
           </div>
           <div class="space-y-2 rounded-[18px] border-[1.5px] border-line bg-white p-4">
             <h3 class="font-medium">자주 다룬 정보</h3>

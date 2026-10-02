@@ -95,6 +95,14 @@ class PostDraftTest extends TestCase
         Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['hashtags'] === ['내태그']);
     }
 
+    public function test_job_sends_the_references_voice(): void
+    {
+        $voice = ['reference_count' => 3, 'main_ending' => 'haeyo', 'casual_words' => [['term' => '진짜', 'documents' => 2, 'share' => 0.67]]];
+        $this->post->project->analyses()->create(['analyzer_version' => 'x', 'stats_json' => ['voice' => $voice]]);
+        $this->runJob($this->draftResponse());
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['voice'] === $voice);
+    }
+
     public function test_llm_failure_keeps_plan_and_records_error(): void
     {
         $this->runJob(['draft' => null, 'draft_error' => '초안을 만들지 못했습니다: billing', 'prompt_version' => 'blog-draft-v1', 'generations' => []]);

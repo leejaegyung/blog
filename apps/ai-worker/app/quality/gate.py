@@ -6,17 +6,19 @@
 import hashlib
 import json
 import re
+from statistics import mean, pstdev
 from collections import Counter
 from typing import Literal
 
 from pydantic import BaseModel
 
 from app.analyzers.exposure import GuideChecks
+from app.analyzers.style import AI_PATTERNS, ai_phrases
 from app.analyzers.nlp import nouns, sentences
 from app.generators.draft import SPECIFIC_PATTERNS, ContentBlock, _compact
 from app.generators.writing_plan import SLOT_FACT_HINTS, FactInput
 
-GATE_VERSION = "quality-2"
+GATE_VERSION = "quality-3"
 
 Severity = Literal["error", "warning", "info"]
 
@@ -184,6 +186,17 @@ def check(data: QualityInput) -> QualityReport:
         ending, _ = endings.most_common(1)[0]
         issues.append(Issue(code="monotone_endings", severity="info",
                             message=f"문장 끝이 '{ending}'로 많이 반복됩니다. 어미를 섞으면 자연스럽습니다."))
+
+    # 8-1. AI 같은 말투: 상투 표현, 너무 고른 문장 길이
+    for label in ai_phrases(body)[:5]:
+        pattern = AI_PATTERNS[label]
+        index, excerpt = next(((i, m.group(0)) for i, t in texts if (m := pattern.search(t))), (None, None))
+        issues.append(Issue(code="ai_phrase", severity="warning",
+                            message=f"'{label}'는 AI가 쓴 티가 나는 표현이에요. 내 말로 바꿔 보세요.", block_index=index, excerpt=excerpt))
+    lengths = [len(s) for _, s in all_sentences]
+    if len(lengths) >= 12 and pstdev(lengths) / mean(lengths) < 0.3:
+        issues.append(Issue(code="uniform_sentences", severity="info",
+                            message="문장 길이가 너무 고르게 비슷해요. 짧게 끊는 문장을 섞으면 사람 글처럼 읽혀요."))
 
     # 9. 가독성
     long_paragraphs = [(i, t) for i, t in paragraphs if len(sentences(t)) > MAX_PARAGRAPH_SENTENCES]

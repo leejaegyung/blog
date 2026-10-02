@@ -12,7 +12,7 @@ from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "blog-draft-v4"
+PROMPT_VERSION = "blog-draft-v5"
 LENGTH_TOLERANCE = (0.7, 1.4)
 
 # 입력 사실에 없으면 지어낸 것으로 의심하는 구체 정보
@@ -55,6 +55,8 @@ class DraftInput(BaseModel):
     facts: list[FactInput]
     plan: dict
     image_ids: list[int]
+    # 참고 글들의 말투 분포(키워드 분석 stats.voice). 있으면 그 리듬·어미·감탄 빈도에 맞춰 쓴다
+    voice: dict | None = None
     # 사진 분석 결과(있으면): {id: {"type": ..., "description": ...}}
     photo_notes: dict[int, dict] = {}
     # 키워드 분석의 추천 해시태그(사용자가 고친 목록이 있으면 그것). 초안 태그 앞에 붙인다
@@ -90,6 +92,7 @@ def build_request(data: DraftInput) -> LLMRequest:
     payload = {
         "platform": data.platform,
         "twin": data.twin,
+        "voice": data.voice,
         "keyword": data.keyword,
         "tone": TONE_LABELS[data.tone],
         "target_length": data.target_length,

@@ -135,7 +135,7 @@ def test_endpoint() -> None:
     })
 
     assert response.status_code == 200
-    assert response.json()["version"] == "quality-2"
+    assert response.json()["version"] == "quality-3"
 
 
 def test_exposure_guide_checks() -> None:
@@ -157,3 +157,16 @@ def test_too_many_tags_is_flagged_without_guide() -> None:
     _, codes = run(tags=[f"태그{i}" for i in range(31)])
 
     assert "hashtags_many" in codes
+
+
+def test_ai_sounding_phrases_and_uniform_sentences_are_flagged() -> None:
+    robot = GOOD[:-1] + [P("결론적으로 다양한 메뉴가 특별한 경험을 선사합니다.")]
+    report, codes = run(robot)
+
+    flagged = [i for i in report.issues if i.code == "ai_phrase"]
+    assert {i.excerpt for i in flagged} == {"결론적으로", "다양한", "특별한 경험", "선사합니다"}
+    assert all(i.block_index == 7 and i.severity == "warning" for i in flagged)
+
+    same = [P("이 문장은 길이가 거의 비슷하게 맞춰져 있어요.") for _ in range(1)] + [P(f"문장 길이가 {n}번째로 비슷하게 맞춰져 있어요.") for n in range(12)]
+    _, codes = run(GOOD + same)
+    assert "uniform_sentences" in codes

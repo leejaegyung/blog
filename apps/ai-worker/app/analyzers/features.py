@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.analyzers.nlp import nouns, sentences
+from app.analyzers.style import StyleFeatures, extract_style
 from app.references.document import Block, ParsedDocument
 
 FEATURES_VERSION = "features-1"
@@ -104,6 +105,8 @@ class DocumentFeatures(BaseModel):
     ending: EndingFeatures
     # features-1에 나중에 더한 항목: 예전에 뽑은 특징에는 없으므로 기본값을 둔다
     hashtags: list[str] = []
+    # 말투(나중에 더한 항목). 예전에 뽑은 특징에는 없다(None) → 다시 읽으면 생긴다
+    style: StyleFeatures | None = None
 
 
 def extract_features(document: ParsedDocument, keyword: str) -> DocumentFeatures:
@@ -137,6 +140,7 @@ def extract_features(document: ParsedDocument, keyword: str) -> DocumentFeatures
         intro_type=_intro_type(paragraphs, keyword),
         ending=_ending(blocks),
         hashtags=extract_hashtags(text),
+        style=extract_style(text, paragraphs),
     )
 
 

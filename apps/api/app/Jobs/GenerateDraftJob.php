@@ -67,6 +67,8 @@ class GenerateDraftJob implements ShouldQueue
                 ->all() ?: (object) [],
             // 키워드의 해시태그를 초안 태그로 자동으로 단다
             'hashtags' => $post->project?->hashtags() ?? [],
+            // 참고 글(학습 카테고리 포함)의 말투 분포: 어미·문장 길이·감탄·이모지 빈도에 맞춰 사람처럼 쓴다
+            'voice' => $post->project?->latestAnalysis?->stats_json['voice'] ?? null,
         ]);
 
         $recorder->record($result['generations'], purpose: 'draft', promptVersion: $result['prompt_version'], post: $post);

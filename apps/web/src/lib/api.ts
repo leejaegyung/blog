@@ -81,6 +81,25 @@ export type KeywordStats = {
   ending_summary_share: number
   ending_recommendation_share: number
   ending_engagement_share: number
+  // 참고 글들의 말투(어미·문장 길이·감탄·이모지 빈도·구어 낱말). 초안이 이 리듬에 맞춰 사람처럼 쓴다
+  voice?: VoiceStats | null
+}
+
+export type VoiceStats = {
+  reference_count: number
+  main_ending: 'haeyo' | 'hamnida' | 'plain' | 'eum' | 'other'
+  endings: Record<string, number>
+  sentence_chars: Spread
+  sentence_chars_cv: Spread
+  exclaim_ratio: Spread
+  question_ratio: Spread
+  emoji_per_1000: Spread
+  laugh_per_1000: Spread
+  tilde_per_1000: Spread
+  ellipsis_per_1000: Spread
+  short_paragraph_share: Spread
+  first_person_per_1000: Spread
+  casual_words: TermItem[]
 }
 
 /** 검색 노출 가이드(참고 글 통계 + 네이버 공개 원칙, 코드 계산). 순위 보장이 아니다 */
