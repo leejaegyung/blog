@@ -20,7 +20,7 @@ class KakaoLocal
     /**
      * @return array{places: list<array<string, mixed>>, error: ?string}
      */
-    public function search(?string $name, ?float $lat, ?float $lng): array
+    public function search(?string $name, ?float $lat, ?float $lng, ?string $address = null): array
     {
         $key = BlogSettingsController::kakaoKey();
         if (! $key) {
@@ -39,7 +39,13 @@ class KakaoLocal
                 $places = array_map(fn ($doc) => self::place($doc), $response->json('documents') ?? []);
                 // 좌표 근처에 없으면 이름만으로 다시 찾는다(링크 좌표가 지도 화면 가운데일 수 있다)
                 if ($places === [] && $lat !== null) {
-                    return $this->search($name, null, null);
+                    return $this->search($name, null, null, $address);
+                }
+                // 이름이 카카오에 다르게 올라 있으면 "주소 앞부분 + 이름"으로 한 번 더(예: 지점명 표기 차이)
+                if ($places === [] && $address) {
+                    $area = implode(' ', array_slice(preg_split('/\s+/u', $address), 0, 3));
+                    $retry = $this->get($key, self::KEYWORD, ['query' => "{$area} ".mb_substr($name, 0, 20), 'size' => 5]);
+                    $places = $retry->successful() ? array_map(fn ($doc) => self::place($doc), $retry->json('documents') ?? []) : [];
                 }
 
                 return ['places' => $places, 'error' => null];

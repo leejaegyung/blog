@@ -34,6 +34,13 @@ class PlaceTest extends TestCase
         $this->assertSame([true, '파스타인계', 'naver'], [$short['short'], $short['name'], $short['source']]);
         $this->assertNull(MapUrl::parse('https://naver.me/xYz12')['name']);
 
+        // 네이버 지도 앱 "공유 → 복사" 글 통째로
+        $shared = MapUrl::parse("[네이버 지도]\n파스타인계 본점\n경기 수원시 팔달구 인계로 123\nhttps://naver.me/5abcDEF");
+        $this->assertSame(['naver', '파스타인계 본점', '경기 수원시 팔달구 인계로 123', 'https://naver.me/5abcDEF', true],
+            [$shared['source'], $shared['name'], $shared['address'], $shared['url'], $shared['short']]);
+        $inline = MapUrl::parse('[네이버 지도] 파스타인계 https://naver.me/5abcDEF');
+        $this->assertSame('파스타인계', $inline['name']);
+
         $this->assertSame(['text', '수원 파스타인계'], array_values(array_intersect_key(MapUrl::parse('수원  파스타인계'), ['source' => 0, 'name' => 0])));
     }
 

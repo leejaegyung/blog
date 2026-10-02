@@ -205,7 +205,7 @@ describe('3 알려줄 내용', () => {
     vi.mocked(postApi.autopilot).mockResolvedValue(post({ pipeline_status: 'running' }))
     const { wrapper } = mountStep(FactsStep as unknown as DefineComponent, { post: post() })
 
-    await wrapper.get('input[aria-label="지도 링크나 가게 이름"]').setValue('https://maps.google.com/x')
+    await wrapper.get('textarea[aria-label="지도 링크나 가게 이름"]').setValue('https://maps.google.com/x')
     await button(wrapper, '장소 찾기').trigger('click')
     await flushPromises()
     expect(placeApi.lookup).toHaveBeenCalledWith('https://maps.google.com/x')

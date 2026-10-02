@@ -9,15 +9,22 @@ namespace App\Support;
 final class MapUrl
 {
     /**
-     * @return array{source: string, url: ?string, name: ?string, lat: ?float, lng: ?float, short: bool}
+     * @return array{source: string, url: ?string, name: ?string, address: ?string, lat: ?float, lng: ?float, short: bool}
      */
     public static function parse(string $input): array
     {
         $input = trim($input);
         $url = preg_match('#https?://\S+#u', $input, $m) ? rtrim($m[0], '.,)') : null;
-        // 링크 말고 함께 적은 글자는 가게 이름으로 쓴다(예: "https://naver.me/abc 파스타인계")
-        $hint = trim(preg_replace('/\s+/u', ' ', $url ? str_replace($m[0], ' ', $input) : $input));
-        $result = ['source' => 'text', 'url' => $url, 'name' => $hint !== '' ? $hint : null, 'lat' => null, 'lng' => null, 'short' => false];
+        // 링크 말고 함께 적은 글자는 가게 이름으로 쓴다(예: "https://naver.me/abc 파스타인계").
+        // 지도 앱 "공유 → 복사"는 여러 줄로 온다: [네이버 지도] / 가게 이름 / 주소 / 링크 → 첫 줄을 이름, 다음 줄을 주소로
+        $lines = array_values(array_filter(
+            array_map(fn ($line) => trim(preg_replace('/\s+/u', ' ', $line)), preg_split('/\R/u', $url ? str_replace($m[0], "\n", $input) : $input)),
+            fn ($line) => $line !== '' && ! preg_match('/^\[[^\]]*\]$/u', $line),
+        ));
+        $lines = array_map(fn ($line) => trim(preg_replace('/^\[[^\]]*\]\s*/u', '', $line)), $lines);
+        $hint = $lines[0] ?? '';
+        $address = isset($lines[1]) && preg_match('/(시|도|구|군|동|읍|면|로|길)\s*\d|\d+(-\d+)?$/u', $lines[1]) ? $lines[1] : null;
+        $result = ['source' => 'text', 'url' => $url, 'name' => $hint !== '' ? $hint : null, 'address' => $address, 'lat' => null, 'lng' => null, 'short' => false];
         if (! $url) {
             return $result;
         }

@@ -267,7 +267,15 @@ export type Place = {
   source?: 'naver' | 'google' | 'kakao' | 'other' | 'text' | null
 }
 
-export type ParsedMapInput = { source: NonNullable<Place['source']>; url: string | null; name: string | null; lat: number | null; lng: number | null; short: boolean }
+export type ParsedMapInput = {
+  source: NonNullable<Place['source']>
+  url: string | null
+  name: string | null
+  address?: string | null
+  lat: number | null
+  lng: number | null
+  short: boolean
+}
 
 export const placeApi = {
   /** 지도 링크(네이버·구글·카카오)나 가게 이름으로 장소 후보를 찾는다. 링크는 열지 않고 글자에서 이름·좌표만 읽는다 */

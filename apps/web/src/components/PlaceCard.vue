@@ -73,19 +73,31 @@ function clear() {
 
     <form v-else class="flex flex-col gap-2" @submit.prevent="lookup">
       <div class="flex flex-col gap-2 rounded-[14px] border-[1.5px] border-ink p-1.5 sm:flex-row sm:items-center sm:pl-3.5">
-        <input
+        <!-- 지도 앱 "공유 → 복사"는 여러 줄(이름·주소·링크)이라 줄바꿈을 살리는 칸을 쓴다. Enter로 찾기, Shift+Enter 줄바꿈 -->
+        <textarea
           v-model="input"
+          rows="1"
           aria-label="지도 링크나 가게 이름"
-          placeholder="네이버·구글 지도 링크 또는 가게 이름"
-          class="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted sm:px-0"
+          placeholder="네이버 지도 공유 글 통째로 · 구글 지도 링크 · 가게 이름"
+          class="min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted sm:px-0"
+          @keydown.enter.exact.prevent="input.trim() && lookup()"
         />
         <button type="submit" :disabled="busy || !input.trim()" class="h-10 rounded-[10px] bg-ink px-4 text-sm font-bold whitespace-nowrap text-cream disabled:opacity-50">
           {{ busy ? '찾는 중…' : '장소 찾기' }}
         </button>
       </div>
       <span class="text-xs leading-normal text-sub">
-        지도 앱의 공유 링크를 붙여넣으세요. 단축 링크(naver.me 등)는 뒤에 가게 이름을 한 칸 띄우고 적어 주세요. 링크는 열어 보지 않고, 카카오 장소 검색으로 확인해요.
+        링크는 열어 보지 않고, 링크·글에 적힌 이름과 위치로 카카오 장소 검색에서 확인해요.
       </span>
+      <details class="text-xs leading-normal text-sub">
+        <summary class="cursor-pointer font-bold text-ink">네이버 지도에서 가져오는 법</summary>
+        <ol class="mt-1.5 mb-0 flex flex-col gap-1 pl-4">
+          <li><b class="text-ink">휴대폰 앱</b>: 가게를 열고 <b class="text-ink">공유</b> → <b class="text-ink">복사</b>(또는 링크 복사) → 여기에 그대로 붙여넣기. 가게 이름·주소·링크가 함께 오면 가장 정확해요.</li>
+          <li><b class="text-ink">PC</b>(map.naver.com): 가게를 열고 <b class="text-ink">공유</b> → <b class="text-ink">URL 복사</b> → 붙여넣고 한 칸 띄운 뒤 가게 이름 적기.</li>
+          <li>링크만 붙였는데 못 찾으면 <code>https://naver.me/… 가게이름</code>처럼 이름을 같이 적어 주세요(naver.me 단축 링크에는 가게 정보가 글자로 없어요).</li>
+          <li>체인점은 지점까지 적으면 정확해요(예: 파스타인계 인계점).</li>
+        </ol>
+      </details>
       <button v-if="model" type="button" class="self-start text-xs text-sub underline" @click="editing = false">취소</button>
     </form>
 

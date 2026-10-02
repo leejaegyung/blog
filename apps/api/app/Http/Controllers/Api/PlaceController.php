@@ -23,7 +23,7 @@ class PlaceController extends Controller
                 : '링크에서 가게 이름을 찾지 못했어요. 링크 뒤에 가게 이름을 한 칸 띄우고 적어 주세요.']);
         }
 
-        $found = $local->search($parsed['name'], $parsed['lat'], $parsed['lng']);
+        $found = $local->search($parsed['name'], $parsed['lat'], $parsed['lng'], $parsed['address']);
         if ($found['error'] !== null) {
             throw ValidationException::withMessages(['input' => $found['error']]);
         }
