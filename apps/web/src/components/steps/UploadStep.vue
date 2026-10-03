@@ -4,7 +4,7 @@ import { postApi, type ExportResult, type Platform, type Post } from '@/lib/api'
 import { PLATFORM_LABEL, platformOf, tistoryWriteUrl } from '@/lib/tistory'
 import PlatformTabs from '@/components/PlatformTabs.vue'
 import { validationErrors } from '@/lib/http'
-import { copyRich, copyText } from '@/lib/clipboard'
+import { canUseClipboardApi, copyRich, copyText } from '@/lib/clipboard'
 import { buildPasteHtml, splitPieces } from '@/lib/naverExport'
 import PieceHelper from '@/components/PieceHelper.vue'
 import { naverWriteUrl } from '@/lib/naver'
@@ -119,8 +119,18 @@ function openEditor(force = false) {
  * 열었던 창을 닫았거나 멈춰서 새로 열어야 할 때도 이 버튼으로 다시 시작한다
  */
 async function copyTitle() {
-  await copyText(active.value.title ?? '')
+  // 복사가 막혀도 글쓰기 창은 연다
+  let copied = true
+  try {
+    await copyText(active.value.title ?? '')
+  } catch {
+    copied = false
+  }
   openEditor(true)
+  if (!copied) {
+    status.value = `${label.value} 글쓰기를 열었지만 제목을 복사하지 못했어요. 제목을 직접 선택해 복사해 주세요: ${active.value.title ?? ''}`
+    return
+  }
   status.value = `제목을 복사하고 ${label.value} 글쓰기를 새 탭으로 열었어요. 제목 칸에 붙여넣으세요.${target.value === 'tistory' && !auth.tistoryHost ? ' (관리 › 내 티스토리 블로그에 주소를 넣으면 내 블로그 글쓰기가 바로 열려요)' : ''}`
 }
 
@@ -155,7 +165,7 @@ async function copyBody() {
   try {
     await copyRich(prepared.value.html, bodyText.value)
   } catch {
-    status.value = '클립보드에 복사하지 못했어요. 브라우저의 클립보드 권한을 확인해 주세요.'
+    status.value = '클립보드에 복사하지 못했어요. 이 화면을 한 번 클릭한 뒤 다시 눌러 주세요.'
     return
   }
   openEditor()
@@ -239,6 +249,19 @@ async function copyTags() {
   status.value = `해시태그 ${tagList.value.length}개를 복사했어요. 네이버 발행 창의 태그 칸에 붙여넣으세요.`
 }
 
+// http 주소(Tailscale 기기 이름 등)에서는 브라우저가 사진 복사와 자동 복사를 막는다. https 주소나 이 Mac의 localhost로 열면 된다
+const secure = canUseClipboardApi()
+const secureUrl = computed(() => (typeof location !== 'undefined' ? `http://localhost:8080${location.pathname}` : ''))
+
+/** 단계 버튼: 복사가 막혀도 조용히 끝나지 않게 알려 준다 */
+async function runStep(step: { run: () => unknown }) {
+  try {
+    await step.run()
+  } catch {
+    status.value = '복사하지 못했어요. 이 화면을 한 번 클릭한 뒤 다시 눌러 주세요.'
+  }
+}
+
 type UploadAction = { text: string; action: string; disabled: boolean; run: () => unknown }
 const steps = computed(() => {
   const list: UploadAction[] = [
@@ -281,6 +304,10 @@ const steps = computed(() => {
 
 <template>
   <StepLayout :step="6" :title="`${label}에\n올릴 차례예요`">
+    <div v-if="!secure && photoCount" class="flex flex-col gap-1 rounded-[14px] border-2 border-ink bg-lemon px-3.5 py-3 text-[13px] leading-normal" role="note">
+      <b class="text-sm">이 주소(http)에서는 브라우저가 사진 복사를 막아요</b>
+      <span>제목·글·태그는 복사돼요. 사진까지 한 조각씩 붙여넣으려면 https 주소로 열어 주세요. 이 Mac에서는 <a :href="secureUrl" class="font-bold">localhost:8080으로 열기</a>만 해도 돼요.</span>
+    </div>
     <div class="flex flex-wrap items-center gap-3">
       <PlatformTabs v-model="target" label="올릴 곳" />
       <!-- 창이 막혔거나 닫혔을 때 바로 여는 링크(브라우저가 새 창을 막아도 링크는 열린다) -->
@@ -348,7 +375,7 @@ const steps = computed(() => {
           type="button"
           :disabled="s.disabled"
           class="rounded-[10px] bg-ink px-3 py-2 text-[13px] font-bold whitespace-nowrap text-cream disabled:opacity-50 lg:rounded-xl lg:px-[18px] lg:py-[11px] lg:text-sm"
-          @click="s.run"
+          @click="runStep(s)"
         >
           {{ s.action }}
         </button>

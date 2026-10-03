@@ -43,6 +43,8 @@ infra/nginx     SPA 서빙 + /api·/sanctum·/up → app:9000 (fastcgi)
   휴대폰·다른 기기는 Tailscale로만: `tailscale serve --bg --http=8080 http://127.0.0.1:8080`(내 tailnet 기기만, 설정 유지)로
   `http://<기기이름>:8080`에 열고, 그 주소를 `.env`의 `SANCTUM_STATEFUL_DOMAINS`에 더한다. IP 주소로는 안 열린다(serve는 이름으로만 응답).
   끄기: `tailscale serve --http=8080 off`
+  **http 주소에서는 브라우저가 클립보드(특히 사진 복사)를 막는다.** 6단계 붙여넣기를 쓰려면 이 Mac은 `localhost:8080`, 다른 기기는 https가 필요하다:
+  Tailscale 관리 화면 DNS에서 HTTPS 인증서를 켜고 `tailscale serve --bg --https=443 http://127.0.0.1:8080` → `https://<기기>.<tailnet>.ts.net`을 SANCTUM_STATEFUL_DOMAINS에 더한다
   서버·공유 네트워크에 올릴 때는 `AUTH_AUTO_LOGIN=false`로 바꾸고 포트 바인딩을 다시 검토한다.
 - 인증은 Sanctum SPA 쿠키 세션(토큰 아님). 새 API는 `auth:sanctum` 그룹 안에 두고, 소유권은 Policy로 검사한다.
 - LLM은 OpenAI(GPT)와 Anthropic(Claude) 둘 다 지원한다. 모든 호출은 `app/llm/router.py`의 `LLMRouter`를 거친다

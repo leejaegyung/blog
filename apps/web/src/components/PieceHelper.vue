@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { copyImage, copyRich } from '@/lib/clipboard'
+import { canUseClipboardApi, ClipboardBlockedError, copyImage, copyRich } from '@/lib/clipboard'
 import { photoPngBlob, type PastePiece } from '@/lib/naverExport'
 
 /**
@@ -12,7 +12,9 @@ const emit = defineEmits<{ done: [] }>()
 
 const index = ref(0) // 다음에 복사할 조각
 const copied = ref<number | null>(null) // 마지막으로 복사한 조각
-const auto = ref(true)
+// 창에 돌아올 때 자동 복사는 https·localhost에서만 된다(http에서는 버튼을 눌러야 복사된다)
+const secure = canUseClipboardApi()
+const auto = ref(secure)
 const error = ref<string | null>(null)
 const busy = ref(false)
 const total = computed(() => props.pieces.length)
@@ -31,8 +33,11 @@ async function copyPiece(at: number) {
     copied.value = at
     index.value = at + 1
     if (at === total.value - 1) emit('done')
-  } catch {
-    error.value = '복사하지 못했어요. 이 창을 한 번 클릭한 뒤 다시 눌러 주세요.'
+  } catch (e) {
+    error.value =
+      e instanceof ClipboardBlockedError && piece.kind === 'photo'
+        ? '이 주소(http)에서는 브라우저가 사진 복사를 막아요. https 주소나 이 Mac의 localhost:8080으로 열어 주세요. 지금은 "사진 받기"로 받은 사진을 넣을 수 있어요.'
+        : '복사하지 못했어요. 이 창을 한 번 클릭한 뒤 다시 눌러 주세요.'
   } finally {
     busy.value = false
   }
@@ -100,7 +105,7 @@ onBeforeUnmount(() => {
       }}
     </button>
     <label class="flex items-center gap-2 text-[13px] font-semibold">
-      <input v-model="auto" type="checkbox" class="size-4 accent-ink" />
+      <input v-model="auto" type="checkbox" :disabled="!secure" class="size-4 accent-ink" />
       이 창으로 돌아오면 다음 조각 자동 복사 <span class="font-normal text-sub">(창 전환 ⌘` · 윈도우 Alt+Tab)</span>
     </label>
     <p v-if="copied !== null && !finished" role="status" class="m-0 rounded-xl bg-lilac px-3 py-2 text-[13px] font-semibold">

@@ -46,6 +46,8 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 vi.mock('@/lib/clipboard', () => ({
+  canUseClipboardApi: () => true,
+  ClipboardBlockedError: class extends Error {},
   copyImage: vi.fn<(png: Promise<Blob> | Blob) => Promise<void>>(),
   copyRich: vi.fn<(html: string, text: string) => Promise<void>>(),
   copyText: vi.fn<(text: string) => Promise<void>>(),

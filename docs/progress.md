@@ -612,9 +612,20 @@ API 크레딧이 없어 생성이 멈춰, 이 Mac에 로그인된 Claude Code(�
 - 기존 참고 글은 다시 읽어야 말투가 생긴다. 티스토리 맛집 카테고리는 다시 읽고 학습함(주 어미 ~니다 48%, 구어 낱말 넘·너무·진짜 등).
   네이버 카테고리 글은 본문을 지웠으므로 북마크 "Blog AI로 보내기"로 다시 보내야 말투가 잡힌다
 
+## 2026-10-03 수정: http 주소에서 복사가 전부 안 되던 문제
+
+- 원인: Tailscale 주소 `http://leejk-macbookpro:8080`은 https도 localhost도 아니라 브라우저가 새 클립보드 API를 막는다(navigator.clipboard 없음).
+  복사가 예외로 끝나 제목 복사 뒤 글쓰기 창도 열리지 않았다
+- `lib/clipboard.ts`: 새 API가 안 되면 복사 명령(copy 이벤트에 text/html·text/plain)으로 제목·글·태그를 복사. 사진(이미지)은 이 방식으로 안 돼
+  `ClipboardBlockedError` → 도우미가 이유와 대안을 알림. 제목 복사는 복사가 실패해도 글쓰기 창을 연다. 단계 버튼 실패는 화면에 알림
+- 6단계: http 주소이고 사진이 있으면 "이 주소에서는 사진 복사를 막아요 · localhost:8080으로 열기" 안내. 조각 도우미 자동 복사는 https·localhost에서만
+- 사진까지 쓰려면 https 주소가 필요: Tailscale 관리 화면에서 HTTPS 인증서를 켠 뒤 `tailscale serve --bg --https=443 http://127.0.0.1:8080`
+  (주소 `https://leejk-macbookpro.tail01cfec.ts.net`, `.env`의 SANCTUM_STATEFUL_DOMAINS에 추가). 2026-10-03 현재 인증서 꺼져 있음
+
 ## 다음 작업
 
 - 사용자: "둘 다"로 글 하나를 끝까지 써 보고 두 글이 충분히 다른지(겹침 %) 확인
+- 사용자: Tailscale HTTPS 인증서 켜기(그 뒤 https serve 설정) — 그전까지 이 Mac에서는 localhost:8080 사용
 - 사용자: 네이버 카테고리 글을 북마크로 다시 보내 말투 학습(또는 내 블로그 글로 "내 말투" 카테고리)
 - 사용자: 카카오 앱 카카오맵 사용 설정 ON → 3단계 장소 연결 확인
 - 사용자: 카카오 REST API 키 발급 → 관리 › 내 티스토리 블로그에 입력 → "연결 확인" → 티스토리 카테고리에서 "가져와 학습하기"
