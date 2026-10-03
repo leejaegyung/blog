@@ -373,7 +373,12 @@ describe('6 네이버에 올리기', () => {
     await button(wrapper, '제목 복사').trigger('click')
     await flushPromises()
     expect(open).toHaveBeenCalledWith('https://blog.naver.com/leejk4791?Redirect=Write&', '_blank', 'noopener')
-    expect(wrapper.text()).toContain('네이버 글쓰기를 열었어요')
+    expect(wrapper.text()).toContain('네이버 글쓰기를 새 탭으로 열었어요')
+    // 닫았거나 멈춘 창을 다시 열 수 있게, 제목 복사는 누를 때마다 글쓰기를 연다
+    await button(wrapper, '제목 복사').trigger('click')
+    await flushPromises()
+    expect(open).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('a[href="https://blog.naver.com/leejk4791?Redirect=Write&"]').text()).toContain('네이버 글쓰기 열기')
 
     await button(wrapper, '조각 붙여넣기').trigger('click')
     await flushPromises()

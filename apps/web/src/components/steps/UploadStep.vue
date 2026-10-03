@@ -107,20 +107,21 @@ async function prepare() {
   }
 }
 
-function openEditor() {
-  if (opened.value) return
+/** 글쓰기 창 열기. force가 아니면 이 화면에서 이미 연 적이 있을 때는 다시 열지 않는다(본문·조각 단계) */
+function openEditor(force = false) {
+  if (opened.value && !force) return
   window.open(writeUrl.value, '_blank', 'noopener')
   opened.value = true
 }
 
-/** 1. 제목 복사 — 처음 누르면 네이버 글쓰기도 연다(새 창은 누른 순간에만 열 수 있다) */
+/**
+ * 1. 제목 복사 — 누를 때마다 글쓰기 창도 연다(새 창은 누른 순간에만 열 수 있다).
+ * 열었던 창을 닫았거나 멈춰서 새로 열어야 할 때도 이 버튼으로 다시 시작한다
+ */
 async function copyTitle() {
   await copyText(active.value.title ?? '')
-  const first = !opened.value
-  openEditor()
-  status.value = first
-    ? `제목을 복사하고 ${label.value} 글쓰기를 열었어요. 제목 칸에 붙여넣으세요.${target.value === 'tistory' && !auth.tistoryHost ? ' (관리 › 블로그 연결에 티스토리 주소를 넣으면 내 블로그 글쓰기가 바로 열려요)' : ''}`
-    : `제목을 복사했어요. ${label.value} 제목 칸에 붙여넣으세요.`
+  openEditor(true)
+  status.value = `제목을 복사하고 ${label.value} 글쓰기를 새 탭으로 열었어요. 제목 칸에 붙여넣으세요.${target.value === 'tistory' && !auth.tistoryHost ? ' (관리 › 내 티스토리 블로그에 주소를 넣으면 내 블로그 글쓰기가 바로 열려요)' : ''}`
 }
 
 // 본문 복사의 평문에는 제목을 넣지 않는다. 편집기는 열리면 제목 칸에 커서가 있어서,
@@ -241,7 +242,7 @@ async function copyTags() {
 type UploadAction = { text: string; action: string; disabled: boolean; run: () => unknown }
 const steps = computed(() => {
   const list: UploadAction[] = [
-    { text: `제목을 복사해 ${label.value} 글쓰기 제목 칸에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
+    { text: `제목을 복사하고 ${label.value} 글쓰기를 새 탭으로 열어 제목 칸에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
     usePieces.value
       ? {
           text: `제목 아래 본문 칸을 클릭하고, 글과 사진 ${photoCount.value}장을 한 조각씩 붙여넣기` + (active.value.place ? ' · 끝에 📍 위치 포함' : ''),
@@ -280,7 +281,11 @@ const steps = computed(() => {
 
 <template>
   <StepLayout :step="6" :title="`${label}에\n올릴 차례예요`">
-    <PlatformTabs v-model="target" label="올릴 곳" />
+    <div class="flex flex-wrap items-center gap-3">
+      <PlatformTabs v-model="target" label="올릴 곳" />
+      <!-- 창이 막혔거나 닫혔을 때 바로 여는 링크(브라우저가 새 창을 막아도 링크는 열린다) -->
+      <a :href="writeUrl" target="_blank" rel="noopener noreferrer" class="text-[13px] font-bold" @click="opened = true">{{ label }} 글쓰기 열기 ↗</a>
+    </div>
 
     <!-- 동시에 올리기: 다른 플랫폼 탭은 그 플랫폼용으로 따로 쓴 짝 글을 올린다 -->
     <div v-if="sameCopy" class="flex flex-col gap-2.5 rounded-[18px] border-2 border-ink bg-lemon p-4 text-sm leading-normal" role="note">
