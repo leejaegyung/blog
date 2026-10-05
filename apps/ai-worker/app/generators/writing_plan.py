@@ -25,6 +25,8 @@ SLOT_FACT_HINTS: dict[str, tuple[str, list[str]]] = {
     "menu": ("메뉴 구성", ["메뉴"]),
 }
 
+# 높임: polite 존댓말, plain 반말, auto 참고 글 말투(voice)를 따른다
+Speech = Literal["auto", "polite", "plain"]
 Tone = Literal["natural", "expert", "friendly", "clean"]
 TONE_LABELS = {"natural": "자연스러운 후기", "expert": "전문 정보형", "friendly": "친근한 말투", "clean": "깔끔한 정보형"}
 

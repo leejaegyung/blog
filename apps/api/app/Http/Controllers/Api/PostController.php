@@ -62,9 +62,11 @@ class PostController extends Controller
         Gate::authorize('update', $post);
 
         DB::transaction(function () use ($request, $post) {
-            $post->update($request->safe()->except(['facts', 'content', 'places', 'mode']));
-            if ($request->has('mode')) {
-                $post->forceFill(['mode' => $request->validated('mode')])->save();
+            $post->update($request->safe()->except(['facts', 'content', 'places', 'mode', 'speech']));
+            foreach (['mode', 'speech'] as $setting) {
+                if ($request->has($setting)) {
+                    $post->forceFill([$setting => $request->validated($setting)])->save();
+                }
             }
             if ($request->has('places')) {
                 $places = collect($request->validated('places') ?? [])->map(fn ($place) => collect($place)->only(self::PLACE_FIELDS)->all())->values()->all();

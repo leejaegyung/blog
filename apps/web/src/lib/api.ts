@@ -245,6 +245,7 @@ export type Post = {
   // 글 성격: 사용자가 고른 값(null이면 자동)과 실제로 쓰는 값
   mode?: WritingMode | null
   writing_mode?: WritingMode
+  speech?: Speech | null
   // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
   twin_post_id?: number | null
   twin_of_post_id?: number | null
@@ -315,10 +316,13 @@ export const placeApi = {
 }
 
 export type WritingMode = 'info' | 'daily'
+// 높임: polite 존댓말 / plain 반말 (null이면 자동: 참고 글 말투를 따름)
+export type Speech = 'polite' | 'plain'
 
 export type PostInput = {
   places?: Place[]
   mode?: WritingMode | null
+  speech?: Speech | null
   title?: string | null
   tone?: Tone | null
   target_length?: number | null

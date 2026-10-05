@@ -7,12 +7,12 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.analyzers.exposure import merge_tags
-from app.generators.writing_plan import TONE_LABELS, FactInput, Tone
+from app.generators.writing_plan import TONE_LABELS, FactInput, Speech, Tone
 from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "blog-draft-v6"
+PROMPT_VERSION = "blog-draft-v7"
 LENGTH_TOLERANCE = (0.7, 1.4)
 
 # 입력 사실에 없으면 지어낸 것으로 의심하는 구체 정보
@@ -50,6 +50,7 @@ class DraftInput(BaseModel):
     twin: bool = False
     # info: 정보 전달 글, daily: 일상 기록(하루를 시간 순서로, 정보는 이야기 속에 지나가듯)
     mode: Literal["info", "daily"] = "info"
+    speech: Speech = "auto"
     keyword: str
     tone: Tone = "natural"
     target_length: int = 2500
@@ -95,6 +96,7 @@ def build_request(data: DraftInput) -> LLMRequest:
         "platform": data.platform,
         "twin": data.twin,
         "mode": data.mode,
+        "speech": data.speech,
         "voice": data.voice,
         "keyword": data.keyword,
         "tone": TONE_LABELS[data.tone],

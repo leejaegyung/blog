@@ -4,12 +4,12 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.generators.draft import DraftWarning, unsupported_specifics
-from app.generators.writing_plan import TONE_LABELS, FactInput, Tone
+from app.generators.writing_plan import TONE_LABELS, FactInput, Speech, Tone
 from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "paragraph-rewrite-v1"
+PROMPT_VERSION = "paragraph-rewrite-v2"
 
 Instruction = Literal["shorter", "longer", "natural", "rewrite"]
 
@@ -18,6 +18,7 @@ class RewriteInput(BaseModel):
     text: str
     instruction: Instruction
     tone: Tone = "natural"
+    speech: Speech = "auto"
     before: str | None = None
     after: str | None = None
     facts: list[FactInput] = []
@@ -33,6 +34,7 @@ def build_request(data: RewriteInput) -> LLMRequest:
         "paragraph": data.text,
         "request": data.instruction,
         "tone": TONE_LABELS[data.tone],
+        "speech": data.speech,
         "paragraph_before": data.before,
         "paragraph_after": data.after,
         "facts": [f.model_dump() for f in data.facts],

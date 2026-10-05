@@ -37,6 +37,7 @@ class PostResource extends JsonResource
             'places' => $this->places(),
             // 글 성격: 사용자가 고른 값(null이면 자동)과 실제로 쓰는 값
             'mode' => $this->mode,
+            'speech' => $this->speech,
             'writing_mode' => $this->whenLoaded('project', fn () => $this->writingMode()),
             'twin_post_id' => $this->twin_of_post_id ? null : $this->twin?->id,
             'tistory_published_at' => $this->tistory_published_at,

@@ -51,6 +51,9 @@ class Post extends Model
 
     public const MODE_DAILY = 'daily';
 
+    /** 높임: 존댓말·반말. null이면 자동(참고 글 말투를 따름) */
+    public const SPEECHES = ['polite', 'plain'];
+
     /** 카테고리·키워드 이름이 이런 말이면 일상 기록으로 쓴다 */
     private const DAILY_NAMES = '/일상|데일리|daily|일기|브이로그|vlog|하루|근황|주말 기록/iu';
 

@@ -30,7 +30,7 @@ def test_reference_title_shapes_are_aggregated() -> None:
 
 def test_plan_prompt_follows_reference_title_shapes_and_daily_mode() -> None:
     plan = load_prompt("writing-plan-v6")
-    draft = load_prompt("blog-draft-v6")
+    draft = load_prompt("blog-draft-v7")
     assert "shapes" in plan and "{키워드}" in plan
     assert "daily" in plan and "diary" in plan and "daily" in draft
 

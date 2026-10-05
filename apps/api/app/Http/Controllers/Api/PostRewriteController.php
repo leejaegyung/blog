@@ -30,6 +30,7 @@ class PostRewriteController extends Controller
             $result = $worker->rewriteParagraph([
                 ...$data,
                 'tone' => $post->tone?->value ?? 'natural',
+                'speech' => $post->speech ?? 'auto',
                 'facts' => $post->facts()->get(['fact_key', 'fact_value'])->toArray(),
                 'forbidden_claims' => $post->plan_json['forbidden_claims'] ?? [],
             ]);

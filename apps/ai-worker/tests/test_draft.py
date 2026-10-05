@@ -125,7 +125,7 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     body = call(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), payload)
 
     assert body["draft"]["blocks"][0] == {"type": "image", "text": None, "image_id": 1, "items": None}
-    assert body["prompt_version"] == "blog-draft-v6"
+    assert body["prompt_version"] == "blog-draft-v7"
     sent = json.loads(claude.requests[0].prompt)
     assert "title_candidates" not in sent["plan"]
     assert sent["tone"] == "친근한 말투"
@@ -139,6 +139,8 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     assert sent["twin"] is False and sent["platform"] == "naver"
     assert sent["voice"] is None
     assert sent["mode"] == "info"
+    assert sent["speech"] == "auto"
+    assert "반말" in claude.requests[0].system and "Never use ~요" in claude.requests[0].system
     # 사람처럼 쓰라는 지시와 피할 상투 표현이 프롬프트에 있다
     assert "Sound like a real blogger, not an AI" in claude.requests[0].system and "선사합니다" in claude.requests[0].system
 

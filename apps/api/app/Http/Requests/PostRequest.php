@@ -51,6 +51,8 @@ class PostRequest extends FormRequest
             // 편집기 저장: 블록 목록과 태그. 사진은 이 글의 것만
             // 글 성격: info 정보 전달 / daily 일상 기록. null이면 카테고리 이름으로 자동
             'mode' => ['sometimes', 'nullable', Rule::in([Post::MODE_INFO, Post::MODE_DAILY])],
+            // 높임: polite 존댓말 / plain 반말 / null 자동
+            'speech' => ['sometimes', 'nullable', Rule::in(Post::SPEECHES)],
             'content' => [$creating ? 'prohibited' : 'sometimes', 'array'],
             'content.blocks' => ['required_with:content', 'array', 'max:500'],
             'content.blocks.*.type' => ['required', Rule::in(PostContent::BLOCK_TYPES)],

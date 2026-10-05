@@ -54,7 +54,7 @@ def test_rewrite_endpoint() -> None:
 
     assert body["text"] == "런치 세트는 19,000원이었는데 가격 대비 만족스러웠어요."
     assert body["warnings"] == []
-    assert body["prompt_version"] == "paragraph-rewrite-v1"
+    assert body["prompt_version"] == "paragraph-rewrite-v2"
     sent = json.loads(claude.requests[0].prompt)
     assert (sent["request"], sent["tone"], sent["paragraph_before"]) == ("longer", "친근한 말투", "인계동 파스타집에 다녀왔어요.")
     assert claude.requests[0].max_tokens == 4000

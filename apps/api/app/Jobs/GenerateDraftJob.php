@@ -58,6 +58,8 @@ class GenerateDraftJob implements ShouldQueue
             'twin' => $post->twin_of_post_id !== null || $post->twin()->exists(),
             // 정보 전달 글인지 일상 기록인지(일상이면 하루 이야기처럼, 정보는 이야기 속에 지나가듯)
             'mode' => $post->writingMode(),
+            // 높임: 존댓말·반말(자동이면 참고 글 말투를 따른다)
+            'speech' => $post->speech ?? 'auto',
             'tone' => $post->tone?->value ?? 'natural',
             'target_length' => $post->target_length ?? 2500,
             'title' => $post->title ?: ($plan['title_candidates'][0] ?? ''),

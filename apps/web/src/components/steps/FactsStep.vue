@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { analysisApi, postApi, type Fact, type KeywordAnalysis, type Place, type Post, type Tone, type WritingMode } from '@/lib/api'
+import { analysisApi, postApi, type Fact, type KeywordAnalysis, type Place, type Post, type Speech, type Tone, type WritingMode } from '@/lib/api'
 import PlaceCard from '@/components/PlaceCard.vue'
 import { validationErrors } from '@/lib/http'
 import { TONE_LABELS } from '@/lib/flow'
@@ -44,6 +44,12 @@ const places = ref<Place[]>(props.post.places ?? [])
 const mode = ref<WritingMode | null>(props.post.mode ?? null)
 const autoMode = computed<WritingMode>(() => props.post.writing_mode ?? 'info')
 const MODE_LABEL: Record<WritingMode, string> = { info: '정보 전달', daily: '일상 기록' }
+const speech = ref<Speech | null>(props.post.speech ?? null)
+const SPEECH_OPTIONS: { value: Speech | null; label: string; hint: string }[] = [
+  { value: null, label: '자동', hint: '학습한 글 말투대로' },
+  { value: 'polite', label: '존댓말', hint: '~했어요' },
+  { value: 'plain', label: '반말', hint: '~했다 · ~했음' },
+]
 const tone = ref<Tone>(props.post.tone ?? 'natural')
 const length = ref(props.post.target_length ?? 2500)
 const analysis = ref<KeywordAnalysis | null>(null)
@@ -51,7 +57,7 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 const list = ref<HTMLElement | null>(null)
 
-const snapshot = () => JSON.stringify([rows.value.filter((r) => r.fact_key.trim() && r.fact_value.trim()), tone.value, length.value, places.value, mode.value])
+const snapshot = () => JSON.stringify([rows.value.filter((r) => r.fact_key.trim() && r.fact_value.trim()), tone.value, length.value, places.value, mode.value, speech.value])
 // 장소 찾기에 쓰는 알려줄 내용(값만)
 const factTexts = computed(() => rows.value.map((r) => r.fact_value))
 const initial = snapshot()
@@ -121,7 +127,7 @@ async function next() {
   if (props.post.plan && !dirty.value) return flow.go(4)
   busy.value = true
   try {
-    flow.update(await postApi.update(props.post.id, { facts, tone: tone.value, target_length: length.value, places: places.value, mode: mode.value }))
+    flow.update(await postApi.update(props.post.id, { facts, tone: tone.value, target_length: length.value, places: places.value, mode: mode.value, speech: speech.value }))
     flow.update(await postApi.autopilot(props.post.id, 'plan'))
     flow.go(4)
   } catch (e) {
@@ -218,6 +224,21 @@ onMounted(async () => {
             @click="tone = value as Tone"
           >
             {{ label }}
+          </button>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="높임">
+          <button
+            v-for="option in SPEECH_OPTIONS"
+            :key="option.value ?? 'auto'"
+            type="button"
+            role="radio"
+            :aria-checked="speech === option.value"
+            :class="speech === option.value ? 'border-ink bg-lilac' : 'border-line bg-white'"
+            class="flex flex-col items-center rounded-xl border-[1.5px] p-2 text-[13px] font-semibold lg:p-[9px] lg:text-sm"
+            @click="speech = option.value"
+          >
+            {{ option.label }}
+            <span class="text-[11px] font-normal text-sub">{{ option.hint }}</span>
           </button>
         </div>
       </fieldset>

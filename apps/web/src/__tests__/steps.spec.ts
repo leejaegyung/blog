@@ -198,6 +198,7 @@ describe('3 알려줄 내용', () => {
       target_length: 2500,
       places: [],
       mode: null,
+      speech: null,
     })
     expect(postApi.autopilot).toHaveBeenCalledWith(7, 'plan')
     expect(flow.go).toHaveBeenCalledWith(4)
@@ -257,11 +258,13 @@ describe('3 알려줄 내용', () => {
     expect((wrapper.get('input[aria-label="주소 2 내용"]').element as HTMLInputElement).value).toBe('서울 성동구 뚝섬로 273')
 
     await button(wrapper, '정보 전달').trigger('click')
+    await button(wrapper, '반말').trigger('click')
     await button(wrapper, '다음 · 글 계획 만들기').trigger('click')
     await flushPromises()
     const saved = vi.mocked(postApi.update).mock.calls[0]![1]
     expect(saved.places?.map((p) => p.name)).toEqual(['카시오 스토어 도산', '서울숲'])
     expect(saved.mode).toBe('info')
+    expect(saved.speech).toBe('plain')
   })
 
   it('비어 있으면 진행하지 않고, 계획이 있고 바뀐 게 없으면 다시 만들지 않는다', async () => {
