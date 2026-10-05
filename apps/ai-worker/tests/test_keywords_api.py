@@ -122,3 +122,20 @@ def test_platform_is_sent_to_the_prompt_and_guide() -> None:
 
     assert json.loads(claude.requests[0].prompt)["platform"] == "tistory"
     assert any("구글" in p for p in body["guide"]["principles"])
+
+
+def test_old_features_get_title_shapes_from_the_saved_title() -> None:
+    old = []
+    for doc, title in zip(DOCS[:2], ["[일상] 연휴때 내가 먹은 것들", "[일상] 주말에 다녀온 곳들"]):
+        data = doc.model_dump()
+        data["title"] = None  # 예전에 뽑아 제목 모양이 없는 특징
+        old.append({**data, "title_source": title})
+    app.dependency_overrides[get_router] = lambda: LLMRouter({}, [Target.parse("anthropic:claude-opus-5")])
+    try:
+        body = TestClient(app).post("/keywords/analyze", json={"keyword": "일상", "features": old}).json()
+    finally:
+        app.dependency_overrides.clear()
+
+    shapes = body["stats"]["title"]["shapes"]
+    assert shapes and all("{키워드}" in s["label"] or "[" in s["label"] for s in shapes)
+    assert "연휴" not in json.dumps(body["stats"], ensure_ascii=False)

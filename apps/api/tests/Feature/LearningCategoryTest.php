@@ -99,6 +99,21 @@ class LearningCategoryTest extends TestCase
             && $r['category'] === null);
     }
 
+    public function test_saved_titles_are_sent_so_old_features_get_title_shapes(): void
+    {
+        $category = $this->category('일상');
+        $this->reference($category, 'old')->update(['title' => '[일상] 연휴때 내가 먹은 것들']);
+        $fresh = $this->reference($category, 'new');
+        $fresh->update(['title' => '이미 모양이 있는 글']);
+        $fresh->features->update(['features_json' => [...$fresh->features->features_json, 'title' => ['shape' => '[{명사}] {키워드}']]]);
+        Http::fake(['*/keywords/analyze' => Http::response(['stats' => null, 'insight' => null, 'insight_error' => 'x', 'guide' => null, 'prompt_version' => 'v', 'generations' => []])]);
+
+        (new AnalyzeKeywordJob($category))->handle(app(AiWorkerClient::class), app(GenerationRecorder::class));
+
+        // 모양이 없는 예전 특징에만 저장해 둔 제목을 붙인다(본문은 보내지 않는다)
+        Http::assertSent(fn ($r) => collect($r['features'])->pluck('title_source', 'layout')->all() === ['old' => '[일상] 연휴때 내가 먹은 것들', 'new' => null]);
+    }
+
     public function test_keyword_hashtags_include_the_learning_categorys_hashtags(): void
     {
         $category = $this->category();

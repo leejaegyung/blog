@@ -155,6 +155,10 @@ def extract_hashtags(text: str) -> list[str]:
     return list(dict.fromkeys(tag for tag in tags if not tag.isdigit()))[:MAX_HASHTAGS]
 
 
+def title_features(title: str | None, keyword: str) -> TitleFeatures | None:
+    return _title(title, keyword)
+
+
 def _title(title: str | None, keyword: str) -> TitleFeatures | None:
     if not title:
         return None

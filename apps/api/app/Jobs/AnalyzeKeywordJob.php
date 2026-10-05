@@ -72,9 +72,10 @@ class AnalyzeKeywordJob implements ShouldQueue
             ->where('parse_status', ParseStatus::Parsed)
             ->with('features')
             ->get()
-            ->map(fn ($reference) => $reference->features)
-            ->filter(fn ($features) => $features?->analyzer_version === self::FEATURES_VERSION)
-            ->map(fn ($features) => collect($features->features_json)->except('extractor')->all())
+            ->filter(fn ($reference) => $reference->features?->analyzer_version === self::FEATURES_VERSION)
+            // 제목 모양이 없는 예전 특징이면 저장해 둔 제목을 같이 보내 모양만 다시 뽑게 한다(본문은 보내지 않는다)
+            ->map(fn ($reference) => collect($reference->features->features_json)->except('extractor')->all()
+                + (empty($reference->features->features_json['title']['shape']) && $reference->title ? ['title_source' => $reference->title] : []))
             ->values()
             ->all();
 

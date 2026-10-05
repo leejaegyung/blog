@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.analyzers.aggregate import KeywordStats, aggregate
 from app.analyzers.exposure import ExposureGuide, build_guide
-from app.analyzers.features import DocumentFeatures
+from app.analyzers.features import DocumentFeatures, title_features
 from app.api.llm import GenerationMeta, generation_meta
 from app.generators.keyword_insight import PROMPT_VERSION, KeywordInsight, generate_insight
 from app.llm.factory import get_router
@@ -15,10 +15,15 @@ from app.llm.types import Platform, Target
 router = APIRouter(prefix="/keywords")
 
 
+class AnalyzeFeature(DocumentFeatures):
+    # 제목 모양이 없는 예전 특징이면 저장해 둔 제목으로 모양만 다시 뽑는다(본문은 필요 없고 쓰지도 않는다)
+    title_source: str | None = None
+
+
 class AnalyzeRequest(BaseModel):
     keyword: str
     category: str | None = None
-    features: list[DocumentFeatures]
+    features: list[AnalyzeFeature]
     targets: list[str] | None = None
     platform: Platform = "naver"
 
@@ -42,6 +47,9 @@ async def analyze(body: AnalyzeRequest, llm: Annotated[LLMRouter, Depends(get_ro
         raise HTTPException(status_code=422, detail=str(error)) from error
 
     keyword = " ".join(body.keyword.split())
+    for feature in body.features:
+        if feature.title_source and (feature.title is None or feature.title.shape is None):
+            feature.title = title_features(feature.title_source, keyword)
     stats = aggregate(body.features, keyword)
 
     try:

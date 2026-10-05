@@ -1,4 +1,4 @@
-"""제목의 "모양"만 뽑는다: 고유한 이름·내용은 자리표({키워드}·{명사}·{숫자}·{날짜})로 바꾸고,
+"""제목의 "모양"만 뽑는다: 고유한 이름·내용은 자리표({키워드}·{명사}·{동사}·{숫자}·{날짜})로 바꾸고,
 괄호·구분 기호·블로그 제목에 흔한 낱말(후기·내돈내산·일상 …)과 말 끝(~한 날)만 남긴다. 원래 제목 글은 남기지 않는다.
 """
 
@@ -19,6 +19,10 @@ TITLE_WORDS = {
     "첫", "재방문", "단골", "날", "오늘", "강추", "인생", "기념", "선물", "구경", "산책", "나들이",
 }
 NOUN_TAGS = {"NNG", "NNP", "NNB", "NR", "SL", "SH", "XR"}
+VERB = "{동사}"
+# 동사·형용사도 자리표로 바꾼다(원래 제목 문장이 남지 않게). 블로그 제목에 흔한 동사만 남긴다
+VERB_TAGS = {"VV", "VA", "VX", "VCN", "XSV", "XSA"}
+TITLE_VERBS = {"다녀오", "먹", "가", "보", "하", "사", "마시", "걷", "놀", "쉬", "만나", "찾", "들르", "보내", "즐기", "추천하"}
 KEEP_SYMBOLS = re.compile(r"^[\[\]()<>{}【】「」『』|,.·:;~!?\-–—/+&#*\s]+$")
 
 
@@ -48,8 +52,10 @@ def _words(text: str) -> str:
         surface = text[start:end]
         if token.tag == "SN":
             out.append(NUMBER)
-        elif token.tag in NOUN_TAGS:
+        elif token.tag.split("-")[0] in NOUN_TAGS:
             out.append(surface if surface.lower() in TITLE_WORDS else NOUN)
+        elif token.tag.split("-")[0] in VERB_TAGS:  # 불규칙 활용은 VV-I·VA-R처럼 붙는다
+            out.append(surface if token.form in TITLE_VERBS else VERB)
         else:
             # 조사·어미·기호·흔한 동사는 그대로 둔다(제목의 말투와 틀)
             out.append(surface)
@@ -65,6 +71,7 @@ def title_shape(title: str, keyword: str) -> str:
     # 이어진 자리표·날짜 정리: "{명사} {명사}" → "{명사}", "{숫자}/{숫자}/{숫자}" → "{날짜}"
     shape = re.sub(r"\{숫자\}(?:\s*[./년월일-]\s*\{숫자\}){1,2}\s*[일.]?", DATE, shape)
     shape = re.sub(r"\{명사\}(?:\s*\{명사\})+", NOUN, shape)
+    shape = re.sub(r"\{동사\}(?:\s*\{동사\})+", VERB, shape)
     shape = re.sub(r"\{명사\}(?:의|과|와)?\s*\{명사\}", NOUN, shape)
     return re.sub(r"\s+", " ", shape).strip()
 
