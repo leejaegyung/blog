@@ -22,18 +22,33 @@ class PostExporter
         }
     }
 
+    /**
+     * 네이버 편집기(스마트에디터 ONE)는 붙여넣은 h2·ul·blockquote와 문단 사이 여백을 버리고 일반 글로 만든다.
+     * 그래서 네이버용은 소제목을 굵고 큰 글씨(편집기가 붙여넣기에서 지키는 서식)로, 목록은 "•" 줄로, 문단 사이에는 빈 줄을 넣는다.
+     */
+    private function forNaver(): bool
+    {
+        return $this->post->platform !== Platform::TISTORY;
+    }
+
     public function html(): string
     {
+        $naver = $this->forNaver();
         $html = [];
         foreach ($this->blocks() as $block) {
-            $html[] = match ($block['type']) {
-                'heading' => '<h2>'.$this->escape($block['text'] ?? '').'</h2>',
-                'paragraph' => '<p>'.$this->lines($block['text'] ?? '').'</p>',
-                'list' => '<ul>'.implode('', array_map(fn ($item) => '<li>'.$this->escape($item).'</li>', $block['items'] ?? [])).'</ul>',
-                'quote' => '<blockquote><p>'.$this->lines($block['text'] ?? '').'</p></blockquote>',
-                // data-photo: 화면에서 이 자리를 실제 사진(data URI)으로 바꿔 한 번에 붙여넣게 한다
-                'image' => '<p data-photo="'.($this->numbers[$block['image_id']] ?? 0).'"><strong>'.$this->marker($block['image_id']).'</strong></p>',
-                default => '',
+            $html[] = match (true) {
+                $naver && $block['type'] === 'heading' => '<p><span style="font-size:19px;"><b>'.$this->escape($block['text'] ?? '').'</b></span></p>',
+                $naver && $block['type'] === 'list' => '<p>'.implode('<br>', array_map(fn ($item) => '• '.$this->escape($item), $block['items'] ?? [])).'</p>',
+                $naver && $block['type'] === 'quote' => '<p><b>“'.$this->lines($block['text'] ?? '').'”</b></p>',
+                default => match ($block['type']) {
+                    'heading' => '<h2>'.$this->escape($block['text'] ?? '').'</h2>',
+                    'paragraph' => '<p>'.$this->lines($block['text'] ?? '').'</p>',
+                    'list' => '<ul>'.implode('', array_map(fn ($item) => '<li>'.$this->escape($item).'</li>', $block['items'] ?? [])).'</ul>',
+                    'quote' => '<blockquote><p>'.$this->lines($block['text'] ?? '').'</p></blockquote>',
+                    // data-photo: 화면에서 이 자리를 실제 사진으로 바꾸거나 조각 붙여넣기에서 사진 한 장으로 나눈다
+                    'image' => '<p data-photo="'.($this->numbers[$block['image_id']] ?? 0).'"><strong>'.$this->marker($block['image_id']).'</strong></p>',
+                    default => '',
+                },
             };
         }
 
@@ -53,7 +68,8 @@ class PostExporter
             $html[] = '<p>'.$this->escape($tags).'</p>';
         }
 
-        return implode("\n", $html);
+        // 네이버는 붙여넣으면 문단 여백이 사라져 블록 사이에 빈 줄을 넣는다
+        return implode($naver ? "\n<p><br></p>\n" : "\n", $html);
     }
 
     public function text(): string

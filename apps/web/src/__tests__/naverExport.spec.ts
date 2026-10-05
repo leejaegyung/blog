@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPasteHtml } from '@/lib/naverExport'
+import { buildPasteHtml, splitPieces } from '@/lib/naverExport'
 import type { ExportResult } from '@/lib/api'
 
 const RESULT: ExportResult = {
@@ -32,5 +32,18 @@ describe('buildPasteHtml', () => {
     expect(embedded).toBe(1)
     expect(html).toContain('<strong>[사진 2]</strong>')
     expect(html).not.toContain('[사진 1]')
+  })
+})
+
+describe('한 조각씩 나누기', () => {
+  it('사진 사이 글은 한 묶음, 사진은 한 장씩, 빈 줄만 있는 조각은 만들지 않는다', () => {
+    const pieces = splitPieces({
+      html: ['<p>첫 글</p>', '<p><br></p>', '<p data-photo="1"><strong>[사진 1]</strong></p>', '<p><br></p>', '<p data-photo="2"><strong>[사진 2]</strong></p>', '<p><br></p>', '<p><span style="font-size:19px;"><b>소제목</b></span></p>'].join('\n'),
+      text: '', tags: [], warnings: [],
+      photos: [{ number: 1, image_id: 5, filename: '01.jpg', url: '/p/5' }, { number: 2, image_id: 6, filename: '02.jpg', url: '/p/6' }],
+    })
+
+    expect(pieces.map((p) => p.kind)).toEqual(['text', 'photo', 'photo', 'text'])
+    expect(pieces[3]).toMatchObject({ kind: 'text', html: '<p><br></p>\n<p><span style="font-size:19px;"><b>소제목</b></span></p>' })
   })
 })

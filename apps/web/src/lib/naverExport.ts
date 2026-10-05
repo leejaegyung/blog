@@ -61,7 +61,11 @@ export function splitPieces(result: ExportResult): PastePiece[] {
   const pieces: PastePiece[] = []
   let buffer: Element[] = []
   const flush = () => {
-    if (!buffer.length) return
+    // 사진 사이에 빈 줄만 있으면 조각을 만들지 않는다(네이버용 내보내기는 블록 사이에 빈 줄을 넣는다)
+    if (!buffer.some((el) => (el.textContent ?? '').trim())) {
+      buffer = []
+      return
+    }
     const text = buffer.map((el) => (el as HTMLElement).innerText ?? el.textContent ?? '').join('\n\n').trim()
     pieces.push({
       kind: 'text',

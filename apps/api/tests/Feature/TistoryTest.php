@@ -165,7 +165,7 @@ class TistoryTest extends TestCase
 
         // 네이버에도 올리려고 네이버 탭에서 만들면 본문 끝에 해시태그가 들어간다(글의 올릴 곳은 그대로)
         $this->actingAs($post->user)->postJson("/api/posts/{$post->id}/export", ['platform' => 'naver'])
-            ->assertJsonPath('data.html', "<p>본문</p>\n<p>#파스타 #수원</p>");
+            ->assertJsonPath('data.html', "<p>본문</p>\n<p><br></p>\n<p>#파스타 #수원</p>");
         $this->assertSame('tistory', $post->refresh()->platform);
 
         $this->actingAs($post->user)->postJson("/api/posts/{$post->id}/publish", ['published_url' => 'https://myblog.tistory.com/7'])

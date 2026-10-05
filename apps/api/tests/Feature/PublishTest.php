@@ -47,15 +47,20 @@ class PublishTest extends TestCase
     {
         $response = $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export")->assertOk();
 
-        $this->assertSame(implode("\n", [
+        // 네이버용: 소제목은 굵고 큰 글씨, 목록은 "•" 줄, 블록 사이 빈 줄(편집기가 h2·ul·여백을 버린다)
+        $this->assertSame(implode("\n<p><br></p>\n", [
             '<p>첫 줄<br>둘째 줄 &amp; &lt;b&gt;태그&lt;/b&gt;</p>',
             '<p data-photo="1"><strong>[사진 1]</strong></p>',
-            '<h2>메뉴</h2>',
-            '<ul><li>봉골레</li><li>크림</li></ul>',
+            '<p><span style="font-size:19px;"><b>메뉴</b></span></p>',
+            '<p>• 봉골레<br>• 크림</p>',
             '<p data-photo="2"><strong>[사진 2]</strong></p>',
-            '<blockquote><p>또 갈래요</p></blockquote>',
+            '<p><b>“또 갈래요”</b></p>',
             '<p>#인계동파스타 #수원맛집</p>',
         ]), $response->json('data.html'));
+
+        // 티스토리용은 그대로 h2·ul·blockquote
+        $tistory = $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false, 'platform' => 'tistory'])->json('data.html');
+        $this->assertStringContainsString("<h2>메뉴</h2>\n<ul><li>봉골레</li><li>크림</li></ul>", $tistory);
         $this->assertSame("인계동 파스타 <후기>\n\n첫 줄\n둘째 줄 & <b>태그</b>\n\n[사진 1]\n\n메뉴\n\n- 봉골레\n- 크림\n\n[사진 2]\n\n또 갈래요\n\n#인계동파스타 #수원맛집", $response->json('data.text'));
         $this->assertSame([[1, $this->first->id, '01.jpg'], [2, $this->second->id, '02.jpg']],
             collect($response->json('data.photos'))->map(fn ($p) => [$p['number'], $p['image_id'], $p['filename']])->all());
@@ -74,8 +79,8 @@ class PublishTest extends TestCase
 
         $data = $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->json('data');
 
-        $this->assertStringEndsWith(implode("\n", [
-            '<blockquote><p>또 갈래요</p></blockquote>',
+        $this->assertStringEndsWith(implode("\n<p><br></p>\n", [
+            '<p><b>“또 갈래요”</b></p>',
             '<p><strong>📍 위치</strong><br>파스타 &lt;인계&gt;<br>경기 수원시 팔달구 인계로 1<br>전화 031-000-0000<br>지도: <a href="https://naver.me/abc?x=1&amp;y=2">https://naver.me/abc?x=1&amp;y=2</a></p>',
             '<p>#인계동파스타 #수원맛집</p>',
         ]), $data['html']);
