@@ -53,6 +53,8 @@ class GeneratePlanJob implements ShouldQueue
             'platform' => $post->platform,
             // 같은 경험을 다른 플랫폼에도 따로 올린다 → 서로 다르게 쓴다
             'twin' => $post->twin_of_post_id !== null || $post->twin()->exists(),
+            // 정보 전달 글인지 일상 기록인지(일상이면 하루 이야기처럼, 정보는 이야기 속에 지나가듯)
+            'mode' => $post->writingMode(),
             'tone' => $post->tone?->value ?? 'natural',
             'target_length' => $post->target_length ?? 2500,
             'facts' => $post->facts->map->only(['fact_key', 'fact_value'])->values()->all(),

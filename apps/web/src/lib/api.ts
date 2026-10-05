@@ -241,7 +241,10 @@ export type Post = {
   published_at: string | null
   tistory_url?: string | null
   tistory_published_at?: string | null
-  place?: Place | null
+  places?: Place[]
+  // 글 성격: 사용자가 고른 값(null이면 자동)과 실제로 쓰는 값
+  mode?: WritingMode | null
+  writing_mode?: WritingMode
   // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
   twin_post_id?: number | null
   twin_of_post_id?: number | null
@@ -296,7 +299,14 @@ export type ParsedMapInput = {
   short: boolean
 }
 
+export type DetectedPlace = Place & { query: string }
+
 export const placeApi = {
+  /** 알려줄 내용 속 장소 이름을 찾아 카카오 로컬로 확인한다(near: 이미 연결한 장소 근처부터, exclude: 이미 연결한 카카오 id) */
+  async detect(texts: string[], near?: { lat: number; lng: number } | null, exclude: string[] = []) {
+    const { data } = await http.post<{ data: DetectedPlace[]; candidates: string[] }>('/places/detect', { texts, near: near ?? undefined, exclude })
+    return data
+  },
   /** 지도 링크(네이버·구글·카카오)나 가게 이름으로 장소 후보를 찾는다. 링크는 열지 않고 글자에서 이름·좌표만 읽는다 */
   async lookup(input: string) {
     const { data } = await http.post<{ data: Place[]; parsed: ParsedMapInput }>('/places/lookup', { input })
@@ -304,8 +314,11 @@ export const placeApi = {
   },
 }
 
+export type WritingMode = 'info' | 'daily'
+
 export type PostInput = {
-  place?: Place | null
+  places?: Place[]
+  mode?: WritingMode | null
   title?: string | null
   tone?: Tone | null
   target_length?: number | null

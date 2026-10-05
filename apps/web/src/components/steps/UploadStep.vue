@@ -268,7 +268,7 @@ const steps = computed(() => {
     { text: `제목을 복사하고 ${label.value} 글쓰기를 새 탭으로 열어 제목 칸에 붙여넣기`, action: '제목 복사', disabled: false, run: copyTitle },
     usePieces.value
       ? {
-          text: `제목 아래 본문 칸을 클릭하고, 글과 사진 ${photoCount.value}장을 한 조각씩 붙여넣기` + (active.value.place ? ' · 끝에 📍 위치 포함' : ''),
+          text: `제목 아래 본문 칸을 클릭하고, 글과 사진 ${photoCount.value}장을 한 조각씩 붙여넣기` + (active.value.places?.length ? ' · 끝에 📍 위치 포함' : ''),
           action: ready.value ? '조각 붙여넣기' : '준비 중…',
           disabled: !ready.value,
           run: openPieces,
@@ -277,7 +277,7 @@ const steps = computed(() => {
           text:
             (photoCount.value
               ? `제목 아래 본문 칸을 클릭하고 붙여넣기 — 사진 ${photoCount.value}장도 함께 들어가요`
-              : '제목 아래 본문 칸을 클릭하고 붙여넣기') + (active.value.place ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
+              : '제목 아래 본문 칸을 클릭하고 붙여넣기') + (active.value.places?.length ? ' · 끝에 📍 위치·지도 링크 포함' : ''),
           action: ready.value ? '본문 복사' : '준비 중…',
           disabled: !ready.value,
           run: copyBody,

@@ -34,7 +34,10 @@ class PostResource extends JsonResource
             // 짝 글: 같은 경험을 다른 플랫폼에 따로 쓴 글(원래 글이면 twin_post_id, 짝 글이면 twin_of_post_id)
             'twin_of_post_id' => $this->twin_of_post_id,
             // 3단계에서 연결한 장소(지도 링크 + 카카오 로컬로 확인한 정보)
-            'place' => $this->place_json,
+            'places' => $this->places(),
+            // 글 성격: 사용자가 고른 값(null이면 자동)과 실제로 쓰는 값
+            'mode' => $this->mode,
+            'writing_mode' => $this->whenLoaded('project', fn () => $this->writingMode()),
             'twin_post_id' => $this->twin_of_post_id ? null : $this->twin?->id,
             'tistory_published_at' => $this->tistory_published_at,
             'published_at' => $this->published_at,

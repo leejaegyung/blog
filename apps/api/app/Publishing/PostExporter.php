@@ -37,9 +37,9 @@ class PostExporter
             };
         }
 
-        // 3단계에서 연결한 장소: 본문 끝(해시태그 앞)에 위치 안내
-        if ($place = $this->place()) {
-            $lines = ['<strong>📍 위치</strong>', ...array_map(fn ($line) => $this->escape($line), $place['lines'])];
+        // 3단계에서 연결한 장소: 본문 끝(해시태그 앞)에 위치 안내(여러 곳이면 하나씩)
+        foreach ($this->places() as $place) {
+            $lines = ['<strong>📍 '.$this->escape($place['label']).'</strong>', ...array_map(fn ($line) => $this->escape($line), $place['lines'])];
             if ($place['url']) {
                 $url = $this->escape($place['url']);
                 $lines[] = "지도: <a href=\"{$url}\">{$url}</a>";
@@ -66,8 +66,8 @@ class PostExporter
                 default => $block['text'] ?? '',
             };
         }
-        if ($place = $this->place()) {
-            $parts[] = implode("\n", ['📍 위치', ...$place['lines'], ...($place['url'] ? ['지도: '.$place['url']] : [])]);
+        foreach ($this->places() as $place) {
+            $parts[] = implode("\n", ['📍 '.$place['label'], ...$place['lines'], ...($place['url'] ? ['지도: '.$place['url']] : [])]);
         }
         $parts[] = $this->bodyTags();
 
@@ -117,28 +117,29 @@ class PostExporter
     }
 
     /**
-     * 연결한 장소의 안내 줄(이름·주소·전화)과 지도 링크. 지도 링크는 붙여넣은 링크, 없으면 카카오맵.
+     * 연결한 장소마다 안내 줄(이름·주소·전화)과 지도 링크. 지도 링크는 붙여넣은 링크, 없으면 카카오맵.
+     * 장소가 하나면 "위치", 여러 곳이면 "위치 1"·"위치 2".
      *
-     * @return array{lines: list<string>, url: ?string}|null
+     * @return list<array{label: string, lines: list<string>, url: ?string}>
      */
-    private function place(): ?array
+    private function places(): array
     {
-        $place = $this->post->place_json;
-        if (! $place) {
-            return null;
+        $result = [];
+        foreach ($this->post->places() as $place) {
+            $lines = array_values(array_filter([
+                $place['name'] ?? null,
+                ($place['road_address'] ?? null) ?: ($place['address'] ?? null),
+                isset($place['phone']) && $place['phone'] ? '전화 '.$place['phone'] : null,
+            ]));
+            $url = collect([$place['map_url'] ?? null, $place['kakao_url'] ?? null])
+                ->first(fn ($u) => is_string($u) && preg_match('#^https?://#i', $u));
+            if ($lines !== [] || $url) {
+                $result[] = ['lines' => $lines, 'url' => $url];
+            }
         }
-        $lines = array_values(array_filter([
-            $place['name'] ?? null,
-            ($place['road_address'] ?? null) ?: ($place['address'] ?? null),
-            isset($place['phone']) && $place['phone'] ? '전화 '.$place['phone'] : null,
-        ]));
-        $url = collect([$place['map_url'] ?? null, $place['kakao_url'] ?? null])
-            ->first(fn ($u) => is_string($u) && preg_match('#^https?://#i', $u));
-        if ($lines === [] && ! $url) {
-            return null;
-        }
+        $many = count($result) > 1;
 
-        return ['lines' => $lines, 'url' => $url];
+        return array_map(fn ($place, $i) => ['label' => $many ? '위치 '.($i + 1) : '위치', ...$place], $result, array_keys($result));
     }
 
     private function marker(int $imageId): string

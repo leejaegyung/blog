@@ -10,7 +10,7 @@ from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "writing-plan-v5"
+PROMPT_VERSION = "writing-plan-v6"
 
 # 참고자료의 이 비율 이상이 다루는 정보를 사용자가 주지 않았으면 단정 금지로 추가한다
 EXPECTED_SLOT_SHARE = 0.5
@@ -52,6 +52,8 @@ class PlanInput(BaseModel):
     platform: Platform = "naver"
     # 같은 경험을 다른 플랫폼에도 따로 올린다(중복 문서로 보이지 않게 다르게 쓴다)
     twin: bool = False
+    # info: 정보 전달 글, daily: 일상 기록(하루를 시간 순서로, 정보는 이야기 속에 지나가듯)
+    mode: Literal["info", "daily"] = "info"
     keyword: str
     category: str | None = None
     tone: Tone = "natural"
@@ -127,6 +129,7 @@ def build_request(data: PlanInput) -> LLMRequest:
     payload = {
         "platform": data.platform,
         "twin": data.twin,
+        "mode": data.mode,
         "keyword": data.keyword,
         "category": data.category,
         "tone": TONE_LABELS[data.tone],

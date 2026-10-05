@@ -1,23 +1,31 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { placeApi, type ParsedMapInput, type Place } from '@/lib/api'
+import { placeApi, type DetectedPlace, type ParsedMapInput, type Place } from '@/lib/api'
 import { validationErrors } from '@/lib/http'
 
 /**
- * 장소 연결: 네이버·구글·카카오 지도 링크나 가게 이름을 넣으면 카카오 로컬(공식 API)로 장소를 찾아 고르게 한다.
+ * 장소 연결(여러 곳): 네이버·구글·카카오 지도 링크나 가게 이름으로 찾거나, 알려줄 내용 속 장소 이름을 찾아 카카오 로컬(공식 API)로 확인한다.
  * 고른 장소의 이름·주소·연락처·업종은 "알려줄 내용"에 채워져 사용자가 확인·수정한다(사실로만 쓴다).
  */
-const model = defineModel<Place | null>({ required: true })
-const emit = defineEmits<{ chosen: [place: Place] }>()
+const model = defineModel<Place[]>({ required: true })
+const props = defineProps<{ texts: string[] }>()
+const emit = defineEmits<{ chosen: [place: Place, index: number] }>()
 
+const MAX = 10
 const SOURCE_LABEL: Record<string, string> = { naver: '네이버 지도', google: '구글 지도', kakao: '카카오맵', other: '링크', text: '이름' }
 const input = ref('')
 const busy = ref(false)
 const error = ref<string | null>(null)
 const candidates = ref<Place[] | null>(null)
 const parsed = ref<ParsedMapInput | null>(null)
-const editing = ref(model.value === null)
+const adding = ref(model.value.length === 0)
+const detecting = ref(false)
+const detected = ref<DetectedPlace[] | null>(null)
+const detectMessage = ref<string | null>(null)
+
+const linkedIds = computed(() => model.value.map((p) => p.kakao_id).filter((id): id is string => !!id))
+const anchor = computed(() => model.value.find((p) => p.lat !== null && p.lng !== null) ?? null)
 
 async function lookup() {
   busy.value = true
@@ -35,43 +43,76 @@ async function lookup() {
   }
 }
 
-function choose(place: Place) {
-  const chosen = { ...place, map_url: parsed.value?.url ?? null, source: parsed.value?.source ?? 'text' }
-  model.value = chosen
-  emit('chosen', chosen)
-  candidates.value = null
-  input.value = ''
-  editing.value = false
+function add(place: Place) {
+  if (place.kakao_id && linkedIds.value.includes(place.kakao_id)) return
+  // 새 값은 부모를 거쳐 돌아오므로 순서는 넣기 전에 정한다
+  const index = model.value.length
+  model.value = [...model.value, place]
+  emit('chosen', place, index)
 }
 
-function clear() {
-  model.value = null
-  editing.value = true
+function choose(place: Place) {
+  add({ ...place, map_url: parsed.value?.url ?? null, source: parsed.value?.source ?? 'text' })
+  candidates.value = null
+  input.value = ''
+  adding.value = false
 }
+
+function remove(index: number) {
+  model.value = model.value.filter((_, i) => i !== index)
+  if (!model.value.length) adding.value = true
+}
+
+/** 알려줄 내용에 적은 장소 이름(예: 카시오 도산점, 서울숲)을 찾아 후보로 보여 준다 */
+async function detect() {
+  detecting.value = true
+  detectMessage.value = null
+  detected.value = null
+  try {
+    const anchorPlace = anchor.value
+    const result = await placeApi.detect(
+      props.texts.filter((t) => t.trim()),
+      anchorPlace ? { lat: anchorPlace.lat!, lng: anchorPlace.lng! } : null,
+      linkedIds.value,
+    )
+    detected.value = result.data
+    if (!result.data.length) detectMessage.value = '알려줄 내용에서 새로 찾은 장소가 없어요. 위 칸에 지도 링크나 가게 이름을 넣어 보세요.'
+  } catch (e) {
+    detectMessage.value = Object.values(validationErrors(e) ?? {})[0]?.[0] ?? '장소를 찾지 못했어요.'
+  } finally {
+    detecting.value = false
+  }
+}
+
+function addDetected(place: DetectedPlace) {
+  const rest: Place & { query?: string } = { ...place }
+  delete rest.query
+  add({ ...rest, source: 'text', map_url: null })
+  detected.value = detected.value?.filter((p) => p.kakao_id !== place.kakao_id) ?? null
+}
+
+const distance = (m: number) => (m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`)
 </script>
 
 <template>
   <section class="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-line bg-white p-4">
-    <div class="flex items-center justify-between gap-2">
-      <span class="text-sm font-bold">장소 연결 <span class="font-medium text-sub">(선택 · 지도 링크로 정확한 이름·주소를 채워요)</span></span>
-    </div>
+    <span class="text-sm font-bold">장소 연결 <span class="font-medium text-sub">(선택 · 여러 곳 가능 · 정확한 이름·주소를 채워요)</span></span>
 
-    <div v-if="model && !editing" class="flex flex-col gap-1 rounded-[14px] bg-lilac-soft px-3.5 py-3 text-sm">
-      <b>{{ model.name ?? '고른 위치' }}</b>
-      <span v-if="model.category" class="text-xs text-sub">{{ model.category }}</span>
-      <span>{{ model.road_address ?? model.address }}</span>
-      <span v-if="model.phone" class="text-xs">{{ model.phone }}</span>
-      <div class="mt-1 flex flex-wrap gap-3 text-xs">
-        <a v-if="model.map_url" :href="model.map_url" target="_blank" rel="noopener noreferrer" class="font-bold">
-          {{ SOURCE_LABEL[model.source ?? 'other'] }} 열기 ↗
-        </a>
-        <a v-else-if="model.kakao_url" :href="model.kakao_url" target="_blank" rel="noopener noreferrer" class="font-bold">카카오맵 열기 ↗</a>
-        <button type="button" class="underline" @click="editing = true">바꾸기</button>
-        <button type="button" class="text-sub underline" @click="clear">연결 해제</button>
-      </div>
-    </div>
+    <ul v-if="model.length" class="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="연결한 장소">
+      <li v-for="(place, i) in model" :key="place.kakao_id ?? i" class="flex items-start gap-3 rounded-[14px] bg-lilac-soft px-3.5 py-2.5 text-sm">
+        <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-cream">{{ i + 1 }}</span>
+        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <b class="truncate">{{ place.name ?? '고른 위치' }}</b>
+          <span class="truncate text-xs text-sub">{{ [place.category, place.road_address ?? place.address, place.phone].filter(Boolean).join(' · ') }}</span>
+          <a v-if="place.map_url || place.kakao_url" :href="(place.map_url ?? place.kakao_url)!" target="_blank" rel="noopener noreferrer" class="self-start text-xs font-bold">
+            {{ place.map_url ? SOURCE_LABEL[place.source ?? 'other'] : '카카오맵' }} 열기 ↗
+          </a>
+        </span>
+        <button type="button" :aria-label="`${place.name ?? '장소'} 연결 해제`" class="text-xs text-sub underline" @click="remove(i)">빼기</button>
+      </li>
+    </ul>
 
-    <form v-else class="flex flex-col gap-2" @submit.prevent="lookup">
+    <form v-if="adding" class="flex flex-col gap-2" @submit.prevent="lookup">
       <div class="flex flex-col gap-2 rounded-[14px] border-[1.5px] border-ink p-1.5 sm:flex-row sm:items-center sm:pl-3.5">
         <!-- 지도 앱 "공유 → 복사"는 여러 줄(이름·주소·링크)이라 줄바꿈을 살리는 칸을 쓴다. Enter로 찾기, Shift+Enter 줄바꿈 -->
         <textarea
@@ -86,9 +127,7 @@ function clear() {
           {{ busy ? '찾는 중…' : '장소 찾기' }}
         </button>
       </div>
-      <span class="text-xs leading-normal text-sub">
-        링크는 열어 보지 않고, 링크·글에 적힌 이름과 위치로 카카오 장소 검색에서 확인해요.
-      </span>
+      <span class="text-xs leading-normal text-sub">링크는 열어 보지 않고, 링크·글에 적힌 이름과 위치로 카카오 장소 검색에서 확인해요.</span>
       <details class="text-xs leading-normal text-sub">
         <summary class="cursor-pointer font-bold text-ink">네이버 지도에서 가져오는 법</summary>
         <ol class="mt-1.5 mb-0 flex flex-col gap-1 pl-4">
@@ -98,8 +137,27 @@ function clear() {
           <li>체인점은 지점까지 적으면 정확해요(예: 파스타인계 인계점).</li>
         </ol>
       </details>
-      <button v-if="model" type="button" class="self-start text-xs text-sub underline" @click="editing = false">취소</button>
+      <button v-if="model.length" type="button" class="self-start text-xs text-sub underline" @click="adding = false">취소</button>
     </form>
+
+    <div class="flex flex-wrap gap-2">
+      <button
+        v-if="!adding && model.length < MAX"
+        type="button"
+        class="rounded-[10px] border-[1.5px] border-ink bg-white px-3 py-1.5 text-[13px] font-bold"
+        @click="adding = true"
+      >
+        + 장소 추가
+      </button>
+      <button
+        type="button"
+        :disabled="detecting || !texts.some((t) => t.trim())"
+        class="rounded-[10px] border-[1.5px] border-ink bg-white px-3 py-1.5 text-[13px] font-bold disabled:opacity-50"
+        @click="detect"
+      >
+        {{ detecting ? '찾는 중…' : '알려줄 내용에서 장소 찾기' }}
+      </button>
+    </div>
 
     <p v-if="error" role="alert" class="m-0 text-[13px] text-red-700">
       {{ error }}
@@ -117,8 +175,26 @@ function clear() {
             <b class="truncate text-sm">{{ place.name ?? '이 위치' }}</b>
             <span class="truncate text-xs text-sub">{{ [place.category, place.road_address ?? place.address].filter(Boolean).join(' · ') }}</span>
           </span>
-          <span v-if="place.distance_m !== null && place.distance_m !== undefined" class="text-xs whitespace-nowrap text-sub">링크에서 {{ place.distance_m < 1000 ? `${place.distance_m}m` : `${(place.distance_m / 1000).toFixed(1)}km` }}</span>
+          <span v-if="place.distance_m !== null && place.distance_m !== undefined" class="text-xs whitespace-nowrap text-sub">링크에서 {{ distance(place.distance_m) }}</span>
           <span class="rounded-lg bg-lemon px-2.5 py-1 text-xs font-bold whitespace-nowrap">이 장소로</span>
+        </button>
+      </li>
+    </ul>
+
+    <p v-if="detectMessage" role="status" class="m-0 text-[13px] text-sub">{{ detectMessage }}</p>
+    <ul v-if="detected?.length" class="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="알려줄 내용에서 찾은 장소">
+      <li v-for="place in detected" :key="place.kakao_id ?? place.query">
+        <button
+          type="button"
+          class="flex w-full items-center gap-3 rounded-[14px] border-[1.5px] border-dashed border-ink bg-white px-3.5 py-2.5 text-left"
+          @click="addDetected(place)"
+        >
+          <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span class="text-xs text-sub">“{{ place.query }}” →</span>
+            <b class="truncate text-sm">{{ place.name }}</b>
+            <span class="truncate text-xs text-sub">{{ [place.category, place.road_address ?? place.address].filter(Boolean).join(' · ') }}</span>
+          </span>
+          <span class="rounded-lg bg-lemon px-2.5 py-1 text-xs font-bold whitespace-nowrap">추가</span>
         </button>
       </li>
     </ul>

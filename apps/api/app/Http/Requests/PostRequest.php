@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\Tone;
+use App\Models\Post;
 use App\Support\PostContent;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Rule;
 class PostRequest extends FormRequest
 {
     public const MAX_FACTS = 30;
+
+    public const MAX_PLACES = 10;
 
     public function authorize(): bool
     {
@@ -32,20 +35,22 @@ class PostRequest extends FormRequest
             'facts' => ['sometimes', 'array', 'max:'.self::MAX_FACTS],
             'facts.*.fact_key' => ['required', 'string', 'max:50'],
             'facts.*.fact_value' => ['required', 'string', 'max:1000'],
-            // 3단계 "장소 연결"에서 고른 장소(null이면 해제). 이름·주소 등은 사실 항목으로도 들어가 사용자가 확인한다
-            'place' => ['sometimes', 'nullable', 'array'],
-            'place.name' => ['nullable', 'string', 'max:100'],
-            'place.category' => ['nullable', 'string', 'max:100'],
-            'place.phone' => ['nullable', 'string', 'max:30'],
-            'place.address' => ['nullable', 'string', 'max:200'],
-            'place.road_address' => ['nullable', 'string', 'max:200'],
-            'place.lat' => ['nullable', 'numeric', 'between:-90,90'],
-            'place.lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'place.kakao_id' => ['nullable', 'string', 'max:30'],
-            'place.kakao_url' => ['nullable', 'string', 'max:300', 'url:http,https'],
-            'place.map_url' => ['nullable', 'string', 'max:2000', 'url:http,https'],
-            'place.source' => ['nullable', Rule::in(['naver', 'google', 'kakao', 'other', 'text'])],
+            // 3단계 "장소 연결"에서 고른 장소들(빈 목록이면 해제). 이름·주소 등은 사실 항목으로도 들어가 사용자가 확인한다
+            'places' => ['sometimes', 'nullable', 'array', 'max:'.self::MAX_PLACES],
+            'places.*.name' => ['nullable', 'string', 'max:100'],
+            'places.*.category' => ['nullable', 'string', 'max:100'],
+            'places.*.phone' => ['nullable', 'string', 'max:30'],
+            'places.*.address' => ['nullable', 'string', 'max:200'],
+            'places.*.road_address' => ['nullable', 'string', 'max:200'],
+            'places.*.lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'places.*.lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'places.*.kakao_id' => ['nullable', 'string', 'max:30'],
+            'places.*.kakao_url' => ['nullable', 'string', 'max:300', 'url:http,https'],
+            'places.*.map_url' => ['nullable', 'string', 'max:2000', 'url:http,https'],
+            'places.*.source' => ['nullable', Rule::in(['naver', 'google', 'kakao', 'other', 'text'])],
             // 편집기 저장: 블록 목록과 태그. 사진은 이 글의 것만
+            // 글 성격: info 정보 전달 / daily 일상 기록. null이면 카테고리 이름으로 자동
+            'mode' => ['sometimes', 'nullable', Rule::in([Post::MODE_INFO, Post::MODE_DAILY])],
             'content' => [$creating ? 'prohibited' : 'sometimes', 'array'],
             'content.blocks' => ['required_with:content', 'array', 'max:500'],
             'content.blocks.*.type' => ['required', Rule::in(PostContent::BLOCK_TYPES)],

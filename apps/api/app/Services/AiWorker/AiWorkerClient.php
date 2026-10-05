@@ -253,6 +253,28 @@ class AiWorkerClient
     }
 
     /**
+     * 알려줄 내용 속 장소 이름 후보(형태소 분석, LLM 호출 없음).
+     *
+     * @param  list<string>  $texts
+     * @return list<string>
+     *
+     * @throws AiWorkerUnavailableException
+     */
+    public function placeCandidates(array $texts): array
+    {
+        try {
+            $response = $this->http(15)->post('/places/candidates', ['texts' => array_values($texts)]);
+        } catch (ConnectionException $e) {
+            throw new AiWorkerUnavailableException($e->getMessage(), previous: $e);
+        }
+        if ($response->failed()) {
+            throw new AiWorkerUnavailableException("장소 후보 찾기 실패 ({$response->status()})");
+        }
+
+        return $response->json('candidates') ?? [];
+    }
+
+    /**
      * 코드 규칙 기반 품질 검사(LLM 호출 없음).
      *
      * @param  array<string, mixed>  $payload

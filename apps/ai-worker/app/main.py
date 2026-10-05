@@ -3,7 +3,7 @@ import time
 
 from fastapi import FastAPI, Request
 
-from app.api import health, images, keywords, llm, posts, references
+from app.api import health, images, keywords, llm, places, posts, references
 from app.logging_setup import log, setup_logging, trace_id
 
 setup_logging()
@@ -15,6 +15,7 @@ app.include_router(llm.router)
 app.include_router(references.router)
 app.include_router(keywords.router)
 app.include_router(posts.router)
+app.include_router(places.router)
 
 TRACE_ID = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 

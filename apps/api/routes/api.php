@@ -68,6 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // 카카오 로컬 API를 부르므로 과하게 누르지 않게 제한한다
     Route::post('/places/lookup', [PlaceController::class, 'lookup'])->middleware('throttle:30,1');
+    Route::post('/places/detect', [PlaceController::class, 'detect'])->middleware('throttle:10,1');
     Route::post('/posts/start', [WizardController::class, 'start']);
     Route::post('/posts/{post}/autopilot', [WizardController::class, 'autopilot']);
     Route::get('/posts/{post}/twin', [PostTwinController::class, 'show']);

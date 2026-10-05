@@ -62,10 +62,13 @@ class PostController extends Controller
         Gate::authorize('update', $post);
 
         DB::transaction(function () use ($request, $post) {
-            $post->update($request->safe()->except(['facts', 'content', 'place']));
-            if ($request->has('place')) {
-                $place = $request->validated('place');
-                $post->forceFill(['place_json' => $place ? collect($place)->only(self::PLACE_FIELDS)->all() : null])->save();
+            $post->update($request->safe()->except(['facts', 'content', 'places', 'mode']));
+            if ($request->has('mode')) {
+                $post->forceFill(['mode' => $request->validated('mode')])->save();
+            }
+            if ($request->has('places')) {
+                $places = collect($request->validated('places') ?? [])->map(fn ($place) => collect($place)->only(self::PLACE_FIELDS)->all())->values()->all();
+                $post->forceFill(['place_json' => $places ?: null])->save();
             }
             if ($request->has('facts')) {
                 $this->syncFacts($post, $request->validated('facts'));

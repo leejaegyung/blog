@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { analysisApi, postApi, type Fact, type KeywordAnalysis, type Place, type Post, type Tone } from '@/lib/api'
+import { analysisApi, postApi, type Fact, type KeywordAnalysis, type Place, type Post, type Tone, type WritingMode } from '@/lib/api'
 import PlaceCard from '@/components/PlaceCard.vue'
 import { validationErrors } from '@/lib/http'
 import { TONE_LABELS } from '@/lib/flow'
@@ -39,7 +39,11 @@ const rows = ref<Row[]>(
     ? props.post.facts.map(({ fact_key, fact_value }) => ({ fact_key, fact_value }))
     : [{ fact_key: '장소명', fact_value: '' }, { fact_key: '좋았던 점', fact_value: '' }],
 )
-const place = ref<Place | null>(props.post.place ?? null)
+const places = ref<Place[]>(props.post.places ?? [])
+// 글 성격: null이면 자동(카테고리 이름이 "일상" 등이면 일상 기록)
+const mode = ref<WritingMode | null>(props.post.mode ?? null)
+const autoMode = computed<WritingMode>(() => props.post.writing_mode ?? 'info')
+const MODE_LABEL: Record<WritingMode, string> = { info: '정보 전달', daily: '일상 기록' }
 const tone = ref<Tone>(props.post.tone ?? 'natural')
 const length = ref(props.post.target_length ?? 2500)
 const analysis = ref<KeywordAnalysis | null>(null)
@@ -47,7 +51,9 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 const list = ref<HTMLElement | null>(null)
 
-const snapshot = () => JSON.stringify([rows.value.filter((r) => r.fact_key.trim() && r.fact_value.trim()), tone.value, length.value, place.value])
+const snapshot = () => JSON.stringify([rows.value.filter((r) => r.fact_key.trim() && r.fact_value.trim()), tone.value, length.value, places.value, mode.value])
+// 장소 찾기에 쓰는 알려줄 내용(값만)
+const factTexts = computed(() => rows.value.map((r) => r.fact_value))
 const initial = snapshot()
 const dirty = computed(() => snapshot() !== initial)
 
@@ -76,13 +82,17 @@ function toggle(key: string) {
   }
 }
 
-/** 고른 장소로 알려줄 내용을 채운다(이미 적은 값은 바꾸고, 없는 항목은 더한다). 사용자가 보고 고칠 수 있다 */
-function fillFromPlace(chosen: Place) {
+/**
+ * 고른 장소로 알려줄 내용을 채운다(이미 적은 값은 바꾸고, 없는 항목은 더한다). 사용자가 보고 고칠 수 있다.
+ * 첫 장소는 "장소명·주소…", 둘째부터는 "장소명 2·주소 2…"
+ */
+function fillFromPlace(chosen: Place, index: number) {
+  const n = index === 0 ? '' : ` ${index + 1}`
   const values: [string, string | null][] = [
-    ['장소명', chosen.name],
-    ['주소', chosen.road_address ?? chosen.address],
-    ['연락처', chosen.phone],
-    ['업종', chosen.category],
+    [`장소명${n}`, chosen.name],
+    [`주소${n}`, chosen.road_address ?? chosen.address],
+    [`연락처${n}`, chosen.phone],
+    [`업종${n}`, chosen.category],
   ]
   let next = rows.value.filter((r) => r.fact_key.trim() || r.fact_value.trim())
   for (const [key, value] of values) {
@@ -111,7 +121,7 @@ async function next() {
   if (props.post.plan && !dirty.value) return flow.go(4)
   busy.value = true
   try {
-    flow.update(await postApi.update(props.post.id, { facts, tone: tone.value, target_length: length.value, place: place.value }))
+    flow.update(await postApi.update(props.post.id, { facts, tone: tone.value, target_length: length.value, places: places.value, mode: mode.value }))
     flow.update(await postApi.autopilot(props.post.id, 'plan'))
     flow.go(4)
   } catch (e) {
@@ -129,7 +139,24 @@ onMounted(async () => {
 
 <template>
   <StepLayout :step="3" :title="'꼭 알려줄\n내용이 있나요?'" lead="여기 적은 것만 사실로 씁니다. 가격·주소는 직접 적어주세요." lead-mobile-only>
-    <PlaceCard v-model="place" @chosen="fillFromPlace" />
+    <PlaceCard v-model="places" :texts="factTexts" @chosen="fillFromPlace" />
+
+    <div class="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="글 성격">
+      <span class="mr-1 text-[13px] font-bold">글 성격</span>
+      <button
+        v-for="option in [null, 'info', 'daily'] as (WritingMode | null)[]"
+        :key="option ?? 'auto'"
+        type="button"
+        role="radio"
+        :aria-checked="mode === option"
+        :class="mode === option ? 'bg-lilac' : 'bg-white'"
+        class="rounded-full border-[1.5px] border-ink px-3 py-[7px] text-[13px] font-semibold"
+        @click="mode = option"
+      >
+        {{ option ? MODE_LABEL[option] : `자동(${MODE_LABEL[autoMode]})` }}
+      </button>
+      <span class="w-full text-xs text-sub">일상 기록은 하루 이야기처럼 시간 순서로 쓰고, 정보는 이야기 속에 지나가듯 넣어요.</span>
+    </div>
 
     <div class="flex flex-wrap gap-1.5">
       <button

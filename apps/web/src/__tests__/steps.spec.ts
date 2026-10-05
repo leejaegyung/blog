@@ -16,7 +16,10 @@ import { useAuthStore } from '@/stores/auth'
 import { naverWriteUrl } from '@/lib/naver'
 
 vi.mock('@/lib/api', () => ({
-  placeApi: { lookup: vi.fn<(input: string) => Promise<{ data: Place[]; parsed: ParsedMapInput }>>() },
+  placeApi: {
+    lookup: vi.fn<(input: string) => Promise<{ data: Place[]; parsed: ParsedMapInput }>>(),
+    detect: vi.fn<(texts: string[], near?: { lat: number; lng: number } | null, exclude?: string[]) => Promise<{ data: (Place & { query: string })[]; candidates: string[] }>>(),
+  },
   postApi: {
     get: vi.fn<(id: number) => Promise<Post>>(),
     start: vi.fn<(keyword: string, category?: string, learningCategoryId?: number | null, platform?: string, twinLearningCategoryId?: number | null) => Promise<Post>>(),
@@ -193,7 +196,8 @@ describe('3 알려줄 내용', () => {
       facts: [{ fact_key: '장소명', fact_value: '파스타 인계' }, { fact_key: '가격', fact_value: '런치 19,000원' }],
       tone: 'friendly',
       target_length: 2500,
-      place: null,
+      places: [],
+      mode: null,
     })
     expect(postApi.autopilot).toHaveBeenCalledWith(7, 'plan')
     expect(flow.go).toHaveBeenCalledWith(4)
@@ -229,7 +233,35 @@ describe('3 알려줄 내용', () => {
       { fact_key: '연락처', fact_value: '031-000-0000' },
       { fact_key: '업종', fact_value: '음식점 > 양식 > 이탈리안' },
     ])
-    expect(saved.place).toMatchObject({ name: '파스타인계', map_url: 'https://maps.google.com/x', source: 'google' })
+    expect(saved.places).toEqual([expect.objectContaining({ name: '파스타인계', map_url: 'https://maps.google.com/x', source: 'google' })])
+  })
+
+  it('알려줄 내용에서 장소를 찾아 둘째 장소로 더하고, 글 성격을 고른다', async () => {
+    vi.mocked(placeApi.detect).mockResolvedValue({
+      data: [{ query: '서울숲 산책', kakao_id: '2', name: '서울숲', category: '여행 > 공원', phone: null, address: null, road_address: '서울 성동구 뚝섬로 273', lat: 37.54, lng: 127.04 }],
+      candidates: ['서울숲 산책'],
+    })
+    vi.mocked(postApi.update).mockReset().mockResolvedValue(post())
+    vi.mocked(postApi.autopilot).mockResolvedValue(post({ pipeline_status: 'running' }))
+    const first = { kakao_id: '1', name: '카시오 스토어 도산', category: null, phone: null, address: null, road_address: '서울 강남구 압구정로46길 27', lat: 37.52, lng: 127.03 }
+    const { wrapper } = mountStep(FactsStep as unknown as DefineComponent, {
+      post: post({ places: [first], writing_mode: 'daily', facts: [{ id: 1, fact_key: '내용', fact_value: '카시오 도산점 들렀다가 서울숲 산책' }] }),
+    })
+
+    expect(wrapper.text()).toContain('자동(일상 기록)')
+    await button(wrapper, '알려줄 내용에서 장소 찾기').trigger('click')
+    await flushPromises()
+    expect(placeApi.detect).toHaveBeenCalledWith(['카시오 도산점 들렀다가 서울숲 산책'], { lat: 37.52, lng: 127.03 }, ['1'])
+    expect(wrapper.text()).toContain('“서울숲 산책” →')
+    await button(wrapper, '서울숲').trigger('click')
+    expect((wrapper.get('input[aria-label="주소 2 내용"]').element as HTMLInputElement).value).toBe('서울 성동구 뚝섬로 273')
+
+    await button(wrapper, '정보 전달').trigger('click')
+    await button(wrapper, '다음 · 글 계획 만들기').trigger('click')
+    await flushPromises()
+    const saved = vi.mocked(postApi.update).mock.calls[0]![1]
+    expect(saved.places?.map((p) => p.name)).toEqual(['카시오 스토어 도산', '서울숲'])
+    expect(saved.mode).toBe('info')
   })
 
   it('비어 있으면 진행하지 않고, 계획이 있고 바뀐 게 없으면 다시 만들지 않는다', async () => {

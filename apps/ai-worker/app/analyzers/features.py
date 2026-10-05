@@ -10,7 +10,8 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.analyzers.nlp import nouns, sentences
-from app.analyzers.style import StyleFeatures, extract_style
+from app.analyzers.style import EMOJI, StyleFeatures, extract_style
+from app.analyzers.title_shape import title_shape, title_words
 from app.references.document import Block, ParsedDocument
 
 FEATURES_VERSION = "features-1"
@@ -48,6 +49,10 @@ class TitleFeatures(BaseModel):
     has_question: bool
     has_exclamation: bool
     nouns: list[str]
+    # 제목 모양(나중에 더한 항목): 이름은 자리표로 바꾼 틀, 틀 낱말, 이모지
+    shape: str | None = None
+    words: list[str] = []
+    has_emoji: bool = False
 
 
 class KeywordFeatures(BaseModel):
@@ -172,6 +177,9 @@ def _title(title: str | None, keyword: str) -> TitleFeatures | None:
         has_question="?" in title,
         has_exclamation="!" in title,
         nouns=list(dict.fromkeys(nouns(title))),
+        shape=title_shape(title, keyword),
+        words=title_words(title),
+        has_emoji=bool(EMOJI.search(title)),
     )
 
 

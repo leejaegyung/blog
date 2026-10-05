@@ -74,16 +74,42 @@ class PlaceTest extends TestCase
         $this->assertStringContainsString('카카오맵', $message);
     }
 
-    public function test_chosen_place_is_saved_with_the_post_and_can_be_cleared(): void
+    public function test_chosen_places_are_saved_with_the_post_and_can_be_cleared(): void
     {
         $post = Post::factory()->create();
-        $place = ['name' => '파스타인계', 'road_address' => '경기 수원시 팔달구 인계로 1', 'lat' => 37.26, 'lng' => 127.03, 'map_url' => 'https://naver.me/abc', 'source' => 'naver', 'extra' => 'x'];
+        $first = ['name' => '카시오 스토어 도산', 'road_address' => '서울 강남구 압구정로46길 27', 'lat' => 37.52, 'lng' => 127.03, 'map_url' => 'https://naver.me/abc', 'source' => 'naver', 'extra' => 'x'];
+        $second = ['name' => '서울숲', 'road_address' => '서울 성동구 뚝섬로 273', 'kakao_url' => 'http://place.map.kakao.com/2'];
 
-        $this->actingAs($post->user)->patchJson("/api/posts/{$post->id}", ['place' => $place])
-            ->assertOk()->assertJsonPath('data.place.name', '파스타인계')->assertJsonPath('data.place.map_url', 'https://naver.me/abc')
-            ->assertJsonMissingPath('data.place.extra');
-        $this->actingAs($post->user)->patchJson("/api/posts/{$post->id}", ['place' => ['name' => 'x', 'map_url' => 'javascript:alert(1)']])
-            ->assertJsonValidationErrors('place.map_url');
-        $this->actingAs($post->user)->patchJson("/api/posts/{$post->id}", ['place' => null])->assertJsonPath('data.place', null);
+        $this->actingAs($post->user)->patchJson("/api/posts/{$post->id}", ['places' => [$first, $second]])
+            ->assertOk()->assertJsonPath('data.places.0.name', '카시오 스토어 도산')->assertJsonPath('data.places.1.name', '서울숲')
+            ->assertJsonMissingPath('data.places.0.extra');
+        $this->actingAs($post->user)->patchJson("/api/posts/{$post->id}", ['places' => [['name' => 'x', 'map_url' => 'javascript:alert(1)']]])
+            ->assertJsonValidationErrors('places.0.map_url');
+        $this->actingAs($post->user)->patchJson("/api/posts/{$post->id}", ['places' => []])->assertJsonPath('data.places', []);
+
+        // 예전에 장소 하나(객체)로 저장한 글도 목록으로 보인다
+        $post->forceFill(['place_json' => $first])->save();
+        $this->actingAs($post->user)->getJson("/api/posts/{$post->id}")->assertJsonPath('data.places.0.name', '카시오 스토어 도산');
+    }
+
+    public function test_detect_finds_places_mentioned_in_the_facts(): void
+    {
+        $post = Post::factory()->create();
+        AppSetting::create(['key' => BlogSettingsController::KAKAO_KEY, 'value' => encrypt('k', false)]);
+        Http::fake([
+            '*/places/candidates' => Http::response(['candidates' => ['카시오 도산점', '서울숲 산책', '돋자리']]),
+            KakaoLocal::KEYWORD.'*' => fn ($r) => Http::response(['documents' => match ($r['query']) {
+                '카시오 도산점' => [['id' => '1', 'place_name' => '카시오 스토어 도산', 'road_address_name' => '서울 강남구 압구정로46길 27', 'x' => '127.03', 'y' => '37.52']],
+                '서울숲 산책' => [['id' => '2', 'place_name' => '서울숲', 'road_address_name' => '서울 성동구 뚝섬로 273', 'x' => '127.04', 'y' => '37.54']],
+                default => [['id' => '9', 'place_name' => '캠핑용품 할인점', 'x' => '127', 'y' => '37']],
+            }]),
+        ]);
+
+        $data = $this->actingAs($post->user)->postJson('/api/places/detect', ['texts' => ['카시오 도산점 방문 후 서울숲에서 돋자리 펴고 F1'], 'near' => ['lat' => 37.52, 'lng' => 127.03], 'exclude' => ['1']])
+            ->assertOk()->json('data');
+
+        // 이미 연결한 장소(1)는 빼고, 이름이 겹치지 않는 결과(돋자리 → 캠핑용품 할인점)는 버린다
+        $this->assertSame([['서울숲 산책', '서울숲']], array_map(fn ($p) => [$p['query'], $p['name']], $data));
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'keyword.json') && $r['radius'] == 20000);
     }
 }

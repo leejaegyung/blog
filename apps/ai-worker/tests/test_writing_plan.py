@@ -99,7 +99,7 @@ def test_plan_endpoint_returns_checked_plan() -> None:
     body = post(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), INPUT.model_dump())
 
     assert body["plan"]["unplaced_image_ids"] == [13]
-    assert body["prompt_version"] == "writing-plan-v5"
+    assert body["prompt_version"] == "writing-plan-v6"
     sent = json.loads(claude.requests[0].prompt)
     assert sent["tone"] == "자연스러운 후기"
     assert [p["id"] for p in sent["photos"]] == [11, 12, 13]
@@ -145,5 +145,5 @@ def test_photo_payload_keeps_upload_order_and_adds_shot_order() -> None:
 def test_plan_prompt_explains_how_to_weigh_photo_order() -> None:
     from app.prompts import load_prompt
 
-    prompt = load_prompt("writing-plan-v5")
+    prompt = load_prompt("writing-plan-v6")
     assert "Shot time is the backbone" in prompt and "Upload order is the blogger's own choice" in prompt

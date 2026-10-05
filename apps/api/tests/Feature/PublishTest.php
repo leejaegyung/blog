@@ -84,6 +84,11 @@ class PublishTest extends TestCase
         // 붙여넣은 링크가 없으면 카카오맵 링크
         $this->post->forceFill(['place_json' => ['name' => '파스타', 'kakao_url' => 'http://place.map.kakao.com/1']])->save();
         $this->assertStringContainsString('지도: http://place.map.kakao.com/1', $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->json('data.text'));
+
+        // 여러 곳이면 위치 1, 위치 2
+        $this->post->forceFill(['place_json' => [['name' => '카시오 스토어 도산'], ['name' => '서울숲', 'kakao_url' => 'http://place.map.kakao.com/2']]])->save();
+        $text = $this->actingAs($this->post->user)->postJson("/api/posts/{$this->post->id}/export", ['record' => false])->json('data.text');
+        $this->assertStringContainsString("📍 위치 1\n카시오 스토어 도산\n\n📍 위치 2\n서울숲\n지도: http://place.map.kakao.com/2", $text);
     }
 
     public function test_background_preparation_does_not_record_an_upload(): void

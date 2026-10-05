@@ -12,7 +12,7 @@ from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "blog-draft-v5"
+PROMPT_VERSION = "blog-draft-v6"
 LENGTH_TOLERANCE = (0.7, 1.4)
 
 # 입력 사실에 없으면 지어낸 것으로 의심하는 구체 정보
@@ -48,6 +48,8 @@ class DraftInput(BaseModel):
     platform: Platform = "naver"
     # 같은 경험을 다른 플랫폼에도 따로 올린다(중복 문서로 보이지 않게 다르게 쓴다)
     twin: bool = False
+    # info: 정보 전달 글, daily: 일상 기록(하루를 시간 순서로, 정보는 이야기 속에 지나가듯)
+    mode: Literal["info", "daily"] = "info"
     keyword: str
     tone: Tone = "natural"
     target_length: int = 2500
@@ -92,6 +94,7 @@ def build_request(data: DraftInput) -> LLMRequest:
     payload = {
         "platform": data.platform,
         "twin": data.twin,
+        "mode": data.mode,
         "voice": data.voice,
         "keyword": data.keyword,
         "tone": TONE_LABELS[data.tone],

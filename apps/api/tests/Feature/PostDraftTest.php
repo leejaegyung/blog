@@ -103,6 +103,23 @@ class PostDraftTest extends TestCase
         Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['voice'] === $voice);
     }
 
+    public function test_daily_categories_write_as_a_daily_record_unless_the_user_chose(): void
+    {
+        $this->runJob($this->draftResponse());
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['mode'] === 'info');
+
+        $category = $this->post->user->keywordProjects()->create(['keyword' => '일상', 'kind' => 'category']);
+        $this->post->project->update(['learning_category_id' => $category->id]);
+        $this->post->forceFill(['status' => PostStatus::Planned])->save();
+        $this->runJob($this->draftResponse());
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['mode'] === 'daily');
+
+        $this->post->forceFill(['status' => PostStatus::Planned, 'mode' => 'info'])->save();
+        $this->runJob($this->draftResponse());
+        Http::assertNotSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['mode'] === 'daily');
+        $this->assertSame('info', $this->post->refresh()->writingMode());
+    }
+
     public function test_llm_failure_keeps_plan_and_records_error(): void
     {
         $this->runJob(['draft' => null, 'draft_error' => '초안을 만들지 못했습니다: billing', 'prompt_version' => 'blog-draft-v1', 'generations' => []]);

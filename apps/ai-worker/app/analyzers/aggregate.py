@@ -46,6 +46,10 @@ class TitleStats(BaseModel):
     with_brackets_share: float
     with_number_share: float
     with_question_share: float
+    # 참고 글 제목의 모양(자리표 틀)과 자주 쓴 틀 낱말. 제목 후보가 이 모양을 따른다
+    shapes: list[Share] = []
+    words: list[TermFrequency] = []
+    with_emoji_share: float = 0.0
 
 
 class VoiceStats(BaseModel):
@@ -121,6 +125,9 @@ def aggregate(features: list[DocumentFeatures], keyword: str) -> KeywordStats | 
             with_brackets_share=_share(sum(t.has_brackets for t in titles), len(titles)),
             with_number_share=_share(sum(t.has_number for t in titles), len(titles)),
             with_question_share=_share(sum(t.has_question for t in titles), len(titles)),
+            shapes=_distribution([t.shape for t in titles if t.shape], limit=8),
+            words=_document_frequency([t.words for t in titles], len(titles), exclude=set(), limit=15),
+            with_emoji_share=_share(sum(t.has_emoji for t in titles), len(titles)),
         ) if titles else None,
         keyword_per_1000_chars=_spread([f.keyword.per_1000_chars for f in features]),
         keyword_in_first_paragraph_share=_share(sum(f.keyword.in_first_paragraph for f in features), n),
