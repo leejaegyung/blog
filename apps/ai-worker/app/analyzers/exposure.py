@@ -5,6 +5,8 @@
 """
 
 import re
+
+from app.analyzers.tags import clean_tags, is_useful, keyword_tokens
 from typing import Literal
 
 from pydantic import BaseModel
@@ -13,6 +15,10 @@ from app.analyzers.aggregate import KeywordStats
 
 GUIDE_VERSION = "guide-1"
 MAX_HASHTAGS = 20
+# 지역·장소 뒤에 붙이면 사람들이 실제로 검색하는 말이 되는 카테고리
+SEARCHABLE_SUFFIXES = {"맛집", "카페", "여행", "데이트", "술집", "빵집", "브런치", "숙소", "호텔", "핫플", "놀거리", "가볼만한곳", "쇼핑", "산책"}
+# 혼자서는 태그 거리가 안 되는 말(다른 낱말과 묶지 않는다)
+GENERIC_WORDS = {"일상", "일기", "기록", "데일리", "후기", "리뷰", "추천", "정보"}
 REFERENCE_TAG_SHARE = 0.3  # 참고 글 30% 이상이 단 태그만 추천에 넣는다
 DEFAULT_HASHTAGS = (5, 15)
 
@@ -109,25 +115,37 @@ def recommend_hashtags(
         if tag and tag.lower() not in suggestions and len(suggestions) < MAX_HASHTAGS:
             suggestions[tag.lower()] = HashtagSuggestion(tag=tag, source=source, share=share)
 
-    tokens = keyword.split()
-    add("".join(tokens), "keyword")
-    # "수원 인계동 파스타" → 인계동파스타, 수원파스타 (지역·대상 + 주제)
-    head, last = tokens[:-1], tokens[-1] if tokens else ""
-    for token in reversed(head):
-        add(token + last, "keyword")
+    # 날짜·숫자·"및" 같은 말은 빼고 낱말만(예: "26/10/09 남대문 그릇 시장 및 일상" → 남대문 그릇 시장 일상)
+    tokens = keyword_tokens(keyword)
+    content = [t for t in tokens if t not in GENERIC_WORDS]
+    if 1 < len(tokens) <= 3 and len("".join(tokens)) <= 12:
+        add("".join(tokens), "keyword")
+    # 붙어 있는 낱말끼리 묶기: "남대문 그릇 시장" → 남대문그릇, 그릇시장 / "수원 인계동 파스타" → 인계동파스타
+    for first, second in zip(content, content[1:]):
+        add(first + second, "keyword")
+    # "수원 인계동 파스타" → 수원파스타처럼 지역 + 주제(사람들이 실제로 검색하는 모양)
+    if len(content) >= 3:
+        add(content[0] + content[-1], "keyword")
+    # 카테고리는 검색하는 말일 때만 붙인다(○○맛집·○○카페). "○○일상"은 아무도 검색하지 않아 붙이지 않는다
     suffix = normalize_tag(category or "")
-    if suffix and len(suffix) <= 4 and suffix not in keyword.replace(" ", ""):
-        for token in reversed(head or tokens):
+    if suffix in SEARCHABLE_SUFFIXES and suffix not in keyword.replace(" ", ""):
+        for token in content[:2]:
             add(token + suffix, "keyword")
+    for token in content:
+        if len(token) >= 3:
+            add(token, "keyword")
 
     if stats:
         for term in stats.hashtags:
-            if term.share >= REFERENCE_TAG_SHARE or stats.reference_count == 1:
+            if (term.share >= REFERENCE_TAG_SHARE or stats.reference_count == 1) and is_useful(term.term):
                 add(term.term, "references", term.share)
 
     for tag in ai_tags or []:
-        add(tag, "ai")
-    return list(suggestions.values())
+        if is_useful(tag):
+            add(tag, "ai")
+    # 날짜·이웃용 태그를 빼고, 같은 끝말 변형은 두 개까지
+    kept = set(clean_tags([s.tag for s in suggestions.values()]))
+    return [s for s in suggestions.values() if s.tag in kept]
 
 
 def build_guide(

@@ -87,7 +87,8 @@ class PostDraftTest extends TestCase
     {
         $this->post->project->analyses()->create(['analyzer_version' => 'x', 'guide_json' => ['hashtags' => [['tag' => '분석태그', 'source' => 'ai']]]]);
         $this->runJob($this->draftResponse());
-        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['hashtags'] === ['분석태그']);
+        // 분석 추천은 후보로만(꼭 넣는 태그 아님)
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/posts/draft') && $r['hashtags'] === [] && $r['hashtag_candidates'] === ['분석태그']);
 
         $this->post->project->forceFill(['hashtags_json' => ['내태그']])->save();
         $this->post->forceFill(['status' => PostStatus::Planned])->save();

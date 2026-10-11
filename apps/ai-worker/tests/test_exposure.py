@@ -16,10 +16,21 @@ def test_hashtags_from_keyword_category_references_and_ai() -> None:
     tags = recommend_hashtags("수원 인계동 파스타", "맛집", stats, ["#수원데이트", "브런치"])
 
     assert [(t.tag, t.source) for t in tags] == [
-        ("수원인계동파스타", "keyword"), ("인계동파스타", "keyword"), ("수원파스타", "keyword"),
-        ("인계동맛집", "keyword"), ("수원맛집", "keyword"), ("수원데이트", "references"), ("브런치", "ai"),
+        ("수원인계동파스타", "keyword"), ("수원인계동", "keyword"), ("인계동파스타", "keyword"), ("수원파스타", "keyword"),
+        ("수원맛집", "keyword"), ("인계동맛집", "keyword"), ("인계동", "keyword"), ("파스타", "keyword"),
+        ("수원데이트", "references"), ("브런치", "ai"),
     ]
-    assert tags[5].share == 1.0
+    assert tags[8].share == 1.0
+
+
+def test_hashtags_skip_dates_filler_words_community_tags_and_repeated_variants() -> None:
+    tags = [t.tag for t in recommend_hashtags(
+        "26/10/09 남대문 그릇 시장 및 일상", "일상", None,
+        ["서이추", "소통", "261009일상", "남대문일상", "시장일상", "그릇일상", "회현역맛집"],
+    )]
+
+    # "○○일상"은 붙여 만들지 않고, AI가 준 변형도 두 개까지만. 날짜·"및"·이웃용 태그는 없다
+    assert tags == ["남대문그릇", "그릇시장", "남대문시장", "남대문", "남대문일상", "시장일상", "회현역맛집"]
 
 
 def test_guide_targets_come_from_reference_stats() -> None:

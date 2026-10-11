@@ -69,8 +69,9 @@ class GenerateDraftJob implements ShouldQueue
             'photo_notes' => $post->images->filter(fn ($image) => $image->vision_json)
                 ->mapWithKeys(fn ($image) => [$image->id => collect($image->vision_json)->only(['type', 'description'])->all()])
                 ->all() ?: (object) [],
-            // 키워드의 해시태그를 초안 태그로 자동으로 단다
-            'hashtags' => $post->project?->hashtags() ?? [],
+            // 직접 정한 해시태그는 꼭 넣고, 분석·학습 추천은 후보로 줘서 AI가 이 글에 맞는 것만 고른다
+            'hashtags' => $post->project?->customHashtags() ?? [],
+            'hashtag_candidates' => $post->project?->hashtags() ?? [],
             // 참고 글(학습 카테고리 포함)의 말투 분포: 어미·문장 길이·감탄·이모지 빈도에 맞춰 사람처럼 쓴다
             'voice' => $post->project?->latestAnalysis?->stats_json['voice'] ?? null,
         ]);

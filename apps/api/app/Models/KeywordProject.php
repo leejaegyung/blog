@@ -71,6 +71,14 @@ class KeywordProject extends Model
         return self::normalizeHashtags([...$own, ...$learned]);
     }
 
+    /** 사용자가 직접 정한 해시태그(이 키워드 + 고른 학습 카테고리). 초안에 꼭 넣는다 */
+    public function customHashtags(): array
+    {
+        $learned = ! $this->isCategory() && $this->learningCategory ? ($this->learningCategory->hashtags_json ?? []) : [];
+
+        return self::normalizeHashtags([...($this->hashtags_json ?? []), ...$learned]);
+    }
+
     /** 해시태그를 네이버 태그 모양으로: # 떼고, 띄어쓰기·기호 없이, 중복 없이, 30개까지 */
     public static function normalizeHashtags(array $tags): array
     {

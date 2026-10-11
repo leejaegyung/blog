@@ -6,13 +6,14 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.analyzers.tags import clean_tags
 from app.analyzers.exposure import merge_tags
 from app.generators.writing_plan import TONE_LABELS, FactInput, Speech, Tone
 from app.llm.router import LLMRouter, RouteOutcome
 from app.llm.types import LLMRequest, Platform, Target
 from app.prompts import load_prompt
 
-PROMPT_VERSION = "blog-draft-v7"
+PROMPT_VERSION = "blog-draft-v8"
 LENGTH_TOLERANCE = (0.7, 1.4)
 
 # 입력 사실에 없으면 지어낸 것으로 의심하는 구체 정보
@@ -62,8 +63,10 @@ class DraftInput(BaseModel):
     voice: dict | None = None
     # 사진 분석 결과(있으면): {id: {"type": ..., "description": ...}}
     photo_notes: dict[int, dict] = {}
-    # 키워드 분석의 추천 해시태그(사용자가 고친 목록이 있으면 그것). 초안 태그 앞에 붙인다
+    # 사용자가 직접 정한 해시태그(키워드·학습 카테고리에서 고친 목록). 초안 태그 앞에 꼭 붙인다
     hashtags: list[str] = []
+    # 분석 추천·학습 카테고리·참고 글 태그(후보). AI가 이 글에 맞는 것만 고른다
+    hashtag_candidates: list[str] = []
 
 
 class ContentBlock(BaseModel):
@@ -98,6 +101,7 @@ def build_request(data: DraftInput) -> LLMRequest:
         "mode": data.mode,
         "speech": data.speech,
         "voice": data.voice,
+        "hashtag_candidates": data.hashtag_candidates,
         "keyword": data.keyword,
         "tone": TONE_LABELS[data.tone],
         "target_length": data.target_length,
@@ -159,8 +163,8 @@ def check_draft(draft: Draft, data: DraftInput) -> CheckedDraft:
     warnings.extend(unsupported_specifics(body, data.facts))
     warnings.extend(missing_facts(body, data.facts, data.plan.get("required_fact_keys") or []))
 
-    # 추천 해시태그를 먼저, AI가 글에 맞춰 단 태그로 채운다(네이버 태그는 최대 30개)
-    tags = merge_tags(data.hashtags, draft.tags, limit=min(30, max(15, len(data.hashtags))))
+    # 사용자가 정한 태그를 먼저, AI가 이 글에 맞춰 고른 태그로 채운다. 날짜·이웃용 태그와 같은 끝말 변형 반복은 뺀다
+    tags = merge_tags(data.hashtags, clean_tags(merge_tags(draft.tags)), limit=min(30, max(15, len(data.hashtags))))
     keyword = " ".join(data.keyword.split())
     return CheckedDraft(
         title=title,

@@ -57,12 +57,20 @@ def test_flattens_blocks_and_cleans_images_lists_tags() -> None:
     assert "image_unplaced" in codes  # 3번 사진 누락
 
 
-def test_recommended_hashtags_come_first_and_are_merged() -> None:
+def test_user_hashtags_come_first_and_are_merged() -> None:
     data = INPUT.model_copy(update={"hashtags": ["수원맛집", "#인계동 데이트", "인계동파스타"]})
 
     checked = check_draft(draft(), data)
 
-    assert checked.tags == ["수원맛집", "인계동데이트", "인계동파스타"]
+    assert checked.tags[:3] == ["수원맛집", "인계동데이트", "인계동파스타"]
+
+
+def test_ai_tags_drop_dates_community_tags_and_repeated_variants() -> None:
+    noisy = draft().model_copy(update={"tags": ["남대문시장", "서이추", "261009일상", "남대문일상", "시장일상", "그릇일상", "회현역", "소통"]})
+
+    checked = check_draft(noisy, INPUT.model_copy(update={"hashtags": []}))
+
+    assert checked.tags == ["남대문시장", "남대문일상", "시장일상", "회현역"]
 
 
 def test_text_rendering_and_length_warning() -> None:
@@ -125,7 +133,7 @@ def test_draft_endpoint_sends_plan_without_title_candidates() -> None:
     body = call(LLMRouter({"anthropic": claude}, [Target.parse("anthropic:claude-opus-5")]), payload)
 
     assert body["draft"]["blocks"][0] == {"type": "image", "text": None, "image_id": 1, "items": None}
-    assert body["prompt_version"] == "blog-draft-v7"
+    assert body["prompt_version"] == "blog-draft-v8"
     sent = json.loads(claude.requests[0].prompt)
     assert "title_candidates" not in sent["plan"]
     assert sent["tone"] == "친근한 말투"

@@ -109,7 +109,7 @@ def test_guide_survives_llm_failure_without_ai_tags() -> None:
 
     assert body["insight"] is None
     assert body["guide"]["reference_count"] == 0
-    assert [h["source"] for h in body["guide"]["hashtags"]] == ["keyword", "keyword"]
+    assert {h["source"] for h in body["guide"]["hashtags"]} == {"keyword"}
 
 
 def test_platform_is_sent_to_the_prompt_and_guide() -> None:
